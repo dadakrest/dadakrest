@@ -65,6 +65,21 @@ via `Access-Control-Allow-Origin: *` set by the firmware.
 - **Telemetry panel**: polls `/status` once per second and shows direction,
   speed, uptime, free heap, connected WiFi clients, and RSSI.
 
+## Published copy
+
+A copy of the dashboard is published via GitHub Pages from `/docs` at the
+repo root (kept in sync manually with `dashboard/` — if you change one,
+copy the change to the other). Once Pages is enabled for this repo
+(Settings → Pages → Source: Deploy from a branch → this branch, `/docs`
+folder), it's served at `https://dadakrest.github.io/dadakrest/`.
+
+That published page is HTTPS; the car's API is plain HTTP on a private IP.
+Most browsers block that combination (mixed content / private-network
+access restrictions), so "Connect" may not reach a real car from the public
+URL even though it works fine when the dashboard is opened locally on the
+same network as the car. The published page shows an in-app notice about
+this.
+
 ## Testing status
 
 The dashboard's control logic (connect/disconnect detection, press-and-hold
