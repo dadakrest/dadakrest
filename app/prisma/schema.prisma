@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  company   String?
+  createdAt DateTime @default(now())
+
+  projects  Project[]
+  invoices  Invoice[]
+  contracts Contract[]
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  status    String   @default("active") // active | completed | on_hold
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Invoice {
+  id        String   @id @default(cuid())
+  number    String   @unique
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount    Float
+  status    String   @default("unpaid") // unpaid | paid | overdue
+  issueDate DateTime @default(now())
+  dueDate   DateTime
+}
+
+model Contract {
+  id            String   @id @default(cuid())
+  title         String
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clauses       String
+  status        String   @default("draft") // draft | active | expired
+  effectiveDate DateTime @default(now())
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  description String
+  category    String
+  amount      Float
+  date        DateTime @default(now())
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("todo") // todo | in_progress | done
+  createdAt   DateTime @default(now())
+}
+
+model GoogleConnection {
+  id           String    @id @default("singleton")
+  email        String?
+  accessToken  String
+  refreshToken String?
+  expiryDate   DateTime?
+  updatedAt    DateTime  @updatedAt
+}
+
+model CompanySettings {
+  id        String   @id @default("singleton")
+  name      String   @default("Nexora Consulting")
+  tagline   String   @default("IT & Cybersecurity Consulting")
+  address   String   @default("123 Market Street, Suite 400, Springfield")
+  logoUrl   String?
+  updatedAt DateTime @updatedAt
+}

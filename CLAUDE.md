@@ -4,12 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository purpose
 
-This is a GitHub profile README repository. Because the repo name (`dadakrest`) matches the GitHub username, the `README.md` in this repo is rendered on the user's GitHub profile page (https://github.com/dadakrest) rather than being tied to any project or codebase.
+The repo name (`dadakrest`) matches the GitHub username, so the root `README.md` is rendered
+on the user's GitHub profile page (https://github.com/dadakrest). Beyond that profile README,
+this repo also hosts two independent Next.js projects built for a placeholder company
+("Nexora Consulting"):
 
-There is no build, lint, or test tooling in this repository — it contains only `README.md` and this file.
+- `website/` — the public marketing site. See `website/CLAUDE.md`.
+- `app/` — "Nexora Ops", an internal business management dashboard (clients, projects,
+  invoices, contracts, finance, a kanban planning board, Google Drive/Gmail integration).
+  See `app/CLAUDE.md`.
+
+Each has its own commands, dependencies, and CLAUDE.md — treat them as separate projects
+that happen to live in this repo, not as something that shares tooling with the root.
 
 ## Working in this repository
 
-- The only meaningful content is `README.md`. Edits here directly change what visitors see on the GitHub profile page.
-- Preserve the author's voice and self-introduction (career switch from performing arts to IT, CompTIA A+/Network+ studies, interest in pentesting/security) unless the user asks to change it.
-- Keep formatting consistent with the existing GitHub-profile-README conventions (emoji bullet list, HTML comment at the bottom explaining the special repo).
+- For profile README edits: the only meaningful content is the root `README.md`. Preserve the
+  author's voice and self-introduction (career switch from performing arts to IT, CompTIA
+  A+/Network+ studies, interest in pentesting/security) unless asked to change it. Keep
+  formatting consistent with GitHub-profile-README conventions (emoji bullet list, HTML
+  comment at the bottom explaining the special repo).
+- For `website/` or `app/` work, read that subproject's own `CLAUDE.md` first — it has the
+  real commands and architecture notes.
