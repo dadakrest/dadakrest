@@ -1,0 +1,197 @@
+:root {
+  color-scheme: dark;
+  --bg: #111418;
+  --panel: #1b1f26;
+  --border: #2a2f3a;
+  --text: #eaeef2;
+  --muted: #93a0b0;
+  --accent: #2ecc71;
+  --accent-dark: #1b7a43;
+  --danger: #e0473f;
+  --danger-dark: #8a2622;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+header h1 { font-size: 1.2rem; margin: 0; }
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 700px) {
+  main { grid-template-columns: 1fr; }
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.panel h2 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.connect-panel, .log-panel { grid-column: 1 / -1; }
+
+.connect-row { display: flex; gap: 8px; }
+
+#carIp {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #0f1216;
+  color: var(--text);
+  font-family: monospace;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.95rem;
+  background: var(--accent);
+  color: #06210f;
+  font-weight: 600;
+}
+
+button:active { background: var(--accent-dark); color: #eaeef2; }
+
+.hint { color: var(--muted); font-size: 0.85rem; line-height: 1.4; }
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+}
+
+.pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.pill.connected .dot { background: var(--accent); }
+.pill.connected { color: var(--accent); }
+.pill.disconnected { color: var(--danger); }
+
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  grid-template-rows: repeat(3, 72px);
+  gap: 6px;
+  justify-content: center;
+  margin: 8px auto 16px;
+}
+
+.dpad-btn {
+  font-size: 1.4rem;
+  border-radius: 10px;
+}
+
+#stopBtn {
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.8rem;
+  border-radius: 10px;
+}
+
+#stopBtn:active { background: var(--danger-dark); }
+
+.speed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.speed-row input[type="range"] { flex: 1; }
+
+#speedVal { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.telemetry-grid dt { color: var(--muted); }
+.telemetry-grid dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+#log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 160px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+#log li { padding: 2px 0; border-bottom: 1px solid var(--border); }
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --border: #dde2e8;
+    --text: #1a1f26;
+    --muted: #5b6673;
+  }
+  #carIp { background: #fff; }
+  button { color: #06210f; }
+  #stopBtn { color: #fff; }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111418;
+  --panel: #1b1f26;
+  --border: #2a2f3a;
+  --text: #eaeef2;
+  --muted: #93a0b0;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --panel: #ffffff;
+  --border: #dde2e8;
+  --text: #1a1f26;
+  --muted: #5b6673;
+}
