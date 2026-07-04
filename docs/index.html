@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robotic Car — Control Platform</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="notice">
+    This page is served over HTTPS from GitHub Pages, but the car's API is
+    plain HTTP on a private IP (e.g. 192.168.4.1). Most browsers block that
+    request from a public HTTPS page (mixed content / private-network
+    restrictions). If "Connect" can't reach the car, open this same
+    <code>docs/index.html</code> from a local file or local HTTP server
+    instead &mdash; see the project README.
+  </div>
+  <header>
+    <h1>Robotic Car Control</h1>
+    <div id="connection" class="pill disconnected">
+      <span class="dot"></span>
+      <span id="connectionLabel">Disconnected</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel connect-panel">
+      <h2>Connection</h2>
+      <label for="carIp">Car IP address</label>
+      <div class="connect-row">
+        <input id="carIp" type="text" value="192.168.4.1" spellcheck="false" autocomplete="off">
+        <button id="connectBtn">Connect</button>
+      </div>
+      <p class="hint">
+        Default is 192.168.4.1 when the car is in its own WiFi access point
+        mode ("ESP32-Car"). If the car instead joins your home WiFi, enter
+        its assigned IP here.
+      </p>
+    </section>
+
+    <section class="panel drive-panel">
+      <h2>Drive</h2>
+      <div class="dpad">
+        <div></div>
+        <button class="dpad-btn" data-dir="forward" aria-label="Forward">&#8593;</button>
+        <div></div>
+        <button class="dpad-btn" data-dir="left" aria-label="Left">&#8592;</button>
+        <button id="stopBtn" aria-label="Stop">STOP</button>
+        <button class="dpad-btn" data-dir="right" aria-label="Right">&#8594;</button>
+        <div></div>
+        <button class="dpad-btn" data-dir="backward" aria-label="Backward">&#8595;</button>
+        <div></div>
+      </div>
+      <p class="hint">
+        Press and hold a direction (mouse/touch), or use arrow keys / WASD.
+        Space bar or STOP always halts the car.
+      </p>
+
+      <div class="speed-row">
+        <label for="speedSlider">Speed</label>
+        <input id="speedSlider" type="range" min="0" max="100" value="70">
+        <span id="speedVal">70%</span>
+      </div>
+    </section>
+
+    <section class="panel telemetry-panel">
+      <h2>Telemetry</h2>
+      <dl class="telemetry-grid">
+        <dt>Direction</dt><dd id="telDirection">&mdash;</dd>
+        <dt>Speed</dt><dd id="telSpeed">&mdash;</dd>
+        <dt>Uptime</dt><dd id="telUptime">&mdash;</dd>
+        <dt>Free heap</dt><dd id="telHeap">&mdash;</dd>
+        <dt>Connected clients</dt><dd id="telClients">&mdash;</dd>
+        <dt>WiFi RSSI</dt><dd id="telRssi">&mdash;</dd>
+      </dl>
+    </section>
+
+    <section class="panel log-panel">
+      <h2>Activity log</h2>
+      <ul id="log"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
