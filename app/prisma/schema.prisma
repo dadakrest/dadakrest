@@ -85,3 +85,12 @@ model CompanySettings {
   logoUrl   String?
   updatedAt DateTime @updatedAt
 }
+
+model BusinessPlan {
+  id               String   @id @default("singleton")
+  missionStatement String   @default("")
+  targetMarket     String   @default("")
+  goals            String   @default("")
+  strategy         String   @default("")
+  updatedAt        DateTime @updatedAt
+}

@@ -47,9 +47,10 @@ Proxy); the next-auth `auth()` wrapper works unchanged either way.
 ## Data model & adding a new module
 
 `prisma/schema.prisma` defines: `Client` (root entity), `Project`, `Invoice`, `Contract`
-(clauses/terms as free text), `Expense`, `Task` (kanban board), `GoogleConnection` and
-`CompanySettings` (both singleton rows keyed `id: "singleton"`, fetched with `upsert` so they
-always exist).
+(clauses/terms as free text), `Expense`, `Task` (kanban board), `GoogleConnection`,
+`CompanySettings`, and `BusinessPlan` (mission/target market/goals/strategy as free text) —
+the last three are singleton rows keyed `id: "singleton"`, fetched with `upsert` so they
+always exist.
 
 **Important:** Prisma 7's `prisma-client` generator requires a driver adapter — there is no
 built-in query engine binary anymore. `lib/prisma.ts` constructs the shared client with

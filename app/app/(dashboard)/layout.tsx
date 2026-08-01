@@ -11,6 +11,8 @@ const links = [
   { href: "/board", label: "Board" },
   { href: "/documents", label: "Documents" },
   { href: "/email", label: "Email" },
+  { href: "/business-plan", label: "Business plan" },
+  { href: "/productivity", label: "AI & Productivity" },
   { href: "/settings", label: "Settings" },
   { href: "/help", label: "Help" },
 ];
