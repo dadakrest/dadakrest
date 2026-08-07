@@ -4,130 +4,216 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- ===== EDIT ME: browser tab title and Google search description ===== -->
-<title>Your Company — What You Do, In Five Words</title>
-<meta name="description" content="One sentence a stranger could read and understand what you sell and who you sell it to.">
+<title>Dadakrest Security — Security fundamentals for small businesses</title>
+<meta name="description" content="Most small businesses are breached through basics: reused passwords, untested backups, unpatched machines. Dadakrest Security fixes the fundamentals, in plain English, for a fixed price.">
+
+<meta property="og:title" content="Dadakrest Security">
+<meta property="og:description" content="Security fundamentals for small businesses. Plain English, fixed price, no jargon.">
+<meta property="og:type" content="website">
 
 <style>
   :root {
     --bg: #ffffff;
-    --surface: #f6f7f9;
-    --text: #16181d;
-    --muted: #5b6472;
-    --line: #e2e5ea;
-    --accent: #1f4fd8;
+    --surface: #f5f7fa;
+    --surface-2: #eaeef4;
+    --text: #10151f;
+    --muted: #56617a;
+    --line: #dde3ec;
+    --accent: #10557a;
+    --accent-soft: #e3f0f7;
     --accent-text: #ffffff;
-    --max: 68rem;
-  }
-  :root:not([data-theme="light"]) {
+    --max: 70rem;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #101216;
-      --surface: #181b21;
-      --text: #eef0f4;
-      --muted: #9aa3b2;
-      --line: #262a33;
-      --accent: #6d92ff;
-      --accent-text: #0b0d11;
+      --bg: #0d1117;
+      --surface: #151b24;
+      --surface-2: #1c242f;
+      --text: #e8edf5;
+      --muted: #949fb5;
+      --line: #232c38;
+      --accent: #5cb3dd;
+      --accent-soft: #16303f;
+      --accent-text: #08141c;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #101216;
-    --surface: #181b21;
-    --text: #eef0f4;
-    --muted: #9aa3b2;
-    --line: #262a33;
-    --accent: #6d92ff;
-    --accent-text: #0b0d11;
+    --bg: #0d1117;
+    --surface: #151b24;
+    --surface-2: #1c242f;
+    --text: #e8edf5;
+    --muted: #949fb5;
+    --line: #232c38;
+    --accent: #5cb3dd;
+    --accent-soft: #16303f;
+    --accent-text: #08141c;
     color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 400 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 400 17px/1.7 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: var(--max); margin: 0 auto; padding: 0 1.5rem; }
-  a { color: var(--accent); }
+  .narrow { max-width: 46rem; }
 
+  /* ---------- header ---------- */
   header {
+    position: sticky; top: 0; z-index: 20;
     border-bottom: 1px solid var(--line);
-    position: sticky; top: 0;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(8px);
-    z-index: 10;
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    backdrop-filter: blur(10px);
   }
   header .wrap {
     display: flex; align-items: center; justify-content: space-between;
-    gap: 1rem; height: 4.25rem;
+    gap: 1rem; height: 4.5rem;
   }
-  .brand { font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; text-decoration: none; color: var(--text); }
-  nav { display: flex; gap: 1.5rem; align-items: center; }
-  nav a { color: var(--muted); text-decoration: none; font-size: 0.95rem; }
+  .brand {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-weight: 700; font-size: 1.1rem; letter-spacing: -0.015em;
+    text-decoration: none; color: var(--text);
+  }
+  .brand svg { display: block; flex: none; }
+  nav { display: flex; gap: 1.75rem; align-items: center; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 0.94rem; }
   nav a:hover { color: var(--text); }
-  @media (max-width: 40rem) { nav a.hide-sm { display: none; } }
+  @media (max-width: 46rem) { nav a.hide-sm { display: none; } }
 
   .btn {
     display: inline-block;
     background: var(--accent); color: var(--accent-text);
-    padding: 0.7rem 1.35rem; border-radius: 0.5rem;
-    font-weight: 600; text-decoration: none; font-size: 0.95rem;
-    border: 1px solid transparent;
+    padding: 0.72rem 1.4rem; border-radius: 0.5rem;
+    font-weight: 600; font-size: 0.95rem; text-decoration: none;
+    border: 1px solid transparent; white-space: nowrap;
   }
-  .btn:hover { opacity: 0.9; }
-  .btn.ghost { background: transparent; color: var(--text); border-color: var(--line); }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.ghost {
+    background: transparent; color: var(--text); border-color: var(--line);
+  }
+  .btn.ghost:hover { background: var(--surface); filter: none; }
 
-  .hero { padding: 5.5rem 0 4.5rem; }
+  /* ---------- hero ---------- */
+  .hero { padding: 6rem 0 4rem; }
+  .eyebrow {
+    display: inline-block; font-size: 0.82rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-soft);
+    padding: 0.35rem 0.75rem; border-radius: 2rem; margin-bottom: 1.5rem;
+  }
   .hero h1 {
-    font-size: clamp(2.1rem, 5.5vw, 3.5rem);
-    line-height: 1.1; letter-spacing: -0.025em;
-    margin: 0 0 1.25rem; max-width: 20ch;
+    font-size: clamp(2.15rem, 5.5vw, 3.6rem);
+    line-height: 1.08; letter-spacing: -0.03em;
+    margin: 0 0 1.4rem; max-width: 19ch;
   }
   .hero p.lede {
-    font-size: clamp(1.05rem, 2.2vw, 1.3rem);
-    color: var(--muted); max-width: 55ch; margin: 0 0 2.25rem;
+    font-size: clamp(1.08rem, 2.1vw, 1.32rem);
+    line-height: 1.6; color: var(--muted);
+    max-width: 54ch; margin: 0 0 2.4rem;
   }
-  .cta-row { display: flex; gap: 0.85rem; flex-wrap: wrap; }
+  .cta-row { display: flex; gap: 0.85rem; flex-wrap: wrap; align-items: center; }
+  .cta-note { font-size: 0.9rem; color: var(--muted); }
 
-  section { padding: 4.5rem 0; border-top: 1px solid var(--line); }
-  h2 { font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.02em; margin: 0 0 0.75rem; }
-  .section-lede { color: var(--muted); max-width: 55ch; margin: 0 0 2.5rem; }
+  /* ---------- sections ---------- */
+  section { padding: 5rem 0; border-top: 1px solid var(--line); }
+  section.tinted { background: var(--surface); }
+  h2 {
+    font-size: clamp(1.6rem, 3.2vw, 2.15rem);
+    letter-spacing: -0.025em; line-height: 1.2; margin: 0 0 0.9rem;
+  }
+  .section-lede { color: var(--muted); max-width: 56ch; margin: 0 0 3rem; }
+  h3 { font-size: 1.12rem; margin: 0 0 0.55rem; letter-spacing: -0.01em; }
 
-  .cards { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  /* ---------- services ---------- */
+  .cards { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
   .card {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: 0.75rem; padding: 1.6rem;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 0.8rem; padding: 1.75rem;
   }
-  .card h3 { margin: 0 0 0.5rem; font-size: 1.1rem; }
-  .card p { margin: 0; color: var(--muted); font-size: 0.97rem; }
+  section.tinted .card { background: var(--bg); }
+  .card p { margin: 0 0 1rem; color: var(--muted); font-size: 0.97rem; }
+  .card ul { margin: 0; padding-left: 1.1rem; color: var(--muted); font-size: 0.93rem; }
+  .card li { margin-bottom: 0.3rem; }
+  .card li::marker { color: var(--accent); }
 
+  /* ---------- process ---------- */
+  .steps { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .step-num {
+    display: flex; align-items: center; justify-content: center;
+    width: 2.4rem; height: 2.4rem; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-weight: 700; font-size: 1rem; margin-bottom: 1rem;
+  }
+  .step p { margin: 0; color: var(--muted); font-size: 0.97rem; }
+
+  /* ---------- about ---------- */
+  .about-grid { display: grid; gap: 2.5rem; grid-template-columns: 1fr; }
+  @media (min-width: 52rem) { .about-grid { grid-template-columns: 1.5fr 1fr; } }
+  .about-body p { color: var(--muted); }
+  .about-body p:first-child { color: var(--text); font-size: 1.1rem; }
+  .creds {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 0.8rem; padding: 1.6rem; align-self: start;
+  }
+  .creds h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .creds ul { list-style: none; margin: 0; padding: 0; font-size: 0.95rem; }
+  .creds li { padding: 0.55rem 0; border-bottom: 1px solid var(--line); }
+  .creds li:last-child { border-bottom: 0; }
+  .creds .progress { color: var(--muted); font-size: 0.87rem; }
+
+  /* ---------- faq ---------- */
+  details {
+    border-bottom: 1px solid var(--line); padding: 1.15rem 0;
+  }
+  details summary {
+    cursor: pointer; font-weight: 600; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after {
+    content: "+"; color: var(--accent); font-size: 1.35rem;
+    font-weight: 400; line-height: 1; flex: none;
+  }
+  details[open] summary::after { content: "\2212"; }
+  details p { color: var(--muted); margin: 0.9rem 0 0; font-size: 0.97rem; }
+
+  /* ---------- contact ---------- */
   .contact { text-align: center; }
   .contact h2 { margin-bottom: 1rem; }
-  .contact p { color: var(--muted); max-width: 45ch; margin: 0 auto 2rem; }
+  .contact > .wrap > p { color: var(--muted); max-width: 44ch; margin: 0 auto 2.2rem; }
 
   footer {
     border-top: 1px solid var(--line); padding: 2.5rem 0;
     color: var(--muted); font-size: 0.9rem;
-    display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
   }
+  footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  footer a { color: var(--muted); }
 </style>
 </head>
 <body>
 
 <header>
   <div class="wrap">
-    <!-- ===== EDIT ME: company name ===== -->
-    <a class="brand" href="#">Your Company</a>
+    <a class="brand" href="#">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 2.5 4 5.8v6.1c0 4.6 3.2 8.9 8 9.9 4.8-1 8-5.3 8-9.9V5.8L12 2.5Z"
+              stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+        <path d="m8.6 12.2 2.4 2.4 4.4-4.8" stroke="currentColor"
+              stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Dadakrest Security
+    </a>
     <nav>
       <a class="hide-sm" href="#services">Services</a>
+      <a class="hide-sm" href="#process">How it works</a>
       <a class="hide-sm" href="#about">About</a>
-      <a class="btn" href="#contact">Get in touch</a>
+      <a class="btn" href="#contact">Book a call</a>
     </nav>
   </div>
 </header>
@@ -135,70 +221,231 @@
 <main>
 
   <div class="wrap hero">
-    <!-- ===== EDIT ME: the one thing you want a visitor to understand ===== -->
-    <h1>The clear promise your business makes.</h1>
+    <span class="eyebrow">Security consulting for small business</span>
+    <h1>Small businesses get breached by the basics.</h1>
     <p class="lede">
-      Two sentences. Who you help, what problem you remove, and why someone
-      should pick you over doing nothing. Avoid words like "solutions" and
-      "synergy" — say the actual thing.
+      Not zero-days. Reused passwords, a backup nobody ever tested, a laptop
+      two years behind on updates. Dadakrest Security fixes the fundamentals —
+      the unglamorous work that stops most attacks before they start.
     </p>
     <div class="cta-row">
-      <a class="btn" href="#contact">Start a conversation</a>
-      <a class="btn ghost" href="#services">See what we do</a>
+      <a class="btn" href="#contact">Book a free 30-minute call</a>
+      <a class="btn ghost" href="#services">See what's included</a>
     </div>
   </div>
 
-  <section id="services">
+  <section id="services" class="tinted">
     <div class="wrap">
       <h2>What we do</h2>
       <p class="section-lede">
-        Three things, stated plainly. If you offer more than three, lead with
-        the three that make the most money.
+        Four services, fixed price, no retainer required. You get a plain-English
+        report and a list of fixes ranked by what actually reduces your risk.
       </p>
+
       <div class="cards">
-        <!-- ===== EDIT ME: your three offerings ===== -->
         <div class="card">
-          <h3>First service</h3>
-          <p>What the client gets, in their words, not yours. One or two sentences.</p>
+          <h3>Security health check</h3>
+          <p>A full picture of what you have and where you're exposed.</p>
+          <ul>
+            <li>Inventory of devices, accounts and services</li>
+            <li>Patch and configuration review</li>
+            <li>Written report, ranked by risk</li>
+            <li>Fixed-price quote for the fixes</li>
+          </ul>
         </div>
+
         <div class="card">
-          <h3>Second service</h3>
-          <p>What the client gets, in their words, not yours. One or two sentences.</p>
+          <h3>Accounts &amp; access</h3>
+          <p>Stolen credentials are the most common way in. We close that door.</p>
+          <ul>
+            <li>Password manager rollout for the team</li>
+            <li>Multi-factor authentication everywhere</li>
+            <li>Dormant and ex-employee account cleanup</li>
+            <li>A joiner/leaver process that gets followed</li>
+          </ul>
         </div>
+
         <div class="card">
-          <h3>Third service</h3>
-          <p>What the client gets, in their words, not yours. One or two sentences.</p>
+          <h3>Backup &amp; recovery</h3>
+          <p>The only real answer to ransomware is a restore that works.</p>
+          <ul>
+            <li>3-2-1 backup setup</li>
+            <li>Restores tested, not assumed</li>
+            <li>Offline copy ransomware can't reach</li>
+            <li>Written recovery plan</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Staff training</h3>
+          <p>Your people are the target. Twenty minutes of the right training beats most software.</p>
+          <ul>
+            <li>Phishing simulation with real results</li>
+            <li>Short, jargon-free sessions</li>
+            <li>Clear "what do I do if" guidance</li>
+            <li>Refreshers as the team changes</li>
+          </ul>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="about">
+  <section id="process">
     <div class="wrap">
-      <h2>About</h2>
+      <h2>How it works</h2>
       <p class="section-lede">
-        Who is behind this and why they can be trusted. Credentials, years of
-        experience, the story of why the business exists. Short is fine —
-        honest beats impressive.
+        No lock-in, no surprise invoices. You'll know the price before anything starts.
       </p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Free 30-minute call</h3>
+          <p>
+            We talk about your business, what systems you run, and what worries
+            you. If we're not the right fit, we'll say so and point you elsewhere.
+          </p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Assessment</h3>
+          <p>
+            We look at your actual setup and write it up in language you can act
+            on. Every finding comes with what it means, what it would cost you,
+            and what fixing it costs.
+          </p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>Fix and verify</h3>
+          <p>
+            We do the work, then prove it's done — restores actually restored,
+            MFA actually enforced. You keep the documentation either way.
+          </p>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section id="contact" class="contact">
+  <section id="about" class="tinted">
     <div class="wrap">
-      <h2>Let's talk</h2>
-      <p>Tell people exactly what happens next when they reach out, and how fast.</p>
-      <!-- ===== EDIT ME: your real contact address ===== -->
-      <a class="btn" href="mailto:hello@example.com">hello@example.com</a>
+      <h2>Who you'll be working with</h2>
+      <div class="about-grid">
+        <div class="about-body">
+          <!-- ===== EDIT ME: your name, and anything here you'd say differently ===== -->
+          <p>
+            Dadakrest Security is run by a career-changer who came to IT from
+            the performing arts in 2021 — which turns out to be useful training
+            for this work, because most of the job is explaining risk to people
+            clearly and getting them to act on it.
+          </p>
+          <p>
+            The certifications below are real and current. What isn't on the
+            list, we don't claim. If your problem needs a specialist we aren't,
+            we'll tell you that on the first call rather than three invoices in.
+          </p>
+          <p>
+            Small businesses are told security is complicated and expensive.
+            Mostly it isn't. It's a handful of unglamorous things done properly
+            and checked regularly — and that's what this business exists to do.
+          </p>
+        </div>
+
+        <aside class="creds">
+          <h3>Certifications</h3>
+          <ul>
+            <li>CompTIA A+ &mdash; Core 1 &amp; Core 2</li>
+            <li>Google IT Support Professional Certificate</li>
+            <li>CompTIA Network+ <span class="progress">&mdash; in progress</span></li>
+            <li>Linux, PowerShell &amp; Active Directory <span class="progress">&mdash; ongoing</span></li>
+          </ul>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap narrow">
+      <h2>Questions we get</h2>
+      <p class="section-lede">Straight answers, including the inconvenient ones.</p>
+
+      <details>
+        <summary>We're too small to be a target. Why bother?</summary>
+        <p>
+          Small businesses are targeted precisely because they're small — attacks
+          are automated and indiscriminate, and smaller organisations tend to have
+          fewer defences. Nobody picked you personally. A scanner found an open
+          door.
+        </p>
+      </details>
+
+      <details>
+        <summary>Do you do penetration testing?</summary>
+        <p>
+          Not yet. Pentesting is a specialist discipline and we won't sell it
+          until we can do it to a standard worth paying for — it's the direction
+          this business is growing, and we'd rather tell you that honestly than
+          overstate it. If you need a pentest today, ask us and we'll refer you
+          to someone who does it properly. Most small businesses have gaps in the
+          fundamentals that a pentest would simply confirm at ten times the price.
+        </p>
+      </details>
+
+      <details>
+        <summary>What does it cost?</summary>
+        <p>
+          <!-- ===== EDIT ME: put your real pricing here once you've set it ===== -->
+          Assessments are quoted at a fixed price after the free call, so the
+          number you're given is the number you pay. Ongoing support is optional
+          and month-to-month — there's no annual contract.
+        </p>
+      </details>
+
+      <details>
+        <summary>Will you need access to our systems?</summary>
+        <p>
+          For some of the work, yes. We'll tell you exactly what access is needed
+          and why before anything happens, use the minimum required, and hand back
+          or revoke it when the work is finished. Anything we find stays
+          confidential.
+        </p>
+      </details>
+
+      <details>
+        <summary>We already have an IT person. Do we need you too?</summary>
+        <p>
+          Often not — and if your IT support already handles patching, backups and
+          access properly, we'll say so on the call and you'll have spent nothing.
+          Where we're useful is that IT support and security are different jobs;
+          keeping things running and keeping things safe pull in different
+          directions, and a second set of eyes catches what familiarity misses.
+        </p>
+      </details>
+    </div>
+  </section>
+
+  <section id="contact" class="contact tinted">
+    <div class="wrap">
+      <h2>Start with a conversation</h2>
+      <p>
+        Thirty minutes, no cost, no pitch. You'll leave the call knowing your
+        three biggest risks whether or not you hire us.
+      </p>
+      <div class="cta-row" style="justify-content:center">
+        <!-- ===== EDIT ME: your real email address ===== -->
+        <a class="btn" href="mailto:hello@dadakrestsecurity.com">hello@dadakrestsecurity.com</a>
+      </div>
+      <!-- ===== EDIT ME: add a phone number or booking link if you want one ===== -->
     </div>
   </section>
 
 </main>
 
-<footer class="wrap">
-  <!-- ===== EDIT ME: company name and year ===== -->
-  <span>&copy; 2026 Your Company</span>
-  <span>Built with care.</span>
+<footer>
+  <div class="wrap">
+    <span>&copy; 2026 Dadakrest Security</span>
+    <span>Security fundamentals, done properly.</span>
+  </div>
 </footer>
 
 </body>
