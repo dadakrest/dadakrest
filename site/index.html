@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- ===== EDIT ME: browser tab title and Google search description ===== -->
+<title>Your Company — What You Do, In Five Words</title>
+<meta name="description" content="One sentence a stranger could read and understand what you sell and who you sell it to.">
+
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f6f7f9;
+    --text: #16181d;
+    --muted: #5b6472;
+    --line: #e2e5ea;
+    --accent: #1f4fd8;
+    --accent-text: #ffffff;
+    --max: 68rem;
+  }
+  :root:not([data-theme="light"]) {
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101216;
+      --surface: #181b21;
+      --text: #eef0f4;
+      --muted: #9aa3b2;
+      --line: #262a33;
+      --accent: #6d92ff;
+      --accent-text: #0b0d11;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101216;
+    --surface: #181b21;
+    --text: #eef0f4;
+    --muted: #9aa3b2;
+    --line: #262a33;
+    --accent: #6d92ff;
+    --accent-text: #0b0d11;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 1.5rem; }
+  a { color: var(--accent); }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+  }
+  header .wrap {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; height: 4.25rem;
+  }
+  .brand { font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; text-decoration: none; color: var(--text); }
+  nav { display: flex; gap: 1.5rem; align-items: center; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 0.95rem; }
+  nav a:hover { color: var(--text); }
+  @media (max-width: 40rem) { nav a.hide-sm { display: none; } }
+
+  .btn {
+    display: inline-block;
+    background: var(--accent); color: var(--accent-text);
+    padding: 0.7rem 1.35rem; border-radius: 0.5rem;
+    font-weight: 600; text-decoration: none; font-size: 0.95rem;
+    border: 1px solid transparent;
+  }
+  .btn:hover { opacity: 0.9; }
+  .btn.ghost { background: transparent; color: var(--text); border-color: var(--line); }
+
+  .hero { padding: 5.5rem 0 4.5rem; }
+  .hero h1 {
+    font-size: clamp(2.1rem, 5.5vw, 3.5rem);
+    line-height: 1.1; letter-spacing: -0.025em;
+    margin: 0 0 1.25rem; max-width: 20ch;
+  }
+  .hero p.lede {
+    font-size: clamp(1.05rem, 2.2vw, 1.3rem);
+    color: var(--muted); max-width: 55ch; margin: 0 0 2.25rem;
+  }
+  .cta-row { display: flex; gap: 0.85rem; flex-wrap: wrap; }
+
+  section { padding: 4.5rem 0; border-top: 1px solid var(--line); }
+  h2 { font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.02em; margin: 0 0 0.75rem; }
+  .section-lede { color: var(--muted); max-width: 55ch; margin: 0 0 2.5rem; }
+
+  .cards { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 0.75rem; padding: 1.6rem;
+  }
+  .card h3 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+  .card p { margin: 0; color: var(--muted); font-size: 0.97rem; }
+
+  .contact { text-align: center; }
+  .contact h2 { margin-bottom: 1rem; }
+  .contact p { color: var(--muted); max-width: 45ch; margin: 0 auto 2rem; }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 2.5rem 0;
+    color: var(--muted); font-size: 0.9rem;
+    display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <!-- ===== EDIT ME: company name ===== -->
+    <a class="brand" href="#">Your Company</a>
+    <nav>
+      <a class="hide-sm" href="#services">Services</a>
+      <a class="hide-sm" href="#about">About</a>
+      <a class="btn" href="#contact">Get in touch</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <div class="wrap hero">
+    <!-- ===== EDIT ME: the one thing you want a visitor to understand ===== -->
+    <h1>The clear promise your business makes.</h1>
+    <p class="lede">
+      Two sentences. Who you help, what problem you remove, and why someone
+      should pick you over doing nothing. Avoid words like "solutions" and
+      "synergy" — say the actual thing.
+    </p>
+    <div class="cta-row">
+      <a class="btn" href="#contact">Start a conversation</a>
+      <a class="btn ghost" href="#services">See what we do</a>
+    </div>
+  </div>
+
+  <section id="services">
+    <div class="wrap">
+      <h2>What we do</h2>
+      <p class="section-lede">
+        Three things, stated plainly. If you offer more than three, lead with
+        the three that make the most money.
+      </p>
+      <div class="cards">
+        <!-- ===== EDIT ME: your three offerings ===== -->
+        <div class="card">
+          <h3>First service</h3>
+          <p>What the client gets, in their words, not yours. One or two sentences.</p>
+        </div>
+        <div class="card">
+          <h3>Second service</h3>
+          <p>What the client gets, in their words, not yours. One or two sentences.</p>
+        </div>
+        <div class="card">
+          <h3>Third service</h3>
+          <p>What the client gets, in their words, not yours. One or two sentences.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="about">
+    <div class="wrap">
+      <h2>About</h2>
+      <p class="section-lede">
+        Who is behind this and why they can be trusted. Credentials, years of
+        experience, the story of why the business exists. Short is fine —
+        honest beats impressive.
+      </p>
+    </div>
+  </section>
+
+  <section id="contact" class="contact">
+    <div class="wrap">
+      <h2>Let's talk</h2>
+      <p>Tell people exactly what happens next when they reach out, and how fast.</p>
+      <!-- ===== EDIT ME: your real contact address ===== -->
+      <a class="btn" href="mailto:hello@example.com">hello@example.com</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <!-- ===== EDIT ME: company name and year ===== -->
+  <span>&copy; 2026 Your Company</span>
+  <span>Built with care.</span>
+</footer>
+
+</body>
+</html>
