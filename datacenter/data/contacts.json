@@ -31,5 +31,621 @@
     "organization": "Northgate Logistics",
     "notes": "",
     "channels": []
+  },
+  {
+    "full_name": "Tomasz Wierzbicki",
+    "role": "Fleet data engineer",
+    "email": "tomasz@northgate.example",
+    "phone": "+1-555-0103",
+    "organization": "Northgate Logistics",
+    "notes": "Owns the route-optimisation model that runs in our nightly batch window. Prefers tickets over calls and answers within a business day.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "twierzbicki",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Priya Venkataraman",
+    "role": "SOC manager",
+    "email": "priya@harborsec.example",
+    "phone": "+1-555-0111",
+    "organization": "Harbor Security",
+    "notes": "Runs the shared on-call rota that covers our colocation cage. Escalation point for anything the SIEM flags as critical after hours.",
+    "channels": [
+      {
+        "channel": "matrix",
+        "handle": "@priya:harborsec.example",
+        "is_primary": true
+      },
+      {
+        "channel": "phone",
+        "handle": "+1-555-0111",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "full_name": "Dmitri Kovalenko",
+    "role": "Penetration tester",
+    "email": "dmitri@harborsec.example",
+    "phone": "+1-555-0116",
+    "organization": "Harbor Security",
+    "notes": "Led the external test of the inference gateway in 2026-03 and wrote the remediation report. The next scheduled test window runs 2026-10-12 to 2026-10-16.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "dkovalenko-sec",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Imani Adeyemi",
+    "role": "Medical director",
+    "email": "imani@larkspurhollow.example",
+    "phone": "+1-555-0120",
+    "organization": "Larkspur Hollow Family Clinic",
+    "notes": "Sponsor of the clinical-note summarisation pilot and signs off on any change that touches patient data. Insists that a clinician reviews every model output before it reaches the chart.",
+    "channels": []
+  },
+  {
+    "full_name": "Rosa Villanueva",
+    "role": "Practice manager",
+    "email": "rosa@larkspurhollow.example",
+    "phone": "+1-555-0121",
+    "organization": "Larkspur Hollow Family Clinic",
+    "notes": "Day-to-day contact for scheduling and invoices. Wants the quarterly usage report before the fifth of the month that follows a quarter end.",
+    "channels": [
+      {
+        "channel": "phone",
+        "handle": "+1-555-0121",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Kenji Matsuda",
+    "role": "IT coordinator",
+    "email": "kenji@larkspurhollow.example",
+    "phone": "+1-555-0122",
+    "organization": "Larkspur Hollow Family Clinic",
+    "notes": "Manages the clinic's VPN tunnel into our private inference endpoint. Comfortable with the CLI and happy to test pre-release builds.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "kmatsuda-it",
+        "is_primary": true
+      },
+      {
+        "channel": "slack",
+        "handle": "@kenji",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "full_name": "Aoife Brennan",
+    "role": "Owner and lead dentist",
+    "email": "aoife@bluefinchdental.example",
+    "phone": "+1-555-0125",
+    "organization": "Bluefinch Dental Studio",
+    "notes": "Signed the appointment-reminder assistant contract on 2026-02-18. Interested in adding insurance pre-authorisation drafting in the next phase.",
+    "channels": []
+  },
+  {
+    "full_name": "Marcus Delacroix",
+    "role": "Front office lead",
+    "email": "marcus@bluefinchdental.example",
+    "phone": "+1-555-0126",
+    "organization": "Bluefinch Dental Studio",
+    "notes": "Reports reminder-delivery failures and keeps the patient opt-out list current. Best reached by phone between appointments.",
+    "channels": [
+      {
+        "channel": "phone",
+        "handle": "+1-555-0126",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Chinwe Okafor",
+    "role": "Managing partner",
+    "email": "chinwe@okafor-lindqvist.example",
+    "phone": "+1-555-0130",
+    "organization": "Okafor & Lindqvist LLP",
+    "notes": "Approves the budget for the contract-review deployment and reviews our data-processing addendum at each renewal. The firm's fiscal year ends 2026-06-30.",
+    "channels": [
+      {
+        "channel": "website",
+        "handle": "https://okafor-lindqvist.example/partners/okafor",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Erik Lindqvist",
+    "role": "Partner, litigation",
+    "email": "erik@okafor-lindqvist.example",
+    "phone": "+1-555-0131",
+    "organization": "Okafor & Lindqvist LLP",
+    "notes": "Heaviest user of the discovery-document search index. Asked for a citation link back to the source page in every summary.",
+    "channels": []
+  },
+  {
+    "full_name": "Yasmin Haddad",
+    "role": "Knowledge management lead",
+    "email": "yasmin@okafor-lindqvist.example",
+    "phone": "+1-555-0132",
+    "organization": "Okafor & Lindqvist LLP",
+    "notes": "Curates the precedent library that we ingest weekly. Sends redaction rules ahead of any new matter being indexed.",
+    "channels": [
+      {
+        "channel": "slack",
+        "handle": "@yasmin.haddad",
+        "is_primary": true
+      },
+      {
+        "channel": "github",
+        "handle": "yhaddad-km",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "full_name": "Giulia Tessaro",
+    "role": "Founding partner",
+    "email": "giulia@tessarowhitcombe.example",
+    "phone": "+1-555-0135",
+    "organization": "Tessaro & Whitcombe Immigration Law",
+    "notes": "Uses the form-drafting assistant for petition packets and wants strict version pinning on the model behind it. Renewal discussion planned for 2026-12-01.",
+    "channels": []
+  },
+  {
+    "full_name": "Oliver Whitcombe",
+    "role": "Partner",
+    "email": "oliver@tessarowhitcombe.example",
+    "phone": "+1-555-0136",
+    "organization": "Tessaro & Whitcombe Immigration Law",
+    "notes": "Handles the firm's vendor contracts and signs our statements of work. Prefers a short written summary to a meeting.",
+    "channels": [
+      {
+        "channel": "phone",
+        "handle": "+1-555-0136",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Hannah Goldberg",
+    "role": "Head of school",
+    "email": "hannah@bramblewood.example",
+    "phone": "+1-555-0140",
+    "organization": "Bramblewood Day School",
+    "notes": "Championed the tutoring assistant pilot for grades six through eight. Requires that no student names leave the school's tenant.",
+    "channels": []
+  },
+  {
+    "full_name": "Sipho Ndlovu",
+    "role": "Technology director",
+    "email": "sipho@bramblewood.example",
+    "phone": "+1-555-0141",
+    "organization": "Bramblewood Day School",
+    "notes": "Runs the school's single sign-on and network. Coordinates our maintenance windows around the academic calendar, which starts 2026-08-24.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "sndlovu-edu",
+        "is_primary": true
+      },
+      {
+        "channel": "matrix",
+        "handle": "@sipho:bramblewood.example",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "full_name": "Beatriz Cavalcanti",
+    "role": "Dean of computing",
+    "email": "beatriz@fennimoreridge.example",
+    "phone": "+1-555-0145",
+    "organization": "Fennimore Ridge Community College",
+    "notes": "Sponsors the shared GPU lab that students book through our scheduler. Wants utilisation numbers for the board each semester.",
+    "channels": [
+      {
+        "channel": "website",
+        "handle": "https://fennimoreridge.example/computing",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Liam O'Sullivan",
+    "role": "Systems administrator",
+    "email": "liam@fennimoreridge.example",
+    "phone": "+1-555-0146",
+    "organization": "Fennimore Ridge Community College",
+    "notes": "Maintains the campus side of the lab VLAN and the student account sync. Available for after-hours cutovers with a week's notice.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "losullivan-frcc",
+        "is_primary": true
+      },
+      {
+        "channel": "slack",
+        "handle": "@liam.os",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "full_name": "Anjali Raghunathan",
+    "role": "Founder",
+    "email": "anjali@saffronlane.example",
+    "phone": "+1-555-0150",
+    "organization": "Saffron Lane Pantry",
+    "notes": "Runs the online spice shop and uses the product-description generator for new listings. Reviews every generated description herself before it goes live.",
+    "channels": [
+      {
+        "channel": "website",
+        "handle": "https://saffronlane.example",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Felix Brandt",
+    "role": "E-commerce operations",
+    "email": "felix@saffronlane.example",
+    "phone": "+1-555-0151",
+    "organization": "Saffron Lane Pantry",
+    "notes": "Owns the catalogue feed and the recommendation widget integration. Flags any latency above two seconds at checkout.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "fbrandt-shop",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Naomi Whitefeather",
+    "role": "Chief executive",
+    "email": "naomi@kestrelfern.example",
+    "phone": "+1-555-0155",
+    "organization": "Kestrel & Fern Outfitters",
+    "notes": "Approved the customer-support assistant rollout after the pilot that ran through 2026-04. Wants a monthly deflection-rate report.",
+    "channels": []
+  },
+  {
+    "full_name": "Jonas Pettersen",
+    "role": "Head of customer support",
+    "email": "jonas@kestrelfern.example",
+    "phone": "+1-555-0156",
+    "organization": "Kestrel & Fern Outfitters",
+    "notes": "Trains the support assistant's answer library and reviews escalations. Peak season for the shop runs 2026-10-01 through 2026-12-24.",
+    "channels": [
+      {
+        "channel": "slack",
+        "handle": "@jonas.p",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Rafael Esquivel",
+    "role": "Account executive",
+    "email": "rafael@ashgrovecompute.example",
+    "phone": "+1-555-0160",
+    "organization": "Ashgrove Compute Supply",
+    "notes": "Quotes GPU servers, spare parts and lead times. The last quote for the second eight-GPU node was issued 2026-07-09 and is valid for sixty days.",
+    "channels": [
+      {
+        "channel": "phone",
+        "handle": "+1-555-0160",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Ingrid Solheim",
+    "role": "Solutions engineer",
+    "email": "ingrid@ashgrovecompute.example",
+    "phone": "+1-555-0161",
+    "organization": "Ashgrove Compute Supply",
+    "notes": "Validates rack power and airflow assumptions before a purchase and walks our engineer through firmware updates on a call.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "isolheim-se",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Amara Diallo",
+    "role": "Facility manager",
+    "email": "amara@stonebriarcolo.example",
+    "phone": "+1-555-0165",
+    "organization": "Stonebriar Colocation",
+    "notes": "Manages our two cabinets in hall B and the cross-connects to Pinewire Fiber. Approves any change to the badge list.",
+    "channels": [
+      {
+        "channel": "phone",
+        "handle": "+1-555-0165",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Hugo Ferreira",
+    "role": "Network operations engineer",
+    "email": "hugo@stonebriarcolo.example",
+    "phone": "+1-555-0166",
+    "organization": "Stonebriar Colocation",
+    "notes": "First call for remote hands, console access and cross-connect faults. His shift pattern rotates every two weeks.",
+    "channels": [
+      {
+        "channel": "matrix",
+        "handle": "@hugo:stonebriarcolo.example",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Svetlana Morozova",
+    "role": "Contracts administrator",
+    "email": "svetlana@stonebriarcolo.example",
+    "phone": "+1-555-0167",
+    "organization": "Stonebriar Colocation",
+    "notes": "Holds the master services agreement and the power commitment schedule. The current term ends 2026-12-31 with a ninety-day notice period, so renewal notice is due by 2026-10-02.",
+    "channels": []
+  },
+  {
+    "full_name": "Declan Murphy",
+    "role": "Project manager",
+    "email": "declan@coldwatermech.example",
+    "phone": "+1-555-0170",
+    "organization": "Coldwater Mechanical & Power",
+    "notes": "Ran the in-row cooling upgrade completed on 2026-05-22 and holds the as-built drawings. Currently quoting the second PDU circuit for the expansion cabinet.",
+    "channels": [
+      {
+        "channel": "phone",
+        "handle": "+1-555-0170",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Fatima Al-Rashid",
+    "role": "Electrical engineer",
+    "email": "fatima@coldwatermech.example",
+    "phone": "+1-555-0171",
+    "organization": "Coldwater Mechanical & Power",
+    "notes": "Signs off load calculations and breaker sizing for every rack we add. Prefers single-line diagrams over prose descriptions.",
+    "channels": []
+  },
+  {
+    "full_name": "Björn Haugen",
+    "role": "Enterprise account manager",
+    "email": "bjorn@pinewire.example",
+    "phone": "+1-555-0175",
+    "organization": "Pinewire Fiber",
+    "notes": "Manages our 10 Gbps circuit into Stonebriar and the backup link to the office. The circuit contract renews on 2026-09-30.",
+    "channels": [
+      {
+        "channel": "website",
+        "handle": "https://pinewire.example/enterprise",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Grace Achterberg",
+    "role": "NOC lead",
+    "email": "grace@pinewire.example",
+    "phone": "+1-555-0176",
+    "organization": "Pinewire Fiber",
+    "notes": "Runs the network operations centre and issues maintenance notices at least five days ahead. Opens a bridge line for any outage longer than fifteen minutes.",
+    "channels": [
+      {
+        "channel": "phone",
+        "handle": "+1-555-0176",
+        "is_primary": true
+      },
+      {
+        "channel": "matrix",
+        "handle": "@grace:pinewire.example",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "full_name": "Thandiwe Mokoena",
+    "role": "Operations director",
+    "email": "thandiwe@marigoldannotation.example",
+    "phone": "+1-555-0180",
+    "organization": "Marigold Annotation Works",
+    "notes": "Oversees the labelling teams that produce our support-ticket training sets. Guarantees a second-pass review on ten percent of every batch.",
+    "channels": [
+      {
+        "channel": "slack",
+        "handle": "@thandiwe",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Pablo Iturriaga",
+    "role": "Quality lead",
+    "email": "pablo@marigoldannotation.example",
+    "phone": "+1-555-0181",
+    "organization": "Marigold Annotation Works",
+    "notes": "Writes the annotation guidelines with us and reports inter-annotator agreement per batch. Holds back any batch that scores below 0.85 agreement.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "piturriaga-ql",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Astrid Halvorsen",
+    "role": "Lab director",
+    "email": "astrid@halvorsenlab.example",
+    "phone": "+1-555-0185",
+    "organization": "Halvorsen Reasoning Lab",
+    "notes": "Leads the lab's work on evaluation harnesses and rents burst GPU capacity from us for benchmark runs. Publishes results openly and credits compute providers.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "ahalvorsen",
+        "is_primary": true
+      },
+      {
+        "channel": "website",
+        "handle": "https://halvorsenlab.example",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "full_name": "Samuel Oyelaran",
+    "role": "Research engineer",
+    "email": "samuel@halvorsenlab.example",
+    "phone": "+1-555-0186",
+    "organization": "Halvorsen Reasoning Lab",
+    "notes": "Submits the lab's batch jobs and tunes them to fit the queue. Asked for a queue-priority option for time-boxed experiments.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "soyelaran",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Noor Qureshi",
+    "role": "Principal investigator",
+    "email": "noor@tidemark-ml.example",
+    "phone": "+1-555-0190",
+    "organization": "Tidemark Institute for Machine Learning",
+    "notes": "Runs a small team studying retrieval quality for long documents. Hosts an embedding-index workload with us under an academic rate agreed on 2026-01-15.",
+    "channels": [
+      {
+        "channel": "website",
+        "handle": "https://tidemark-ml.example/people/qureshi",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Lucas Moreau",
+    "role": "PhD researcher",
+    "email": "lucas@tidemark-ml.example",
+    "phone": "+1-555-0191",
+    "organization": "Tidemark Institute for Machine Learning",
+    "notes": "Main day-to-day user of the institute's vector index. Files careful bug reports with reproduction steps.",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "lmoreau-ml",
+        "is_primary": true
+      },
+      {
+        "channel": "matrix",
+        "handle": "@lucas:tidemark-ml.example",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "full_name": "Margaret Ellery",
+    "role": "Senior broker",
+    "email": "margaret@elleryoduya.example",
+    "phone": "+1-555-0193",
+    "organization": "Ellery & Oduya Insurance Brokers",
+    "notes": "Placed our cyber-liability and equipment cover, both renewing on 2026-11-01. Needs an updated asset schedule thirty days before renewal.",
+    "channels": [
+      {
+        "channel": "phone",
+        "handle": "+1-555-0193",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Tunde Oduya",
+    "role": "Claims specialist",
+    "email": "tunde@elleryoduya.example",
+    "phone": "+1-555-0194",
+    "organization": "Ellery & Oduya Insurance Brokers",
+    "notes": "Handles any claim under the equipment policy and knows what documentation the insurer expects. Responds within one business day.",
+    "channels": []
+  },
+  {
+    "full_name": "Siobhan Halloran",
+    "role": "Partner",
+    "email": "siobhan@halloranmbatha.example",
+    "phone": "+1-555-0195",
+    "organization": "Halloran Mbatha Accounting",
+    "notes": "Prepares the annual accounts and advises on capital allowances for GPU purchases. The 2025 year-end close wrapped up on 2026-03-20.",
+    "channels": [
+      {
+        "channel": "website",
+        "handle": "https://halloranmbatha.example",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Lindiwe Mbatha",
+    "role": "Bookkeeper",
+    "email": "lindiwe@halloranmbatha.example",
+    "phone": "+1-555-0196",
+    "organization": "Halloran Mbatha Accounting",
+    "notes": "Reconciles client invoices against payments each month and chases anything past net thirty. Sends the aged-receivables list on the first business day of the month.",
+    "channels": [
+      {
+        "channel": "slack",
+        "handle": "@lindiwe",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Daniel Kowalczyk",
+    "role": "Principal recruiter",
+    "email": "daniel@corvidtalent.example",
+    "phone": "+1-555-0197",
+    "organization": "Corvid Talent Search",
+    "notes": "Sourced our second infrastructure engineer in 2026 and keeps a shortlist warm for a part-time SRE. The fee is twenty percent of first-year salary, payable after ninety days.",
+    "channels": [
+      {
+        "channel": "website",
+        "handle": "https://corvidtalent.example",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Leila Farahani",
+    "role": "Recruitment coordinator",
+    "email": "leila@corvidtalent.example",
+    "phone": "+1-555-0199",
+    "organization": "Corvid Talent Search",
+    "notes": "Schedules interviews and collects feedback forms. Turns around a candidate summary within two days of a screening call.",
+    "channels": [
+      {
+        "channel": "slack",
+        "handle": "@leila.f",
+        "is_primary": true
+      }
+    ]
   }
 ]
