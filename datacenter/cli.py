@@ -11,6 +11,7 @@ from typing import Any
 
 from .config import DATA_CENTER_NAME, DEFAULT_ROOT, VERSION
 from .core import DataCenter
+from .loader import DATA_DIR, DataFileError, validate
 from .seed import seed as seed_data
 
 
@@ -68,9 +69,35 @@ def cmd_status(args: argparse.Namespace) -> int:
 def cmd_seed(args: argparse.Namespace) -> int:
     with _open(args) as center:
         center.provision()
-        summary = seed_data(center)
-        center.run_next_job()
-    print("seeded: " + ", ".join(f"{count} {name}" for name, count in summary.items()))
+        try:
+            summary = seed_data(center, args.data)
+        except DataFileError as error:
+            print(f"data files rejected, nothing loaded:\n{error}", file=sys.stderr)
+            return 1
+        while center.run_next_job() is not None:
+            pass
+    print(f"loaded from {args.data}: " + ", ".join(f"{count} {name}" for name, count in summary.items()))
+    return 0
+
+
+def cmd_validate_data(args: argparse.Namespace) -> int:
+    problems = validate(args.data)
+    if problems:
+        print("\n".join(problems))
+        print(f"{len(problems)} problem(s) in {args.data}")
+        return 1
+    print(f"data files in {args.data} are valid")
+    return 0
+
+
+def cmd_datasets(args: argparse.Namespace) -> int:
+    with _open(args) as center:
+        datasets = center.list_datasets()
+    for dataset in datasets:
+        fields = ", ".join(dataset["schema"]) or "-"
+        print(f"#{dataset['id']:<4} {dataset['name']:<28} {dataset['records']:>6} records  [{fields}]")
+    if not datasets:
+        print("no datasets stored")
     return 0
 
 
@@ -189,7 +216,13 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--json", action="store_true", help="machine-readable output")
     status.set_defaults(func=cmd_status)
 
-    sub.add_parser("seed", help="load demo contacts, documents and records").set_defaults(func=cmd_seed)
+    seed = sub.add_parser("seed", help="load (or refill) the data center from its data files")
+    seed.add_argument("--data", default=str(DATA_DIR), help=f"folder of JSON data files (default: {DATA_DIR})")
+    seed.set_defaults(func=cmd_seed)
+
+    validate_data = sub.add_parser("validate-data", help="check the data files without loading them")
+    validate_data.add_argument("--data", default=str(DATA_DIR))
+    validate_data.set_defaults(func=cmd_validate_data)
 
     search = sub.add_parser("search", help="semantic search over stored documents")
     search.add_argument("query")
@@ -214,6 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("contacts", help="list stored contacts").set_defaults(func=cmd_contacts)
     sub.add_parser("documents", help="list stored documents").set_defaults(func=cmd_documents)
+    sub.add_parser("datasets", help="list stored datasets").set_defaults(func=cmd_datasets)
 
     jobs = sub.add_parser("jobs", help="show the queue, or run the next job")
     jobs.add_argument("--run", action="store_true", help="run the next pending job")

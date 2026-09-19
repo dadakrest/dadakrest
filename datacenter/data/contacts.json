@@ -1,0 +1,35 @@
+[
+  {
+    "full_name": "Ada Okoro",
+    "role": "Operations lead",
+    "email": "ada@northgate.example",
+    "phone": "+1-555-0142",
+    "organization": "Northgate Logistics",
+    "notes": "",
+    "channels": [
+      {
+        "channel": "github",
+        "handle": "ada-okoro",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "full_name": "Ben Marsh",
+    "role": "Security analyst",
+    "email": "ben@harborsec.example",
+    "phone": "+1-555-0177",
+    "organization": "Harbor Security",
+    "notes": "",
+    "channels": []
+  },
+  {
+    "full_name": "Carla Reyes",
+    "role": "Account manager",
+    "email": "carla@northgate.example",
+    "phone": "+1-555-0198",
+    "organization": "Northgate Logistics",
+    "notes": "",
+    "channels": []
+  }
+]

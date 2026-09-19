@@ -74,14 +74,22 @@ class Database:
         )
         return int(cursor.lastrowid)
 
-    def upsert(self, table: str, values: dict[str, Any], conflict: str) -> int:
+    def upsert(
+        self,
+        table: str,
+        values: dict[str, Any],
+        conflict: str,
+        keep: Sequence[str] = (),
+    ) -> int:
         """Insert a row, updating the existing one on a conflict target.
 
         `conflict` is the conflict target: one column name, or several
-        comma-separated for a composite unique constraint. Returns the id of
-        the row that ended up in the table — on the update path `lastrowid` is
-        not that id, so the statement uses RETURNING, falling back to a lookup
-        on older SQLite builds.
+        comma-separated for a composite unique constraint. Columns named in
+        `keep` are written on insert but left alone on update, which is how a
+        `created_at` survives a refill. Returns the id of the row that ended
+        up in the table — on the update path `lastrowid` is not that id, so
+        the statement uses RETURNING, falling back to a lookup on older SQLite
+        builds.
         """
         conflict_columns = [column.strip() for column in conflict.split(",")]
         columns = ", ".join(values)
@@ -89,7 +97,7 @@ class Database:
         updates = ", ".join(
             f"{column} = excluded.{column}"
             for column in values
-            if column not in conflict_columns
+            if column not in conflict_columns and column not in keep
         ) or f"{conflict_columns[0]} = excluded.{conflict_columns[0]}"
 
         statement = (

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "support_tickets",
+    "description": "Managed-support tickets and the hours logged against them.",
+    "schema": {
+      "ticket": "string",
+      "category": "string",
+      "hours": "number",
+      "status": "string"
+    },
+    "records": [
+      {
+        "ticket": "SUP-1001",
+        "category": "hardware",
+        "hours": 2.5,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1002",
+        "category": "network",
+        "hours": 4.0,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1003",
+        "category": "security",
+        "hours": 6.25,
+        "status": "open"
+      }
+    ]
+  }
+]

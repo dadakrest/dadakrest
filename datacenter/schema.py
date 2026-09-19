@@ -87,6 +87,9 @@ SCHEMAS: dict[str, tuple[str, ...]] = {
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_records_dataset ON records(dataset_id)",
+        # Payloads are stored as canonical JSON (sorted keys), so the same
+        # record loaded twice is byte-identical and the index rejects it.
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_records_unique ON records(dataset_id, payload)",
     ),
     "models": (
         """

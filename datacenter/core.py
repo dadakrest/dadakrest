@@ -113,22 +113,38 @@ class DataCenter:
         phone: str = "",
         organization: str | None = None,
         notes: str = "",
+        channels: list[dict[str, Any]] | None = None,
     ) -> int:
+        """Store a contact. A contact with an email is keyed on it, so loading
+        the same person twice updates the one row instead of adding a second.
+        """
         organization_id = None
         if organization:
             organization_id = self.add_organization(organization)
 
-        contact_id = self.db("contacts").insert(
-            "contacts",
-            {
-                "organization_id": organization_id,
-                "full_name": full_name,
-                "role": role,
-                "email": email or None,
-                "phone": phone,
-                "notes": notes,
-            },
-        )
+        contacts = self.db("contacts")
+        values = {
+            "organization_id": organization_id,
+            "full_name": full_name,
+            "role": role,
+            "email": email or None,
+            "phone": phone,
+            "notes": notes,
+            "created_at": _utc_now(),
+        }
+        if email:
+            contact_id = contacts.upsert("contacts", values, conflict="email", keep=("created_at",))
+        else:
+            contact_id = contacts.insert("contacts", values)
+
+        for channel in channels or []:
+            contacts.execute(
+                "INSERT INTO contact_channels (contact_id, channel, handle, is_primary) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT(contact_id, channel, handle) "
+                "DO UPDATE SET is_primary = excluded.is_primary",
+                (contact_id, channel["channel"], channel["handle"], int(bool(channel.get("is_primary")))),
+            )
+
         self.log("contacts", "add_contact", detail=full_name)
         return contact_id
 
@@ -147,26 +163,39 @@ class DataCenter:
         title: str,
         body: str,
         *,
+        external_id: str = "",
         source: str = "",
+        mime_type: str = "text/plain",
         owner_email: str = "",
         tags: list[str] | None = None,
         embed: bool = True,
     ) -> int:
-        """Store a document and, by default, index it for semantic search."""
+        """Store a document and, by default, index it for semantic search.
+
+        A document with an `external_id` is keyed on it: loading it again
+        updates the existing row (and replaces its tags) rather than adding a
+        duplicate, which is what makes a data refill safe to repeat.
+        """
         checksum = hashlib.sha256(body.encode("utf-8")).hexdigest()
         documents = self.db("documents")
-        document_id = documents.insert(
-            "documents",
-            {
-                "title": title,
-                "body": body,
-                "source": source,
-                "checksum": checksum,
-                "owner_email": owner_email,
-                "created_at": _utc_now(),
-                "updated_at": _utc_now(),
-            },
-        )
+        values = {
+            "external_id": external_id or None,
+            "title": title,
+            "body": body,
+            "source": source,
+            "mime_type": mime_type or "text/plain",
+            "checksum": checksum,
+            "owner_email": owner_email,
+            "created_at": _utc_now(),
+            "updated_at": _utc_now(),
+        }
+        if external_id:
+            document_id = documents.upsert(
+                "documents", values, conflict="external_id", keep=("created_at",)
+            )
+            documents.execute("DELETE FROM document_tags WHERE document_id = ?", (document_id,))
+        else:
+            document_id = documents.insert("documents", values)
 
         for tag in tags or []:
             documents.execute(
@@ -187,33 +216,74 @@ class DataCenter:
 
     def list_documents(self) -> list[dict[str, Any]]:
         rows = self.db("documents").query(
-            "SELECT id, title, source, owner_email, created_at FROM documents ORDER BY id"
+            "SELECT id, external_id, title, source, owner_email, created_at "
+            "FROM documents ORDER BY id"
         )
         return [dict(row) for row in rows]
 
+    def document_tags(self, document_id: int) -> list[str]:
+        rows = self.db("documents").query(
+            "SELECT tag FROM document_tags WHERE document_id = ? ORDER BY tag", (document_id,)
+        )
+        return [row["tag"] for row in rows]
+
     # -- datasets -----------------------------------------------------------
 
-    def create_dataset(self, name: str, description: str = "") -> int:
-        dataset_id = self.db("datasets").upsert(
-            "datasets",
-            {"name": name, "description": description},
-            conflict="name",
-        )
+    def create_dataset(
+        self, name: str, description: str = "", schema: dict[str, str] | None = None
+    ) -> int:
+        """Create or update a dataset. Passing no description or schema keeps
+        whatever the existing dataset already has."""
+        datasets = self.db("datasets")
+        values: dict[str, Any] = {"name": name}
+        if description:
+            values["description"] = description
+        if schema is not None:
+            values["schema_json"] = json.dumps(schema, sort_keys=True)
+        dataset_id = datasets.upsert("datasets", values, conflict="name")
         self.log("datasets", "create_dataset", detail=name)
         return dataset_id
 
     def add_record(self, dataset: str, payload: dict[str, Any]) -> int:
+        """Append a record to a dataset, creating the dataset if needed.
+
+        Payloads are stored as canonical JSON, so the identical record loaded
+        twice is recognised and the existing row's id is returned.
+        """
         dataset_id = self.create_dataset(dataset)
-        record_id = self.db("datasets").insert(
-            "records",
-            {
-                "dataset_id": dataset_id,
-                "payload": json.dumps(payload, sort_keys=True),
-                "ingested_at": _utc_now(),
-            },
+        datasets = self.db("datasets")
+        canonical = json.dumps(payload, sort_keys=True)
+        cursor = datasets.execute(
+            "INSERT OR IGNORE INTO records (dataset_id, payload, ingested_at) VALUES (?, ?, ?)",
+            (dataset_id, canonical, _utc_now()),
         )
+        if cursor.rowcount == 1:
+            record_id = int(cursor.lastrowid)
+        else:
+            row = datasets.query_one(
+                "SELECT id FROM records WHERE dataset_id = ? AND payload = ?",
+                (dataset_id, canonical),
+            )
+            record_id = int(row["id"])
         self.log("datasets", "add_record", detail=dataset)
         return record_id
+
+    def list_datasets(self) -> list[dict[str, Any]]:
+        rows = self.db("datasets").query(
+            "SELECT d.id, d.name, d.description, d.schema_json, COUNT(r.id) AS records "
+            "FROM datasets d LEFT JOIN records r ON r.dataset_id = d.id "
+            "GROUP BY d.id ORDER BY d.name"
+        )
+        return [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "description": row["description"],
+                "schema": json.loads(row["schema_json"]) if row["schema_json"] else {},
+                "records": row["records"],
+            }
+            for row in rows
+        ]
 
     def list_records(self, dataset: str) -> list[dict[str, Any]]:
         rows = self.db("datasets").query(
@@ -389,6 +459,14 @@ class DataCenter:
         )
         self.log("jobs", "run_job", detail=f"{kind} #{job_id}: {outcome}")
         return {"job_id": job_id, "kind": kind, "outcome": outcome, "detail": detail}
+
+    def has_job(self, kind: str, payload: dict[str, Any] | None = None) -> bool:
+        """True if a job with this kind and payload exists in any state."""
+        row = self.db("jobs").query_one(
+            "SELECT 1 FROM jobs WHERE kind = ? AND payload = ? LIMIT 1",
+            (kind, json.dumps(payload or {}, sort_keys=True)),
+        )
+        return row is not None
 
     def pending_jobs(self) -> list[dict[str, Any]]:
         rows = self.db("jobs").query(

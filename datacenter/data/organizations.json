@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Northgate Logistics",
+    "industry": "Logistics",
+    "website": "https://northgate.example"
+  },
+  {
+    "name": "Harbor Security",
+    "industry": "Cybersecurity services",
+    "website": "https://harborsec.example"
+  }
+]

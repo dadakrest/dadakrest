@@ -20,10 +20,13 @@ from .config import (
 )
 from .core import DataCenter
 from .engine import Database
+from .loader import DATA_DIR, DataFileError, load_all, validate
 from .seed import seed
 
 __all__ = [
     "DATABASES",
+    "DATA_DIR",
+    "DataFileError",
     "DATABASE_KEYS",
     "DATA_CENTER_NAME",
     "DATA_CENTER_SLUG",
@@ -31,6 +34,8 @@ __all__ = [
     "Database",
     "DatabaseSpec",
     "VERSION",
+    "load_all",
     "seed",
+    "validate",
 ]
 __version__ = VERSION

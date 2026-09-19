@@ -1,0 +1,15 @@
+[
+  {
+    "name": "local-hashing-v1",
+    "provider": "built-in",
+    "task": "embedding",
+    "description": "Deterministic local hashing embedder shipped with the data center.",
+    "versions": [
+      {
+        "version": "1.0.0",
+        "dimensions": 4096,
+        "is_active": true
+      }
+    ]
+  }
+]
