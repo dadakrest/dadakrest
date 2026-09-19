@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "software-da-database-user-13"
+version = "1.0.0"
+description = "Software da Database User 13 - a seven-database AI data center."
+readme = "docs/DATA_CENTER.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+sddu13 = "datacenter.cli:main"
+
+[tool.setuptools]
+packages = ["datacenter"]
