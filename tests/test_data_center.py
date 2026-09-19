@@ -61,6 +61,15 @@ class TestContacts(DataCenterTestCase):
         self.assertEqual(len(contacts), 1)
         self.assertEqual(contacts[0]["organization"], "Northgate Logistics")
 
+    def test_naming_an_organization_keeps_its_details(self) -> None:
+        self.center.add_organization("Acme", industry="Logistics", website="https://acme.example")
+        self.center.add_contact("Ada", email="ada@acme.example", organization="Acme")
+        row = self.center.db("contacts").query_one(
+            "SELECT industry, website FROM organizations WHERE name = 'Acme'"
+        )
+        self.assertEqual(row["industry"], "Logistics")
+        self.assertEqual(row["website"], "https://acme.example")
+
     def test_organization_is_reused_not_duplicated(self) -> None:
         self.center.add_contact("Ada", organization="Northgate")
         self.center.add_contact("Ben", organization="Northgate")

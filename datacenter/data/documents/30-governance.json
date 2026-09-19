@@ -1,0 +1,262 @@
+[
+  {
+    "external_id": "kb-gov-01",
+    "title": "Data classification",
+    "body": "Every file, dataset, prompt log, and database in the data center carries one of four labels. The label decides where the data may live, who can read it, how it is backed up, and how long we keep it. If you are not sure which label applies, pick the more restrictive one and ask the owner.\n\n**Public.** Content we would happily put on the website: marketing copy, published pricing, the glossary in this knowledge base. No handling rules beyond keeping it accurate.\n\n**Internal.** Day-to-day working material that would be mildly embarrassing but not harmful if it leaked: meeting notes, capacity plans, internal runbooks. It stays on company systems and is not pasted into personal tools.\n\n**Confidential.** Anything a client gave us, anything about a client's business, and our own financials. This includes prompts and completions that pass through a client's deployment, embeddings derived from client documents, and evaluation sets built from client tickets. Encrypted at rest, access granted per project, shared outside the company only under a signed agreement.\n\n**Restricted.** The small set of things that would cause real harm: credentials, private keys, raw personal data such as health or payroll records, and any dataset a client has flagged as sensitive on their intake form. Access is granted to named individuals only, logged, and reviewed every quarter.\n\nA few rules that trip people up:\n\n- A derived artifact inherits the label of its source. An embedding index built from Confidential documents is Confidential.\n- Mixing data raises the label to the highest component. A training run that blends Internal and Restricted data produces a Restricted checkpoint.\n- Labels are recorded in the dataset description and the document tags so search can filter on them.\n- Only the data owner or the operations lead may lower a label, and the change is logged as an audit event.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "governance",
+      "classification",
+      "data"
+    ]
+  },
+  {
+    "external_id": "kb-gov-02",
+    "title": "Client data handling and retention",
+    "body": "Clients trust us with data they could not easily replace, and the fastest way to lose a client is to be careless with it. This page sets the rules for the full life cycle: intake, use, storage, and deletion.\n\n**Intake.** Data arrives only through the agreed channel, usually an encrypted upload to the client's own project bucket. Nobody accepts client data by email attachment or chat message; if it turns up that way, move it to the project bucket and delete the original. Every intake is recorded as a dataset with the client's organization name, a classification label, and the date received.\n\n**Use.** Client data is used only for the purpose written in the statement of work. Building a search index over a client's support tickets does not give us permission to use those tickets to evaluate an unrelated model. Any new use needs written confirmation from the client, obtained by the account manager.\n\n**Storage.** Confidential and Restricted data lives in the client's project namespace, encrypted at rest, with access limited to the named engineers on the project. Copies on laptops are not allowed. Prompt and completion logs from a client deployment are kept for 30 days for troubleshooting and then purged automatically.\n\n**Retention and deletion.** When a contract ends, working data is deleted within 30 days and the deletion is logged. Backups containing the data age out within 90 days after that, because we do not selectively edit backups. Clients can request earlier deletion at any time, and we confirm in writing when it is complete, listing the datasets, indexes, and checkpoints that were removed.\n\n**Exceptions.** Some clients ask us to keep evaluation sets so that future work starts from the same baseline. That is fine when the contract says so; note it in the dataset description so the retention job skips it.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "governance",
+      "retention",
+      "client-data"
+    ]
+  },
+  {
+    "external_id": "kb-gov-03",
+    "title": "Privacy and consent for training data",
+    "body": "Training a model on data is a use of that data, and it needs the same permission any other use would. This applies to fine-tuning, building embedding indexes, assembling evaluation sets, and generating synthetic data from real examples.\n\n**Ask where the data came from.** Before any training run, the engineer records the provenance in the dataset description: who collected it, under what terms, and whether the people it describes were told it could be used this way. If the answer to the last question is unknown, the run does not start until the account manager has checked with the client.\n\n**Personal data is the sensitive case.** Names, contact details, account numbers, health information, and free-text fields that describe individuals all count. Our default is to strip or pseudonymise personal fields before the data reaches a training job. When the client's use case genuinely needs those fields, the dataset is labelled Restricted, the training environment is isolated, and the resulting checkpoint carries the same label.\n\n**Consent has a scope.** A customer who agreed to have a support conversation recorded for quality purposes did not agree to have it become a public demo. Keep the training use within the purpose the original consent covered, and keep the outputs inside the same client's deployment.\n\n**Right to be removed.** If a client tells us a person has withdrawn consent, we remove their records from the source dataset, rebuild any embedding index that included them, and note which model versions were trained before the removal. Retraining is scheduled with the client; we do not promise it happens instantly.\n\n**Public web data.** We do not scrape data for clients. If a client supplies data they scraped themselves, the provenance note must say so, and the account manager confirms in writing that the client has accepted responsibility for it.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "governance",
+      "privacy",
+      "training-data"
+    ]
+  },
+  {
+    "external_id": "kb-gov-04",
+    "title": "Access control for models and datasets",
+    "body": "Access to a model checkpoint or a dataset is a decision, not a default. This page describes how we make that decision and how we keep it current.\n\n**Least privilege.** People get access to the specific projects they work on, at the lowest level that lets them do the work. Read access to a dataset does not imply write access; the ability to run inference against a model does not imply the ability to download its weights.\n\n**Roles we use.**\n\n- Viewer: can list datasets, read descriptions and schemas, and run searches. Cannot read raw Restricted records.\n- Operator: everything a viewer can do, plus running jobs, restoring backups, and switching the active model version.\n- Maintainer: everything an operator can do, plus adding or deleting records, registering models, and changing classification labels.\n- Owner: one person per client project, usually the account manager, who approves access requests.\n\n**How access is granted.** The requester opens a ticket naming the project, the role, and the business reason. The project owner approves it and the operations lead applies it. The grant is logged as an audit event with the approver's name. Emergency access during an incident can be applied first and approved afterwards, but the approval must land within one business day.\n\n**Review.** Every quarter, each project owner receives the list of people with access to their project and confirms each one is still needed. Anyone not confirmed loses access on the first day of the following month. The review itself is recorded, so we can show a client exactly who could see their data on any given date.\n\n**Service accounts.** Automated jobs use their own accounts, scoped to one project and one role, with credentials kept in the secrets store. A service account never holds the Owner role.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "security",
+      "access-control",
+      "governance"
+    ]
+  },
+  {
+    "external_id": "kb-gov-05",
+    "title": "Secrets management for API keys",
+    "body": "An API key for a hosted model is money and data in one string. Anyone holding it can run up our bill and, depending on the provider, read the conversations we have sent. This page is the standard for handling them.\n\n**Where keys live.** Keys are stored in the secrets store and injected into jobs at run time as environment variables. They are never committed to a repository, written into a notebook, pasted into a chat channel, or kept in a spreadsheet. If a key appears in any of those places, treat it as leaked and rotate it the same day.\n\n**One key per purpose.** Each client deployment and each internal tool gets its own key, so that a leak is contained and usage can be attributed. Sharing one key between two clients is not allowed, even for a quick test.\n\n**Rotation.** Keys are rotated every 90 days on a schedule the secrets store enforces, and immediately when a person with access to the key leaves the company or a project. Rotation is a two-step change: add the new key, verify the deployment works, then revoke the old one. Never revoke first.\n\n**Spending limits.** Every key has a monthly spending cap set at the provider, sized at roughly 150 percent of expected usage. A cap that trips is investigated before it is raised, because unexpected usage is often the first sign of a leaked key.\n\n**Monitoring.** Usage per key is reviewed weekly. A key that shows requests from an unfamiliar network, a burst of traffic outside the client's working hours, or calls to a model the project does not use is revoked and the security desk is paged.\n\n**Client-owned keys.** When a client prefers to supply their own key, it is stored in their project namespace under the same rules, and they receive the weekly usage report.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "security",
+      "secrets",
+      "api-keys"
+    ]
+  },
+  {
+    "external_id": "kb-gov-06",
+    "title": "Prompt injection and how to defend against it",
+    "body": "Prompt injection is what happens when text a model was supposed to treat as data gets treated as instructions instead. A support bot asked to summarise an email obeys a line inside the email telling it to forward the customer's file to an outside address. A document assistant reads a web page that tells it to ignore its earlier rules. The model is not being hacked in the traditional sense; it is doing what language models do, which is follow the most convincing instruction in front of it.\n\n**Why it matters to us.** Most of our deployments retrieve documents, tickets, or web content and hand them to a model. Every retrieved item is untrusted input, even when it comes from the client's own systems, because anyone who can write into those systems can write an instruction.\n\n**Defences we apply, in order of value.**\n\n1. Limit what the model can do. A model that can only answer questions cannot leak a file. Tools that send email, make purchases, or change records require a human confirmation step for any action that is not reversible.\n2. Separate instructions from content. System prompts state that retrieved text is reference material and must not be followed. This reduces the problem but does not eliminate it.\n3. Restrict retrieval sources. Indexes contain only content from approved sources, and the sources are listed in the dataset description.\n4. Watch the output. Responses containing URLs, credentials, or instructions to the user that the system prompt never mentioned are held for review before delivery.\n5. Log everything. Prompt and completion logs make it possible to find out what the model saw when it misbehaved.\n\n**Testing.** Every deployment with tool access is tested against a set of injection attempts before release and after each prompt change. The test set lives with the project and grows every time we find a new trick.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "security",
+      "prompt-injection",
+      "llm"
+    ]
+  },
+  {
+    "external_id": "kb-gov-07",
+    "title": "Model output review",
+    "body": "Model outputs go to clients under our name, so someone on our side reads them before they become a habit. This page describes when a human review is required and what the reviewer is looking for.\n\n**When review is mandatory.**\n\n- Before a new deployment goes live, a reviewer reads at least 100 sampled outputs against real inputs from the client's data.\n- After any change to the system prompt, the retrieval index, or the active model version, a reviewer reads 50 sampled outputs.\n- Weekly for the life of the deployment, a reviewer reads 25 randomly sampled outputs and records the result in the project log.\n\n**What the reviewer checks.**\n\n- Accuracy: does the answer match the source documents? A confident answer with no supporting passage is a failure.\n- Scope: did the model stay inside the task? A billing assistant that offers medical advice is out of scope even if the advice is sound.\n- Tone: does the output match the client's style guide, and would the client be comfortable seeing it quoted back to them?\n- Safety: does the output reveal personal data, credentials, internal notes, or the contents of the system prompt?\n- Refusals: when the model declined, was the refusal appropriate, or did it refuse a perfectly ordinary request?\n\n**Recording results.** Each sample gets a pass, a fail, or a note. A failure rate above 5 percent on any single check blocks the release, or opens a fix ticket for a live deployment. The reviewer is never the engineer who made the change.\n\n**Escalation.** A single output that exposes personal data or credentials is an incident, not a review finding. Stop the sampling, keep the evidence, and follow the incident response page.\n\n**Client involvement.** Clients are offered the weekly samples with our notes. Many decline after the first month, but the offer stands and the samples are kept for 90 days.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "governance",
+      "quality",
+      "review"
+    ]
+  },
+  {
+    "external_id": "kb-gov-08",
+    "title": "Acceptable-use policy for AI tools",
+    "body": "This policy covers every AI tool staff use for company work: the models we host, third-party assistants, code helpers, transcription services, and anything similar that appears next year. It exists so people can use these tools confidently without guessing where the line is.\n\n**You may.**\n\n- Use approved tools for drafting, summarising, coding, translating, and researching, as long as you check the result before you rely on it.\n- Paste Public and Internal content into approved tools.\n- Ask an approved tool to explain an error message, a log line, or a piece of documentation.\n\n**You may not.**\n\n- Paste Confidential or Restricted data, including client documents, prompt logs, credentials, or personal data, into any tool that is not on the approved list for that client's project.\n- Present an AI-generated document, analysis, or code review to a client as if a person had checked it, when nobody has.\n- Use an AI tool to make a decision about a person, such as a hiring or performance judgement, without a human owning that decision.\n- Use a personal account for company work, or a company account for personal projects.\n- Disable logging or content filtering on a hosted deployment to get a result the filters blocked.\n\n**The approved list.** The operations lead keeps the list of approved tools and the classification level each one is cleared for. Requests to add a tool go through the vendor and model licensing review. The list was last updated on 2026-08-11.\n\n**Accountability.** The person who uses a tool is responsible for what they do with its output. Saying that the model produced the number is not a defence for a wrong number in a client report.\n\n**When in doubt.** Ask before pasting. The security desk answers questions about tools within one business day and would much rather hear the question than handle the leak.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "governance",
+      "policy",
+      "acceptable-use"
+    ]
+  },
+  {
+    "external_id": "kb-gov-09",
+    "title": "Incident response for AI systems",
+    "body": "AI deployments fail in ways a network incident playbook does not cover: a system prompt leaks through a clever question, a dataset turns out to contain planted records, a model starts producing outputs it never produced in testing. This page extends the general incident process for those cases.\n\n**Severity levels.**\n\n- S1: personal data, credentials, or client Confidential data exposed to someone outside the project; a poisoned dataset used by a live model. Page the on-call analyst immediately at +1-555-0117.\n- S2: system prompt or internal instructions exposed; a model producing harmful or off-policy outputs; suspected but unconfirmed data poisoning. Open a ticket and notify the security desk within one hour.\n- S3: a single bad output caught in review; an injection attempt blocked by the defences. Log it and add it to the test set.\n\n**First steps for any AI incident.**\n\n1. Preserve the evidence. Export the prompt and completion logs for the affected window before they roll off the 30-day retention.\n2. Contain. Pause the deployment or route it to a fallback, rotate any credential the model could have seen, and freeze the affected dataset so nothing else trains on it.\n3. Identify the mechanism. Was it injection, a misconfigured tool, a bad retrieval source, or an ordinary query the model answered badly?\n\n**Leaked prompts.** Treat the system prompt as compromised and rewrite it; attackers iterate quickly once they can see the rules. Check whether the prompt contained anything that should never have been there, such as internal URLs or other clients' names.\n\n**Poisoned data.** Trace the records to their intake date, identify every index and checkpoint built after that date, and rebuild from the last clean snapshot. The client is told which model versions were affected.\n\n**Communication.** S1 incidents are reported to the affected client within 24 hours of confirmation, with a written summary within five business days. The account manager delivers both.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "security",
+      "incident-response",
+      "governance"
+    ]
+  },
+  {
+    "external_id": "kb-gov-10",
+    "title": "Vendor and model licensing review",
+    "body": "Before we build on a model, a hosted API, or an outside dataset, someone checks that we are allowed to use it the way we plan to and that the vendor will still be there in a year. This page is the checklist for that review. It applies to open-weights models, commercial APIs, labelling vendors, and any hosted tool that touches client data.\n\n**License terms.**\n\n- Does the license permit commercial use, and specifically use on behalf of a client?\n- Are there restrictions on the field of use, on the number of users, or on distributing outputs?\n- For open-weights models, does the license require attribution, a copy of the license in our deliverables, or acceptance of a usage policy?\n- Does the vendor claim any rights over our inputs, our outputs, or fine-tuned derivatives?\n\n**Data handling.**\n\n- Does the vendor retain the prompts we send, and for how long? Is retention configurable?\n- Does the vendor train on customer data by default, and can that be turned off in writing?\n- Where is the data processed, and does that match what the client's intake form allows?\n\n**Operational risk.**\n\n- Is there a published deprecation policy? Has the vendor retired a model with less than 90 days' notice before?\n- What is the rate limit, and what does it cost to raise it?\n- Is there a way to export our fine-tuned weights or stored data if we leave?\n\n**Security.**\n\n- Does the vendor publish a security summary or an independent assessment we can read?\n- How are API keys scoped and revoked?\n\n**Outcome.** The review is written up in a document tagged with the vendor name, the account manager signs it, and the tool goes on the approved list with the classification levels it is cleared for. Reviews expire after 12 months or when the vendor changes their terms, whichever comes first.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "governance",
+      "licensing",
+      "procurement"
+    ]
+  },
+  {
+    "external_id": "kb-gov-11",
+    "title": "Model evaluation policy before production",
+    "body": "No model version reaches a client deployment without an evaluation record. This page sets the minimum bar; individual projects can add to it but not take away from it.\n\n**What gets evaluated.** Every candidate: a new base model, a fine-tuned checkpoint, a change to quantization, a new embedding model behind a search index, or a system prompt rewrite that changes behaviour. If you are unsure whether a change counts, it does.\n\n**The evaluation set.** Each project keeps a held-out set of at least 200 examples drawn from the client's real traffic, labelled by a person, and never used for training or prompt tuning. The set is refreshed every six months so it keeps tracking what users actually ask, and its dataset record notes the refresh date.\n\n**Metrics we require.**\n\n- Task quality: the project's primary metric, such as answer accuracy against source documents or retrieval recall at ten results, compared with the current production version on the same set.\n- Latency: median and 95th percentile response time at the expected load.\n- Cost: tokens or compute per request, projected to the client's monthly volume.\n- Safety: results from the injection test set and the output review checks.\n\n**The decision rule.** A candidate ships when it beats or matches production on task quality, stays within the latency budget in the statement of work, and does not exceed the cost projection by more than 10 percent without the account manager's agreement. A candidate that is better on quality but worse on safety does not ship.\n\n**The record.** The evaluation is written up with the dataset name, the model name and version, the date, the numbers, and who ran it. It is attached to the model version in the registry, and the change management ticket links to it. Six months later, someone should be able to read it and understand exactly why that version went live.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "governance",
+      "evaluation",
+      "release"
+    ]
+  },
+  {
+    "external_id": "kb-gov-12",
+    "title": "Bias and fairness checks",
+    "body": "A model that works well on average can still work badly for a particular group of people, and the client will hear about it from that group first. Fairness checks are how we find those cases before the client does. They are required for any deployment that ranks, scores, recommends, or makes decisions about people, and encouraged for everything else.\n\n**Define the groups.** Work with the client to list the attributes along which outcomes should not differ in ways nobody intended. For a recruiting client that might be gender and age band; for a lending client it might be postcode; for a clinic it might be the language of the original record. Only use attributes the client already holds lawfully; we do not infer them.\n\n**Measure.** For each group, compare the same metrics used in the main evaluation: accuracy, false positive rate, false negative rate, and the distribution of scores. Report the gap between the best and worst performing group, not just the overall number. A gap above 10 percentage points on any metric is flagged for discussion; smaller gaps are noted.\n\n**Look at the language.** For generative deployments, run the same prompts with names, pronouns, and locations swapped and compare the tone, length, and helpfulness of the answers. Differences a reviewer can notice in a side-by-side reading are findings.\n\n**Decide together.** Some gaps reflect real differences in the underlying data; some reflect a broken data pipeline; some are unacceptable regardless of cause. That call belongs to the client, informed by our numbers. We record the decision and the reasoning in the evaluation record.\n\n**Repeat.** Fairness checks run with every evaluation, not just the first one. Data drifts, and a model that was balanced at launch can drift with it.\n\n**What we do not claim.** We do not certify a model as unbiased. We report what we measured, on which groups, on which date.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "governance",
+      "fairness",
+      "evaluation"
+    ]
+  },
+  {
+    "external_id": "kb-gov-13",
+    "title": "Audit logging requirements",
+    "body": "The audit log is how we answer the question a client will eventually ask: who did what to my data, and when. This page defines what must be logged, where it goes, and how long it stays.\n\n**Events that must be logged.**\n\n- Access changes: every grant, revocation, and role change, with the approver.\n- Data events: dataset created or deleted, records added in bulk, classification label changed, backup taken or restored.\n- Model events: model registered, version activated or retired, evaluation record attached.\n- Deployment events: system prompt changed, retrieval source added or removed, spending cap changed, key rotated.\n- Security events: failed logins over the threshold, key revoked for cause, incident opened or closed.\n- Administrative events: log retention changed, audit log exported.\n\n**What each entry contains.** The timestamp in UTC, the actor (a person or a named service account), the action, the object it applied to, and a short detail string. Entries never contain the content of the data itself; a record of a dataset deletion names the dataset, not its rows.\n\n**Where it lives.** Audit events go to the data center's event store and are mirrored nightly to write-once storage that operators cannot modify.\n\n**Retention.** Audit logs are kept for 12 months. Prompt and completion logs are operational rather than audit data; they are kept for 30 days, per the client data handling page.\n\n**Review.** The security desk reads the previous week's access and administrative events every Monday and opens a ticket for anything unexpected. Clients may request their project's audit log at any time and receive it within five business days.\n\n**What logging is not.** A log entry is not a control. Logging that a maintainer deleted a Restricted dataset does not bring it back, so the access control and change management pages matter more than this one. The log is there to tell the truth afterwards.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "security",
+      "audit",
+      "logging"
+    ]
+  },
+  {
+    "external_id": "kb-gov-14",
+    "title": "Change management",
+    "body": "A change is anything that alters what a client deployment does, what it costs, or who can reach it. The purpose of change management is not to slow things down; it is to make sure that when something breaks on a Tuesday afternoon, we can find what changed on Tuesday morning.\n\n**Standard changes.** Pre-approved, low-risk, and repeatable: rotating a key on schedule, refreshing an index from an approved source, scaling a deployment within its agreed range. They need a ticket and a log entry but no separate approval.\n\n**Normal changes.** Everything else that is planned: activating a new model version, editing a system prompt, adding a retrieval source, changing a retention setting. They need a ticket with a description, a rollback plan, the evaluation record if a model is involved, and approval from the project owner. Normal changes go live during the client's maintenance window, which defaults to 06:00 to 08:00 local time on weekdays.\n\n**Emergency changes.** Made during an incident to stop harm. They can go ahead on the on-call analyst's authority, but a ticket is opened within four hours and reviewed at the next weekly change meeting.\n\n**The rollback plan is not optional.** Before a normal change is approved, the ticket says how to undo it and how long that takes. For model changes, this means the previous version stays registered and ready to reactivate for at least 14 days.\n\n**Communication.** Clients are told about normal changes at least two business days in advance, with a one-paragraph description of what will differ. They hear about emergency changes as part of the incident report.\n\n**Freeze periods.** Some clients ask for no changes during their busy season. Freeze windows are recorded on the project, and the ticketing system refuses normal changes during them.\n\n**Review.** The weekly change meeting looks at every change from the previous week, including the failed ones, and updates this page when a pattern appears.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "governance",
+      "change-management",
+      "operations"
+    ]
+  },
+  {
+    "external_id": "kb-gov-15",
+    "title": "Security awareness for staff",
+    "body": "Most of the incidents we see start with a person, not a vulnerability: a key pasted into the wrong window, a convincing email, a client file forwarded to the wrong address. This page sets out what every member of staff is expected to know and do.\n\n**Training.** New hires complete the security awareness module within 30 days of starting, and everyone repeats it annually. The module covers phishing, handling client data, the acceptable-use policy for AI tools, and how to report something suspicious. Completion is recorded, and the operations lead chases anyone who is overdue.\n\n**Habits we expect.**\n\n- Use the password manager for every account. No password is reused, and no password is typed into a chat.\n- Turn on multi-factor authentication everywhere it is offered, and use a hardware key for the secrets store and the client buckets.\n- Lock your screen when you step away. Laptops are encrypted and never left in a car.\n- Treat every unexpected request for credentials, payment, or data as suspicious, especially when it is urgent and appears to come from someone senior. Confirm through a second channel before acting.\n- Report mistakes immediately. Nobody has ever been disciplined for reporting a leak they caused; people have been for hiding one.\n\n**AI-specific awareness.** Staff should understand that anything pasted into a model prompt may be stored by the provider, that model output can be confidently wrong, and that retrieved documents can carry instructions aimed at the model. The prompt injection page has the detail.\n\n**Phishing tests.** The security desk sends simulated phishing emails roughly monthly. Clicking one is not a failure; it triggers a two-minute refresher, and repeated clicks lead to a conversation, not a penalty.\n\n**Reporting.** Email security@harborsec.example or call +1-555-0117. Both are answered within one hour during business hours and paged out of hours for anything involving client data.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "security",
+      "awareness",
+      "training"
+    ]
+  },
+  {
+    "external_id": "kb-gov-16",
+    "title": "Penetration testing scope for AI services",
+    "body": "A penetration test of an AI service is a normal application test with a few extra targets most testers have not seen before. This page defines what is in scope when we commission a test, or when a client commissions one against a deployment we run.\n\n**Frequency.** Every client-facing deployment is tested before launch and annually thereafter, plus after any change that adds a tool, a retrieval source, or a new class of user.\n\n**In scope.**\n\n- The API surface: authentication, rate limiting, input validation, and error handling on every endpoint the deployment exposes.\n- Prompt injection: direct attempts through user input, and indirect attempts through documents planted in retrieval sources the tester is given write access to.\n- Data exfiltration: attempts to extract the system prompt, other users' conversations, retrieved documents outside the user's permissions, and training data.\n- Tool abuse: for deployments with tools, attempts to make the model act outside its intended scope or without the required confirmation step.\n- Access control: whether the viewer, operator, and maintainer roles enforce what the access control page says they do.\n- Secrets: whether API keys or credentials are reachable from logs, error messages, or model outputs.\n- Infrastructure: the hosts, containers, and storage buckets the deployment relies on.\n\n**Out of scope unless agreed in writing.** Denial of service beyond rate-limit verification, social engineering of staff, physical access to the data center, and testing against the model vendor's own infrastructure rather than our use of it.\n\n**Rules of engagement.** Testing runs against a staging copy with synthetic data wherever possible. When production is the only option, the client agrees in writing, the window is announced, and the on-call analyst monitors throughout.\n\n**Reporting.** Findings are rated by severity, each with reproduction steps. Critical and high findings are fixed before launch, or within 14 days for a live deployment, and the fix is retested.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "security",
+      "pentest",
+      "scope"
+    ]
+  },
+  {
+    "external_id": "kb-gov-17",
+    "title": "Client FAQ: how your data is used",
+    "body": "This page is written to be shared with clients as it stands; account managers attach it to proposals and onboarding packs.\n\n**Who can see my data?**\nThe engineers named on your project and your account manager. Nobody else, including other clients and our own staff on other projects. Access is reviewed every quarter, and you can request the current list at any time.\n\n**Do you use my data to train models for other clients?**\nNo. Your data is used only for the purpose in your statement of work. If we ever want to use it for anything else, we ask you in writing first, and you can say no.\n\n**Do the AI providers you use see my data?**\nWhen a deployment calls a hosted model, the prompt is sent to that provider. We choose providers whose terms let us turn off retention and training on customer data, and we turn both off.\n\n**How long do you keep it?**\nWorking data stays for the length of the contract. Logs of prompts and responses are kept for 30 days for troubleshooting and then deleted automatically. When the contract ends, working data is deleted within 30 days and backups age out within 90 days after that.\n\n**Where is it stored?**\nIn your own project namespace, encrypted at rest, in the data center named in your contract. We do not copy it to laptops or personal devices.\n\n**What happens if something goes wrong?**\nIf your data is exposed, we tell you within 24 hours of confirming it, and you receive a written summary from your account manager within five business days.\n\n**Can I get my data back, or have it deleted early?**\nYes to both. Exports are delivered within ten business days. Early deletion is confirmed in writing with a list of what was removed.\n\n**Who do I ask?**\nYour account manager, or privacy@northgate.example.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "governance",
+      "client-data",
+      "faq"
+    ]
+  },
+  {
+    "external_id": "kb-gov-18",
+    "title": "Disaster recovery objectives",
+    "body": "Disaster recovery comes down to two numbers per system: how much data we can afford to lose (the recovery point objective, or RPO) and how long we can afford to be down (the recovery time objective, or RTO). This page sets those numbers and what we do to meet them.\n\n**Tiers.**\n\n- Tier 1: live client deployments and the databases behind them. RPO 15 minutes, RTO 4 hours. Backed up continuously, with a standby environment that can take traffic.\n- Tier 2: model registry, evaluation records, embedding indexes, and the audit log mirror. RPO 4 hours, RTO 24 hours. Indexes can be rebuilt from source data if a backup is missing, which is why the source data is Tier 1.\n- Tier 3: internal tooling, this knowledge base, and development environments. RPO 24 hours, RTO 72 hours. Nightly backup, restored on request.\n\n**Backups.** Every backup is encrypted, stored in a separate location from the primary, and verified by checksum when written. Once a month, an operator restores a randomly chosen Tier 1 backup into an isolated environment and confirms that record counts and a sample of documents match. The result is logged.\n\n**Model checkpoints.** Active and previous model versions are backed up as part of Tier 2. Older checkpoints are kept only if an evaluation record references them. Hosted models are not our backup problem, but the prompts and configuration that make them useful are, and those live in the Tier 1 configuration store.\n\n**Testing.** A full recovery exercise for one client deployment runs twice a year. The last one ran on 2026-04-08 and met both objectives, with a measured RTO of 2 hours 40 minutes. The next is scheduled for 2026-10-07.\n\n**What clients are told.** The RPO and RTO for their tier are written into the statement of work. If a real event exceeds either number, the incident report says so and explains why.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "governance",
+      "disaster-recovery",
+      "operations"
+    ]
+  },
+  {
+    "external_id": "kb-gov-19",
+    "title": "Compliance checklist",
+    "body": "Clients ask us to confirm we meet their compliance requirements, and each client's requirements come from their own regulators, contracts, and auditors. We do not interpret the law for clients; their counsel does that. What we can do is show, item by item, which controls exist and where the evidence lives. Each line below points at the record that proves it.\n\n**Data protection.**\n\n- Classification scheme in use and recorded on every dataset. Evidence: dataset descriptions.\n- Client data encrypted at rest and in transit. Evidence: infrastructure configuration, checked at the annual penetration test.\n- Retention and deletion schedule documented and automated. Evidence: retention job logs.\n- Personal data pseudonymised before training unless the client requires otherwise. Evidence: dataset provenance notes.\n\n**Access.**\n\n- Role-based access with named approvers. Evidence: access tickets and the audit log.\n- Quarterly access reviews completed. Evidence: review records for the last four quarters.\n- Offboarding completed within four business hours. Evidence: offboarding tickets.\n\n**Security operations.**\n\n- Secrets kept in a managed store and rotated every 90 days. Evidence: rotation log.\n- Audit logging with 12-month retention. Evidence: audit log mirror.\n- Incident response with client notification within 24 hours for S1. Evidence: incident records.\n- Annual penetration test with findings remediated. Evidence: most recent test report.\n- Staff security training annually. Evidence: completion records.\n\n**AI-specific.**\n\n- Evaluation record before each production release. Evidence: model registry.\n- Fairness checks for deployments that make decisions about people. Evidence: evaluation records.\n- Vendor and licensing review for every external model and tool. Evidence: vendor review documents.\n- Human review of model outputs on a schedule. Evidence: review logs.\n\n**Continuity.**\n\n- Documented RPO and RTO per tier, tested twice a year. Evidence: recovery exercise reports.\n\nAccount managers answer client questionnaires from this list and attach the evidence requested. Anything the list does not cover goes to the operations lead before we answer.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "governance",
+      "compliance",
+      "checklist"
+    ]
+  },
+  {
+    "external_id": "kb-gov-20",
+    "title": "Offboarding checklist",
+    "body": "When someone leaves the company or rolls off a project, their access has to go with them, quickly and completely. The target is four business hours from the moment the operations lead is told. The checklist is worked through in order, and each item is ticked in the offboarding ticket with a timestamp.\n\n**Within four business hours.**\n\n1. Disable the person's identity provider account. This cuts off email and everything behind single sign-on.\n2. Remove the person from every project role in the data center. The access report lists them; work down it and confirm the audit log shows each revocation.\n3. Rotate every API key and secret the person could have read, including client-owned keys in projects they worked on.\n4. Revoke hardware keys and multi-factor tokens, and remove their SSH keys from every host.\n5. Remove them from shared channels, mailing lists, and the on-call rotation.\n\n**Within two business days.**\n\n6. Collect the laptop, verify the disk is encrypted, and wipe it. If the laptop cannot be collected, revoke its device certificate remotely.\n7. Transfer ownership of any documents, datasets, or tickets they owned to their manager or a named successor, starting with Owner roles on client projects.\n8. Check for personal automations: scheduled jobs, service accounts they created, webhooks pointing at their address. Retire or reassign each one.\n9. Notify affected clients through the account manager if the person was a named engineer on their project.\n\n**Within one week.**\n\n10. Confirm with the security desk that no logins or API calls have been attempted with the disabled identity.\n11. Close the ticket, which records the completion time against the four-hour target.\n\n**Rolling off a project rather than leaving.** Follow items 2, 3, 7, and 9 only. The general account stays.\n\n**Contractors and vendors.** Same list, same timing. Vendor accounts are tied to the contract end date in the ticketing system so the reminder arrives automatically.\n",
+    "source": "kb/governance",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "security",
+      "offboarding",
+      "access-control"
+    ]
+  }
+]

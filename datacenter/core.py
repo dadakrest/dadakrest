@@ -96,10 +96,19 @@ class DataCenter:
     # -- contacts -----------------------------------------------------------
 
     def add_organization(self, name: str, industry: str = "", website: str = "") -> int:
+        """Create or update an organization.
+
+        Only the details actually passed are written, so naming an
+        organization to attach a contact to it does not blank out the
+        industry and website an earlier call recorded.
+        """
+        values: dict[str, Any] = {"name": name}
+        if industry:
+            values["industry"] = industry
+        if website:
+            values["website"] = website
         org_id = self.db("contacts").upsert(
-            "organizations",
-            {"name": name, "industry": industry, "website": website},
-            conflict="name",
+            "organizations", values, conflict="name", keep=("created_at",)
         )
         self.log("contacts", "add_organization", detail=name)
         return org_id
