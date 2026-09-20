@@ -84,6 +84,10 @@ class TestValidation(LoaderTestCase):
             write(self.data, "contacts.json", [{"full_name": "Ada", "email": email}])
             self.assertEqual(validate(self.data), [], email)
 
+    def test_a_non_ascii_label_under_a_reserved_suffix_is_accepted(self) -> None:
+        write(self.data, "contacts.json", [{"full_name": "Ada", "email": "ada@münchen.example"}])
+        self.assertEqual(validate(self.data), [])
+
     def test_unknown_organization_is_reported(self) -> None:
         write(self.data, "contacts.json", [{"full_name": "Ada", "email": "a@x.example", "organization": "Ghost"}])
         self.assertTrue(any("Ghost" in problem for problem in validate(self.data)))
@@ -98,6 +102,13 @@ class TestValidation(LoaderTestCase):
             "name": "d", "schema": {"a": "number"}, "records": [{"a": 1, "zzz": 2}],
         }])
         self.assertTrue(any("zzz" in problem for problem in validate(self.data)))
+
+    def test_whitespace_only_values_count_as_empty(self) -> None:
+        write(self.data, "organizations.json", [{"name": "   "}])
+        write(self.data, "documents.json", [{"external_id": "kb-1", "title": "t", "body": "\t\n "}])
+        problems = validate(self.data)
+        self.assertIn("organizations.json[0]: missing or empty 'name'", problems)
+        self.assertIn("documents.json[0]: missing or empty 'body'", problems)
 
     def test_invalid_data_loads_nothing(self) -> None:
         write(self.data, "organizations.json", [{"name": "Good Org"}])
@@ -134,6 +145,22 @@ class TestLoading(LoaderTestCase):
         self.assertEqual(len(self.center.pending_jobs()), 1)
         self.assertTrue(self.center.search("vectors for search"))
 
+    def test_refill_updates_a_changed_channel_in_place(self) -> None:
+        def contact(handle: str) -> None:
+            write(self.data, "contacts.json", [{
+                "full_name": "Ada", "email": "ada@lab.test",
+                "channels": [{"channel": "github", "handle": handle, "is_primary": True}],
+            }])
+
+        contact("ada")
+        load_all(self.center, self.data)
+        contact("ada-okoro")
+        load_all(self.center, self.data)
+
+        self.assertEqual(self.center.db("contacts").row_counts()["contact_channels"], 1)
+        row = self.center.db("contacts").query_one("SELECT handle FROM contact_channels")
+        self.assertEqual(row["handle"], "ada-okoro")
+
     def test_refill_updates_a_changed_document_in_place(self) -> None:
         write(self.data, "documents.json", [{"external_id": "kb-1", "title": "Old", "body": "old text", "tags": ["x"]}])
         load_all(self.center, self.data)
@@ -143,10 +170,6 @@ class TestLoading(LoaderTestCase):
         self.assertEqual(len(documents), 1)
         self.assertEqual(documents[0]["title"], "New")
         self.assertEqual(self.center.document_tags(documents[0]["id"]), ["y"])
-
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TestShapeValidation(LoaderTestCase):
@@ -304,3 +327,7 @@ class TestAtomicLoad(LoaderTestCase):
             "SELECT industry FROM organizations WHERE name = 'Acme'"
         )
         self.assertEqual(row["industry"], "Logistics", "a failed load changed an existing row")
+
+
+if __name__ == "__main__":
+    unittest.main()

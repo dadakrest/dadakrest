@@ -13,27 +13,54 @@ import hashlib
 import json
 import math
 import re
+import unicodedata
 
 from .config import EMBEDDING_DIM
 
 LOCAL_MODEL_NAME = "local-hashing-v1"
 
-_TOKEN_RE = re.compile(r"[a-z0-9]+")
+#: Word characters minus the underscore. `\w` is Unicode-aware for `str`
+#: patterns, so accented letters and non-Latin scripts stay inside their token
+#: instead of being treated as separators.
+_TOKEN_RE = re.compile(r"[^\W_]+")
 
 #: Words carried by almost every document, so they say nothing about which one
-#: a query means. Dropping them keeps scores driven by the distinctive terms.
+#: a query means. Dropping them keeps scores driven by the distinctive terms,
+#: which matters here because every term weighs the same (there is no IDF): a
+#: question like "what about penetration testing" otherwise spends a third of
+#: its weight on "about". The list is tuned for English. `no`, `nor` and `not`
+#: are deliberately left out so a negation still changes what a query matches.
 STOPWORDS = frozenset(
     """
-    a an and are as at be been but by do does for from had has have how i if in
-    into is it its of on or our so than that the their then there these they
-    this to was we were what when where which who why will with you your
+    a about above after again all an and any are as at be been before
+    between but by can could did do does down during each few for from had
+    has have he her here him his how i if in into is it its just me more
+    most my now of off on once only or other our out over own same she
+    should so some such than that the their then there these they this
+    through to too under until up very was we were what when where which
+    who why will with would you your yourself
+    """.split()
+    # The apostrophe is a separator, so a possessive or a contraction leaves a
+    # fragment behind ("client's" -> client, s; "isn't" -> isn, t). The word
+    # itself still matches; the fragment is meaningless and would otherwise
+    # carry full term weight, letting any two texts match on their apostrophes.
+    + """
+    s t d m ll re ve ain aren couldn didn doesn don hadn hasn haven isn
+    shouldn wasn weren won wouldn
     """.split()
 )
 
 
 def tokenize(text: str) -> list[str]:
-    """Lowercase the text, split it into alphanumeric tokens, drop stopwords."""
-    return [token for token in _TOKEN_RE.findall(text.lower()) if token not in STOPWORDS]
+    """Lowercase the text, split it into Unicode word tokens, drop stopwords.
+
+    The text is NFKC-normalized first so the same word written in two
+    equivalent forms (a composed `ü` and a `u` plus a combining diaeresis, or a
+    full-width digit and its ASCII twin) lands in one bucket rather than two.
+    Accents are not folded away, so `Zurich` and `Zürich` remain distinct.
+    """
+    normalized = unicodedata.normalize("NFKC", text.casefold())
+    return [token for token in _TOKEN_RE.findall(normalized) if token not in STOPWORDS]
 
 
 def _bucket(token: str, dimensions: int) -> int:

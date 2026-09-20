@@ -269,7 +269,13 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        return int(args.func(args))
+        code = int(args.func(args))
+        # Most commands print less than one buffer of output, so nothing has
+        # reached the pipe yet: flush here, where the handler below can still
+        # catch the error, rather than leaving it to the interpreter's flush
+        # at exit, which would report it as 'Exception ignored' and exit 120.
+        sys.stdout.flush()
+        return code
     except BrokenPipeError:
         # Output was piped into something that stopped reading, e.g. `| head`.
         # Redirect stdout to devnull so the interpreter's flush at exit does

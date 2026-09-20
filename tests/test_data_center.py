@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import sqlite3
 import subprocess
 import sys
@@ -14,10 +15,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import datacenter.vectors  # noqa: E402
 from datacenter import DATABASE_KEYS, DataCenter  # noqa: E402
 from datacenter.cli import main as cli_main  # noqa: E402
 from datacenter.seed import seed  # noqa: E402
-from datacenter.vectors import cosine_similarity, embed_text  # noqa: E402
+from datacenter.vectors import cosine_similarity, embed_text, loads, tokenize  # noqa: E402
 
 
 class DataCenterTestCase(unittest.TestCase):
@@ -134,6 +136,24 @@ class TestContacts(DataCenterTestCase):
         self.assertEqual(row["industry"], "Logistics")
         self.assertEqual(row["website"], "https://acme.example")
 
+    def test_editing_a_channel_replaces_it(self) -> None:
+        for handle in ("ada", "ada-okoro"):
+            self.center.add_contact(
+                "Ada", email="ada@x.example",
+                channels=[{"channel": "github", "handle": handle, "is_primary": True}],
+            )
+        rows = self.center.db("contacts").query("SELECT handle FROM contact_channels")
+        self.assertEqual([row["handle"] for row in rows], ["ada-okoro"])
+
+    def test_saving_a_contact_without_channels_keeps_them(self) -> None:
+        """What the CLI's `add-contact` does: no channels argument at all."""
+        self.center.add_contact(
+            "Ada", email="ada@x.example",
+            channels=[{"channel": "github", "handle": "ada"}],
+        )
+        self.center.add_contact("Ada", email="ada@x.example", phone="555")
+        self.assertEqual(self.center.db("contacts").row_counts()["contact_channels"], 1)
+
     def test_organization_is_reused_not_duplicated(self) -> None:
         self.center.add_contact("Ada", organization="Northgate")
         self.center.add_contact("Ben", organization="Northgate")
@@ -168,6 +188,47 @@ class TestDocumentsAndSearch(DataCenterTestCase):
         self.assertTrue(results)
         self.assertEqual(results[0]["title"], "Network hardening checklist")
 
+    def test_a_document_in_another_script_is_indexed_and_findable(self) -> None:
+        """Text outside ASCII must not embed to an empty, unreachable vector."""
+        document_id = self.center.add_document(
+            "東京 データセンター 運用",
+            "東京 の データセンター は 冷却 と 電力 を 監視 します",
+        )
+        row = self.center.db("embeddings").query_one(
+            "SELECT vector FROM embeddings WHERE document_id = ?", (document_id,)
+        )
+        self.assertTrue(any(loads(row["vector"])), "the vector is all zeros")
+
+        results = self.center.search("東京 データセンター")
+        self.assertEqual(results[0]["document_id"], document_id)
+
+    def test_a_shared_apostrophe_is_not_a_match(self) -> None:
+        """Two texts must not match on the fragments their possessives leave."""
+        self.center.add_document(
+            "Asset register",
+            "Ben's laptop, Ana's monitor, Kim's dock, Lee's headset, Sam's keyboard.",
+        )
+        plan_id = self.center.add_document(
+            "Quarterly plan",
+            "The plan sets targets for each quarter and names an owner for every target.",
+        )
+        results = self.center.search("what's the plan")
+        self.assertEqual([hit["document_id"] for hit in results], [plan_id])
+
+    def test_a_question_matches_on_its_topic_not_its_function_words(self) -> None:
+        """"about" must not pull in a document that merely says it a lot."""
+        self.center.add_document(
+            "Weekly team sync",
+            "Tell me about your week, about anything that blocked you, "
+            "and about what you plan next.",
+        )
+        self.center.add_document(
+            "Penetration testing scope",
+            "The scope covers the external network and the model inference endpoints.",
+        )
+        results = self.center.search("what about penetration testing")
+        self.assertEqual([hit["title"] for hit in results], ["Penetration testing scope"])
+
     def test_search_returns_nothing_for_unrelated_terms(self) -> None:
         self.assertEqual(self.center.search("photosynthesis chlorophyll"), [])
 
@@ -175,8 +236,77 @@ class TestDocumentsAndSearch(DataCenterTestCase):
         self.assertEqual(self.center.search("firewall", min_score=0.99), [])
         self.assertTrue(self.center.search("firewall", min_score=0.0))
 
+    def test_a_document_with_nothing_in_common_is_never_a_hit(self) -> None:
+        """Not even with the floor turned off: zero similarity is not a match."""
+        self.assertEqual(self.center.search("photosynthesis chlorophyll", min_score=0.0), [])
+
+    def test_scores_are_the_cosine_similarity_of_the_stored_vectors(self) -> None:
+        hit = self.center.search("firewall rules")[0]
+        row = self.center.db("embeddings").query_one(
+            "SELECT vector FROM embeddings WHERE document_id = ?", (hit["document_id"],)
+        )
+        expected = cosine_similarity(embed_text("firewall rules"), loads(row["vector"]))
+        self.assertAlmostEqual(hit["score"], expected, places=4)
+
+    def test_limit_must_be_at_least_one(self) -> None:
+        for limit in (0, -1, None):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                self.center.search("firewall", limit=limit)
+
     def test_reindex_covers_every_document(self) -> None:
         self.assertEqual(self.center.reindex(), 2)
+
+
+class TestEmbeddingWidth(DataCenterTestCase):
+    """What the index does when the embedder behind it changes width."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.center.add_document(
+            "Network hardening checklist",
+            "Segment the network, rotate router credentials, review firewall rules.",
+        )
+
+    @contextlib.contextmanager
+    def embedder_of_width(self, dimensions: int):
+        """Run the block with an embedder of another width in place."""
+        original = datacenter.vectors.embed_text
+        datacenter.vectors.embed_text = lambda text, dims=dimensions: original(text, dims)
+        try:
+            yield
+        finally:
+            datacenter.vectors.embed_text = original
+
+    def stored_widths(self) -> list[int]:
+        rows = self.center.db("embeddings").query("SELECT dimensions FROM embeddings")
+        return [row["dimensions"] for row in rows]
+
+    def test_the_stored_width_is_the_one_the_embedder_returned(self) -> None:
+        with self.embedder_of_width(1536):
+            self.center.reindex()
+            self.assertTrue(self.center.search("firewall rules"))
+        self.assertEqual(self.stored_widths(), [1536])
+
+    def test_a_stale_index_asks_for_a_reindex_instead_of_answering_nothing(self) -> None:
+        with self.embedder_of_width(1536), self.assertRaises(RuntimeError) as raised:
+            self.center.search("firewall rules")
+        self.assertIn("reindex", str(raised.exception))
+
+    def test_status_counts_vectors_of_another_width(self) -> None:
+        self.assertEqual(self.center.status()["stale_embeddings"], 0)
+        with self.embedder_of_width(1536):
+            self.center.reindex()
+        self.assertEqual(self.center.status()["stale_embeddings"], 1)
+
+    def test_a_vector_that_contradicts_its_width_column_is_skipped(self) -> None:
+        """One unreadable row must not take the rest of the index down with it."""
+        self.center.add_document("Meeting notes", "unrelated filler text")
+        self.center.db("embeddings").execute(
+            "UPDATE embeddings SET vector = ? WHERE document_id = 2",
+            (json.dumps({"dim": 8, "values": {"1": 1.0}}),),
+        )
+        results = self.center.search("firewall rules")
+        self.assertEqual([hit["document_id"] for hit in results], [1])
 
 
 class TestDatasets(DataCenterTestCase):
@@ -242,6 +372,13 @@ class TestAuditAndOperations(DataCenterTestCase):
         self.assertEqual(len(report["databases"]), 7)
         self.assertTrue(all(db["provisioned"] and db["healthy"] for db in report["databases"]))
 
+    def test_status_survives_a_table_created_outside_the_schema(self) -> None:
+        """A scratch table whose name needs quoting must not sink the report."""
+        self.center.db("audit").execute('CREATE TABLE "scratch notes" (x)')
+        report = self.center.status()
+        audit = next(db for db in report["databases"] if db["key"] == "audit")
+        self.assertEqual(audit["rows"]["scratch notes"], 0)
+
     def test_backup_copies_every_database_with_a_manifest(self) -> None:
         self.center.add_document("Notes", "backed up text")
         target = self.center.backup(self.root.parent / "backups")
@@ -256,6 +393,64 @@ class TestAuditAndOperations(DataCenterTestCase):
             self.assertEqual(len(restored.list_documents()), 1)
         finally:
             restored.close()
+
+
+class TestDamagedAndMissingDatabases(DataCenterTestCase):
+    """What the health report says about files that are not working databases."""
+
+    def detach(self, key: str):
+        """Close a database and drop its WAL sidecars, so its file can be edited."""
+        database = self.center.db(key)
+        database.close()
+        for suffix in ("-wal", "-shm"):
+            database.path.with_name(database.path.name + suffix).unlink(missing_ok=True)
+        return database
+
+    def report(self) -> dict[str, dict]:
+        return {database["key"]: database for database in self.center.status()["databases"]}
+
+    def test_a_file_that_is_not_a_database_is_reported_not_raised(self) -> None:
+        self.detach("models").path.write_bytes(b"this is not a sqlite database at all" * 100)
+        report = self.report()
+        self.assertTrue(report["models"]["exists"])
+        self.assertFalse(report["models"]["provisioned"])
+        self.assertFalse(report["models"]["healthy"])
+        self.assertTrue(report["contacts"]["healthy"], "the other six must still be reported")
+        results = self.center.verify()
+        self.assertFalse(results["models"])
+        self.assertTrue(results["contacts"])
+
+    def test_an_emptied_database_is_not_reported_healthy(self) -> None:
+        self.detach("models").path.write_bytes(b"")
+        self.assertFalse(self.report()["models"]["healthy"])
+        self.assertFalse(self.center.verify()["models"])
+
+    def test_verify_on_an_unprovisioned_root_creates_nothing(self) -> None:
+        root = Path(self._tmp.name) / "nowhere"
+        with DataCenter(root=root) as center:
+            self.assertEqual(set(center.verify().values()), {False})
+        self.assertFalse(root.exists(), "verify provisioned the root it was checking")
+
+    def test_reading_an_unprovisioned_database_refuses_to_create_it(self) -> None:
+        root = Path(self._tmp.name) / "elsewhere"
+        with DataCenter(root=root) as center:
+            with self.assertRaises(FileNotFoundError):
+                center.recent_events()
+        self.assertFalse(root.exists())
+
+    def test_backup_leaves_out_a_database_that_is_not_there(self) -> None:
+        models = self.detach("models")
+        models.path.unlink()
+        target = self.center.backup(self.root.parent / "backups")
+        manifest = json.loads((target / "manifest.json").read_text())
+        self.assertNotIn("models", manifest["databases"])
+        self.assertFalse((target / "models.db").exists())
+        self.assertFalse(models.path.exists(), "the backup recreated the source file")
+
+    def test_size_counts_rows_that_are_still_in_the_wal(self) -> None:
+        self.center.add_document("Notes", "text that has to live somewhere")
+        documents = self.center.db("documents")
+        self.assertGreater(documents.size_bytes(), documents.path.stat().st_size)
 
 
 class TestSeed(DataCenterTestCase):
@@ -279,6 +474,21 @@ class TestVectors(unittest.TestCase):
         self.assertGreater(
             cosine_similarity(anchor, related), cosine_similarity(anchor, unrelated)
         )
+
+    def test_accented_words_stay_whole(self) -> None:
+        """'Zürich' is one token, not the fragments 'z' and 'rich'."""
+        self.assertEqual(tokenize("Zürich café naïve"), ["zürich", "café", "naïve"])
+
+    def test_contraction_fragments_are_dropped(self) -> None:
+        """The word survives the apostrophe; the leftover stub does not."""
+        self.assertEqual(
+            tokenize("The client's invoice isn't paid"), ["client", "invoice", "paid"]
+        )
+
+    def test_equivalent_spellings_normalize_to_one_token(self) -> None:
+        composed = "Zürich"  # ü as a single code point
+        decomposed = "Zürich"  # u followed by a combining diaeresis
+        self.assertEqual(tokenize(composed), tokenize(decomposed))
 
     def test_empty_text_has_zero_similarity(self) -> None:
         self.assertEqual(cosine_similarity(embed_text(""), embed_text("anything")), 0.0)
@@ -305,21 +515,54 @@ class TestCli(unittest.TestCase):
         self.assertEqual(self.run_cli("init"), 0)
         self.assertEqual(self.run_cli("verify"), 0)
 
-    def test_piping_into_head_does_not_traceback(self) -> None:
-        """`python -m datacenter status | head -2` must exit quietly."""
-        self.assertEqual(self.run_cli("init"), 0)
-        repo_root = Path(__file__).resolve().parent.parent
-        reader = subprocess.Popen(["head", "-2"], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL)
-        writer = subprocess.run(
-            [sys.executable, "-m", "datacenter", "--root", self.root, "status"],
-            cwd=repo_root,
-            stdout=reader.stdin,
+    def run_module(self, *argv: str, stdout, env: dict[str, str] | None = None):
+        """Run the CLI as a subprocess, the way a shell pipeline would."""
+        return subprocess.run(
+            [sys.executable, "-m", "datacenter", "--root", self.root, *argv],
+            cwd=Path(__file__).resolve().parent.parent,
+            stdout=stdout,
             stderr=subprocess.PIPE,
             text=True,
+            env=env,
         )
+
+    def test_piping_into_head_does_not_traceback(self) -> None:
+        """`python -m datacenter documents | head -1` must exit quietly.
+
+        The listing has to be longer than the 64 KiB pipe buffer, or the
+        writer never blocks, `head` exits before the buffer is full and no
+        broken pipe is ever produced - which would leave the handler in
+        `cli.main` untested.
+        """
+        with DataCenter(root=self.root) as center:
+            center.provision()
+            for index in range(2000):
+                center.add_document(
+                    f"Document {index} with a long enough title to fill the pipe",
+                    "x",
+                    embed=False,
+                )
+        reader = subprocess.Popen(["head", "-1"], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL)
+        writer = self.run_module("documents", stdout=reader.stdin)
         reader.stdin.close()
         reader.wait()
         self.assertNotIn("Traceback", writer.stderr)
+        self.assertEqual(writer.returncode, 0)
+
+    def test_writing_to_an_already_closed_pipe_exits_quietly(self) -> None:
+        """The reader is gone before the first write, e.g. `| grep -q` that matched.
+
+        Nothing reaches the pipe until stdout is flushed, so this is the case
+        the interpreter's flush at exit would report as 'Exception ignored'.
+        PYTHONUNBUFFERED is dropped because it would flush each print instead.
+        """
+        self.assertEqual(self.run_cli("init"), 0)
+        reader = subprocess.Popen(["true"], stdin=subprocess.PIPE)
+        reader.wait()
+        buffered = {key: value for key, value in os.environ.items() if key != "PYTHONUNBUFFERED"}
+        writer = self.run_module("status", stdout=reader.stdin, env=buffered)
+        reader.stdin.close()
+        self.assertNotIn("BrokenPipeError", writer.stderr)
         self.assertEqual(writer.returncode, 0)
 
     def test_seed_then_search(self) -> None:

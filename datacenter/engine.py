@@ -15,6 +15,11 @@ from .schema import MIGRATIONS, SCHEMAS
 _SUPPORTS_RETURNING = sqlite3.sqlite_version_info >= (3, 35, 0)
 
 
+def _quoted(identifier: str) -> str:
+    """Quote a table or column name for use in a statement."""
+    return '"' + identifier.replace('"', '""') + '"'
+
+
 class Database:
     """One provisioned SQLite database, opened lazily on first use."""
 
@@ -28,14 +33,36 @@ class Database:
 
     @property
     def connection(self) -> sqlite3.Connection:
-        if self._connection is None:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            connection = sqlite3.connect(self.path)
+        """The open connection. The database has to exist already: reading one
+        that was never provisioned is an error, not a reason to create it.
+        """
+        return self._open(create=False)
+
+    def _open(self, *, create: bool) -> sqlite3.Connection:
+        """Return the open connection, connecting on first use.
+
+        `create` decides what happens when the file is not there: provisioning
+        creates it, everything else refuses.
+        """
+        if self._connection is not None:
+            return self._connection
+        if not create and not self.path.exists():
+            raise FileNotFoundError(
+                f"{self.spec.key} is not provisioned at {self.path}; run init"
+            )
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        connection = sqlite3.connect(self.path)
+        try:
             connection.row_factory = sqlite3.Row
             connection.execute("PRAGMA foreign_keys = ON")
             connection.execute("PRAGMA journal_mode = WAL")
-            self._connection = connection
-        return self._connection
+        except BaseException:
+            # A file that is not a database fails here; without this the
+            # half-open connection would leak once per attempt.
+            connection.close()
+            raise
+        self._connection = connection
+        return connection
 
     def close(self) -> None:
         if self._connection is not None:
@@ -155,6 +182,7 @@ class Database:
         Returns the number of rows the migration step changed, which is 0 for
         a fresh database and for one already on the current schema.
         """
+        self._open(create=True)  # the one place a database file is created
         migrated = self.migrate()
         for statement in SCHEMAS[self.spec.key]:
             self.connection.execute(statement)
@@ -182,23 +210,61 @@ class Database:
         return changed
 
     def tables(self) -> list[str]:
-        rows = self.query(
-            "SELECT name FROM sqlite_master WHERE type = 'table' "
-            "AND name NOT LIKE 'sqlite_%' ORDER BY name"
-        )
+        """The tables the file holds, or none if it is not a readable database.
+
+        A file that is not SQLite at all has no tables to report, and saying so
+        lets a health report cover the other databases instead of stopping at
+        the damaged one.
+        """
+        try:
+            rows = self.query(
+                "SELECT name FROM sqlite_master WHERE type = 'table' "
+                "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+            )
+        except sqlite3.DatabaseError:
+            return []
         return [row["name"] for row in rows]
 
     def row_counts(self) -> dict[str, int]:
+        """Count the rows in every table the file holds.
+
+        The names come from `sqlite_master`, so they can be anything SQLite
+        accepted — including a scratch table someone created by hand — and are
+        quoted rather than spliced in raw.
+        """
         return {
-            table: int(self.query_one(f"SELECT COUNT(*) AS n FROM {table}")["n"])
+            table: int(self.query_one(f"SELECT COUNT(*) AS n FROM {_quoted(table)}")["n"])
             for table in self.tables()
         }
 
     def size_bytes(self) -> int:
-        return self.path.stat().st_size if self.path.exists() else 0
+        """How much database there is, in bytes.
+
+        Read through the connection rather than off the file, because every
+        connection runs in WAL mode: rows written in this session sit in the
+        `-wal` file until a checkpoint, and `stat()` would report a database
+        holding hundreds of rows as one empty page. Falls back to the file size
+        for a database SQLite cannot open.
+        """
+        if not self.path.exists():
+            return 0
+        try:
+            page_count = int(self.query_one("PRAGMA page_count")[0])
+            page_size = int(self.query_one("PRAGMA page_size")[0])
+        except sqlite3.DatabaseError:
+            return self.path.stat().st_size
+        return page_count * page_size
 
     def integrity_ok(self) -> bool:
-        row = self.query_one("PRAGMA integrity_check")
+        """True if SQLite can read the file and finds nothing wrong with it.
+
+        A file SQLite cannot open at all is the strongest failure there is, so
+        it answers False rather than raising.
+        """
+        try:
+            row = self.query_one("PRAGMA integrity_check")
+        except sqlite3.DatabaseError:
+            return False
         return bool(row) and row[0] == "ok"
 
     def backup_to(self, destination: Path) -> Path:

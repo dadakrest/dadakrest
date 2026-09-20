@@ -47,14 +47,60 @@ that behaves identically to `python -m datacenter`.
 | `init` | Create all seven databases and apply their schemas. Idempotent. |
 | `seed` | Load demo data so there is something to query. |
 | `status [--json]` | Per-database state, size and row counts. |
-| `search QUERY [--limit N]` | Semantic search over indexed documents. |
+| `search QUERY [--limit N]` | Semantic search over indexed documents (`N` is at least 1). |
 | `add-document TITLE [--body ... \| --file ...] [--tag t]` | Store and index a document. |
 | `add-contact NAME [--email ... --organization ...]` | Store a contact. |
 | `documents` / `contacts` | List what is stored. |
 | `jobs [--run]` | Show the queue, or run the next pending job. |
-| `verify` | Integrity-check every database. Exits non-zero on failure. |
-| `backup [DEST]` | Copy all seven databases into a timestamped folder with a manifest. |
+| `verify` | Check every database is present, complete and readable. Exits non-zero on failure. |
+| `backup [DEST]` | Copy every provisioned database into a timestamped folder with a manifest. |
 | `events [--limit N]` | Read the audit trail. |
+
+A database counts as provisioned when it holds the tables its spec calls for,
+not merely when a file of that name exists, so an empty or damaged file reads
+as unprovisioned and unhealthy rather than as a working database with nothing
+in it. `verify` applies the same test and creates nothing: running it against a
+mistyped `--root` reports seven failures instead of leaving seven empty files
+behind. Reading from a root that was never initialised raises a
+`FileNotFoundError` naming the database and telling you to run `init`, and a
+backup leaves out — rather than invents — a database whose file is missing.
+
+## Data files
+
+`seed` pours `datacenter/data/*.json` into the databases; `validate-data`
+checks those files without writing anything. `datacenter/loader.py` documents
+the format of each file at the top.
+
+Validation is strict, and refusing a file is the point: a value of the wrong
+type is reported rather than coerced, so a document whose `external_id` is the
+number `1` is rejected instead of silently overwriting the document whose id is
+the string `"1"` (SQLite stores both in a `TEXT` column as `'1'`). The same
+applies to `is_primary` and `is_active`, which must be real JSON booleans —
+`"false"` is a non-empty string and used to set the flag — and to values that
+are only whitespace, which count as empty. Contact addresses must sit under a
+reserved domain (`.example`, `.test`, `.invalid`, `.localhost`,
+`example.com/net/org`) so the data stays fictional. Each problem names the file
+it came from and the entry's index inside that file
+(`documents/10-ai-fundamentals.json[3]`), not a running count across the parts.
+A `--data` path that does not exist, or that is a regular file, is reported as
+a problem and exits non-zero instead of validating clean and loading nothing.
+
+Loading is all-or-nothing: the files are validated first, and the writes run in
+a transaction per database that is rolled back if anything fails part-way
+through, so a rejected or failing refill leaves the previous contents intact.
+(Seven separate SQLite files cannot be committed as a single unit, so the
+guarantee is "nothing is written unless the whole load succeeds", not a
+cross-file two-phase commit.)
+
+A load is a refill rather than an append. Every entry carries a natural key —
+an organization's name, a contact's email, a document's `external_id`, a
+model's name and version, a dataset's name plus the record's payload — so
+running it again updates what changed and leaves the rest alone. A dataset's
+records are replaced wholesale: editing a record's value replaces that record
+instead of storing the new version beside the old one, and a record removed
+from the file is removed from the database. Records added through
+`center.add_record()` to a dataset that also appears in `datasets.json` are
+therefore dropped by the next seed.
 
 ## Using it from Python
 
@@ -93,18 +139,27 @@ hashed into one of 4096 buckets with a log-damped count. The resulting vector
 is L2-normalized and stored sparsely — only the non-zero buckets are written,
 so a short document costs a few hundred bytes rather than tens of kilobytes.
 
-Search embeds the query the same way and ranks documents by cosine similarity.
-Scores below `DataCenter.min_score` (0.15) are dropped, because distinct words
-can hash into the same bucket and a collision otherwise looks like a weak
-match.
+Search embeds the query the same way and ranks documents by cosine similarity,
+summing over the buckets the query itself uses rather than walking thousands of
+zeros per document. Scores below `DataCenter.min_score` (0.15) are dropped,
+because distinct words can hash into the same bucket and a collision otherwise
+looks like a weak match. A document that shares no bucket with the query scores
+exactly zero and is never returned, whatever floor the caller passes.
 
 This is a stand-in for a real embedding model, chosen so the data center runs
 anywhere with nothing installed. To upgrade retrieval, replace `embed_text`
-with a call to a real embedding model, keep the return type (a list of floats),
-register the model with `center.register_model(...)`, and re-embed with
-`center.reindex(model="your-model")`. The `embeddings` table keys on
-`(document_id, model)`, so several models can coexist, and search only compares
-vectors of matching width.
+with a call to a real embedding model, keep the return type (a list of floats,
+L2-normalized), register the model with `center.register_model(...)`, and
+re-embed with `center.reindex(model="your-model")`. The `embeddings` table keys
+on `(document_id, model)`, so several models can coexist, and each row records
+the width the embedder actually returned, so search only compares vectors of
+matching width: a row that disagrees with the vector stored beside it is
+skipped instead of aborting the query.
+
+Changing the width — a new model, or a different `EMBEDDING_DIM` — leaves every
+stored vector outside that filter until `center.reindex()` rebuilds them.
+Rather than answer "no matches" for every query, search raises and says to
+reindex, and `status --json` reports the count as `stale_embeddings`.
 
 ## Jobs
 

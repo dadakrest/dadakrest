@@ -57,10 +57,12 @@ FILES: tuple[str, ...] = (
 
 #: Domains reserved for documentation and testing (RFC 2606 / RFC 6761).
 #: Any contact email must end in one of these, so the data set is always
-#: demonstrably fictional.
+#: demonstrably fictional. Only the reserved suffix is spelled out: the labels
+#: in front of it may be any word characters, so `ada@münchen.example` is
+#: accepted rather than reported as if its domain were not reserved.
 FICTIONAL_DOMAIN_RE = re.compile(
-    r"@([a-z0-9-]+\.)*(example|test|invalid|localhost)\Z|"
-    r"@([a-z0-9-]+\.)*example\.(com|net|org)\Z"
+    r"@([-\w]+\.)*(example|test|invalid|localhost)\Z|"
+    r"@([-\w]+\.)*example\.(com|net|org)\Z"
 )
 
 #: \A and \Z rather than ^ and $: in Python those also match around a
@@ -206,7 +208,17 @@ def _flag(label: str, item: dict[str, Any], key: str) -> list[str]:
 
 
 def _require(label: str, item: dict[str, Any], *keys: str) -> list[str]:
-    return [f"{label}: missing or empty {key!r}" for key in keys if not item.get(key)]
+    """Report keys that are missing or empty.
+
+    A value of "   " is as empty as "" to anyone reading it, but Python calls
+    it truthy, so it used to be stored as an organization's name.
+    """
+    problems: list[str] = []
+    for key in keys:
+        value = item.get(key)
+        if not value or (isinstance(value, str) and not value.strip()):
+            problems.append(f"{label}: missing or empty {key!r}")
+    return problems
 
 
 def _unique(entries: list[tuple[str, dict[str, Any]]], key: str) -> list[str]:

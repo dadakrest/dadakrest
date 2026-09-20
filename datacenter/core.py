@@ -150,7 +150,10 @@ class DataCenter:
         channels: list[dict[str, Any]] | None = None,
     ) -> int:
         """Store a contact. A contact with an email is keyed on it, so loading
-        the same person twice updates the one row instead of adding a second.
+        the same person twice updates the one row instead of adding a second,
+        and the channels passed replace the ones that contact already had.
+        Leaving `channels` out keeps them, so naming a contact to correct a
+        phone number does not drop the handles a data file gave them.
         """
         organization_id = None
         if organization:
@@ -170,6 +173,11 @@ class DataCenter:
             contact_id = contacts.upsert("contacts", values, conflict="email", keep=("created_at",))
         else:
             contact_id = contacts.insert("contacts", values)
+
+        # Keyed contacts refill their channels: an edited handle replaces the
+        # old one instead of sitting beside it, the way document tags do.
+        if email and channels is not None:
+            contacts.execute("DELETE FROM contact_channels WHERE contact_id = ?", (contact_id,))
 
         for channel in channels or []:
             contacts.execute(
@@ -411,13 +419,16 @@ class DataCenter:
         if document is None:
             raise KeyError(f"no document with id {document_id}")
 
-        vector = vectors.embed_text(f"{document['title']}\n{document['body']}", EMBEDDING_DIM)
+        vector = vectors.embed_text(f"{document['title']}\n{document['body']}")
         embedding_id = self.db("embeddings").upsert(
             "embeddings",
             {
                 "document_id": document_id,
                 "model": model,
-                "dimensions": EMBEDDING_DIM,
+                # The width the embedder actually returned, not the width it
+                # was asked for: swapping in a model of another size has to
+                # show up here or the column says nothing.
+                "dimensions": len(vector),
                 "vector": vectors.dumps(vector),
                 "created_at": _utc_now(),
             },
@@ -444,22 +455,45 @@ class DataCenter:
         model: str = vectors.LOCAL_MODEL_NAME,
         min_score: float | None = None,
     ) -> list[dict[str, Any]]:
-        """Semantic search across indexed documents, best match first."""
+        """Semantic search across indexed documents, best match first.
+
+        A document that shares nothing with the query is never a hit, whatever
+        floor the caller asks for: a score of exactly zero means no term in
+        common, not a weak match.
+        """
+        if limit is None or limit < 1:
+            raise ValueError("limit must be at least 1")
+
         threshold = self.min_score if min_score is None else min_score
-        query_vector = vectors.embed_text(query, EMBEDDING_DIM)
+        query_vector = vectors.embed_text(query)
         # Width is part of the match: vectors written by an embedder of a
         # different dimensionality are not comparable to this query.
         rows = self.db("embeddings").query(
             "SELECT document_id, vector FROM embeddings WHERE model = ? AND dimensions = ?",
-            (model, EMBEDDING_DIM),
+            (model, len(query_vector)),
         )
+        if not rows:
+            self._require_current_index(model, len(query_vector))
 
+        # Only the buckets the query itself uses can contribute anything, and
+        # every stored vector is L2-normalized, so summing over those buckets
+        # is the cosine similarity without walking thousands of zeros per row.
+        buckets = [(index, weight) for index, weight in enumerate(query_vector) if weight]
         scored: list[tuple[float, int]] = []
+        mismatched = 0
         for row in rows:
-            score = vectors.cosine_similarity(query_vector, vectors.loads(row["vector"]))
-            if score >= threshold:
+            stored = vectors.loads(row["vector"])
+            if len(stored) != len(query_vector):
+                # The dimensions column disagrees with the vector beside it:
+                # skip that one row rather than abandoning the whole query.
+                mismatched += 1
+                continue
+            score = sum(weight * stored[index] for index, weight in buckets)
+            if score > 0.0 and score >= threshold:
                 scored.append((score, int(row["document_id"])))
         scored.sort(key=lambda pair: (-pair[0], pair[1]))
+        if mismatched:
+            self.log("embeddings", "search_skip", detail=f"{mismatched} vectors of another width")
 
         results: list[dict[str, Any]] = []
         for score, document_id in scored[:limit]:
@@ -475,6 +509,36 @@ class DataCenter:
 
         self.log("embeddings", "search", detail=f"{query!r} -> {len(results)} hits")
         return results
+
+    def _require_current_index(self, model: str, dimensions: int) -> None:
+        """Refuse to pass off a stale index as an empty one.
+
+        Changing `EMBEDDING_DIM` (or the embedder behind it) leaves every
+        stored vector outside the width filter, so search would quietly answer
+        "no matches" for every query until the index is rebuilt.
+        """
+        row = self.db("embeddings").query_one(
+            "SELECT COUNT(*) AS n FROM embeddings WHERE model = ?", (model,)
+        )
+        if row and row["n"]:
+            raise RuntimeError(
+                f"{row['n']} embeddings for {model!r} were built at a width other than "
+                f"{dimensions}; run reindex()"
+            )
+
+    def _stale_embeddings(self) -> int:
+        """Stored vectors whose width is not the one the embedder writes now.
+
+        They are excluded from every search until `reindex()` rebuilds them,
+        and nothing else in a health report would show it.
+        """
+        embeddings = self._databases["embeddings"]
+        if not embeddings.path.exists() or "embeddings" not in embeddings.tables():
+            return 0
+        row = embeddings.query_one(
+            "SELECT COUNT(*) AS n FROM embeddings WHERE dimensions != ?", (EMBEDDING_DIM,)
+        )
+        return int(row["n"]) if row else 0
 
     # -- jobs ---------------------------------------------------------------
 
@@ -550,56 +614,89 @@ class DataCenter:
     # -- operations ---------------------------------------------------------
 
     def status(self) -> dict[str, Any]:
-        """Health and size report for all seven databases."""
+        """Health and size report for all seven databases.
+
+        `provisioned` means the database holds the tables its spec calls for,
+        not merely that a file of that name is on disk: an empty or damaged
+        file is reported as unprovisioned and unhealthy rather than as a
+        working database with nothing in it. `exists` tells the two apart.
+        """
         report: dict[str, Any] = {
             "name": self.name,
             "version": self.version,
             "root": str(self.root),
             "generated_at": _utc_now(),
+            "stale_embeddings": self._stale_embeddings(),
             "databases": [],
         }
         for spec in DATABASES:
             database = self._databases[spec.key]
-            provisioned = database.path.exists()
+            exists = database.path.exists()
+            tables = database.tables() if exists else []
+            provisioned = set(spec.tables).issubset(tables)
             report["databases"].append(
                 {
                     "key": spec.key,
                     "title": spec.title,
                     "purpose": spec.purpose,
+                    "exists": exists,
                     "provisioned": provisioned,
                     "path": str(database.path),
                     "size_bytes": database.size_bytes(),
-                    "tables": database.tables() if provisioned else [],
+                    "tables": tables,
                     "rows": database.row_counts() if provisioned else {},
-                    "healthy": database.integrity_ok() if provisioned else False,
+                    "healthy": provisioned and database.integrity_ok(),
                 }
             )
         return report
 
     def verify(self) -> dict[str, bool]:
-        """Run SQLite's integrity check on every database."""
-        results = {
-            spec.key: self._databases[spec.key].integrity_ok() for spec in DATABASES
-        }
-        self.log("audit", "verify", detail=f"{sum(results.values())}/{len(results)} healthy")
+        """Check that every database is there, complete and readable.
+
+        A database only passes if its file exists, holds the tables its spec
+        calls for and survives SQLite's integrity check. Verifying a root that
+        was never initialised answers False for all seven and creates nothing,
+        so a mistyped `--root` is reported rather than provisioned by accident.
+        """
+        results: dict[str, bool] = {}
+        for spec in DATABASES:
+            database = self._databases[spec.key]
+            results[spec.key] = (
+                database.path.exists()
+                and set(spec.tables).issubset(database.tables())
+                and database.integrity_ok()
+            )
+        if results["audit"]:
+            self.log("audit", "verify", detail=f"{sum(results.values())}/{len(results)} healthy")
         return results
 
     def backup(self, destination: Path | str) -> Path:
-        """Back up all seven databases into a timestamped folder."""
+        """Back up every provisioned database into a timestamped folder.
+
+        A database whose file is missing is skipped and left out of the
+        manifest, rather than being conjured up empty and copied as if it held
+        something.
+        """
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         target = Path(destination) / stamp
         target.mkdir(parents=True, exist_ok=True)
 
+        copied: list[str] = []
         for spec in DATABASES:
-            self._databases[spec.key].backup_to(target / spec.filename)
+            database = self._databases[spec.key]
+            if not database.path.exists():
+                continue
+            database.backup_to(target / spec.filename)
+            copied.append(spec.key)
 
         manifest = {
             "data_center": self.name,
             "version": self.version,
             "created_at": _utc_now(),
-            "databases": [spec.key for spec in DATABASES],
+            "databases": copied,
         }
         (target / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
-        self.log("audit", "backup", detail=str(target))
+        if "audit" in copied:
+            self.log("audit", "backup", detail=str(target))
         return target
