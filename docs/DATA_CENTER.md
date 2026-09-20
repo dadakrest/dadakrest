@@ -134,29 +134,43 @@ without indexing, then catch up later with `center.reindex()` or by queueing a
 ## How search works
 
 `datacenter/vectors.py` contains a deterministic hashing embedder: text is
-lowercased, tokenized, stripped of stopwords, and each remaining token is
-hashed into one of 4096 buckets with a log-damped count. The resulting vector
-is L2-normalized and stored sparsely — only the non-zero buckets are written,
-so a short document costs a few hundred bytes rather than tens of kilobytes.
+NFKC-normalized and lowercased, split into Unicode word tokens, stripped of
+stopwords, and each remaining token is hashed into a bucket with a log-damped
+count. An embedding is a sparse map from bucket to weight, L2-normalized, so a
+document only costs as many numbers as it has distinct words.
 
-Search embeds the query the same way and ranks documents by cosine similarity,
-summing over the buckets the query itself uses rather than walking thousands of
-zeros per document. Scores below `DataCenter.min_score` (0.15) are dropped,
-because distinct words can hash into the same bucket and a collision otherwise
-looks like a weak match. A document that shares no bucket with the query scores
-exactly zero and is never returned, whatever floor the caller passes.
+The bucket space is deliberately enormous (`config.BUCKET_SPACE`, just under
+2**63). Nothing is allocated for it — only the buckets a text actually uses are
+stored — and it makes two different words landing in the same bucket a ~2**-63
+event. Search embeds the query the same way and ranks by cosine similarity,
+which for unit vectors is the dot product over the buckets they share.
+
+There is no score floor by default, and the reason is worth stating because an
+earlier version got it wrong. A one-word query scores exactly 1/sqrt(N) against
+a document of N distinct words, so any absolute floor high enough to reject a
+collision in a short document also rejects a real match in a long one: at a
+floor of 0.15, no document over about 44 distinct words could be found by a
+single word, while a collision in a 32-word document scored 0.177 and passed.
+Collisions are made negligible in the embedder rather than filtered by score.
+A document sharing no bucket with the query scores exactly zero and is never
+returned; `min_score` remains available to ask for a stronger overlap.
+
+Scores are comparable within one result list, not across queries: a long
+document matching one term will always score below a short one matching the
+same term.
 
 This is a stand-in for a real embedding model, chosen so the data center runs
-anywhere with nothing installed. To upgrade retrieval, replace `embed_text`
-with a call to a real embedding model, keep the return type (a list of floats,
-L2-normalized), register the model with `center.register_model(...)`, and
+anywhere with nothing installed. To upgrade retrieval, replace `embed`
+with a call to a real embedding model, keep the return type (a sparse map of
+index to weight, L2-normalized), register the model with
+`center.register_model(...)`, and
 re-embed with `center.reindex(model="your-model")`. The `embeddings` table keys
 on `(document_id, model)`, so several models can coexist, and each row records
-the width the embedder actually returned, so search only compares vectors of
-matching width: a row that disagrees with the vector stored beside it is
-skipped instead of aborting the query.
+the bucket space its vector was built in, so search only compares vectors that
+mean the same thing: a row whose stored blob is unreadable is skipped instead
+of aborting the query.
 
-Changing the width — a new model, or a different `EMBEDDING_DIM` — leaves every
+Changing the scheme — a new model, or a different `BUCKET_SPACE` — leaves every
 stored vector outside that filter until `center.reindex()` rebuilds them.
 Rather than answer "no matches" for every query, search raises and says to
 reindex, and `status --json` reports the count as `stale_embeddings`.
@@ -216,7 +230,7 @@ datacenter/
   schema.py    SQL schema per database
   engine.py    SQLite wrapper: connect, query, upsert, backup, integrity
   core.py      DataCenter: provisioning, writes, search, jobs, audit, backups
-  vectors.py   hashing embedder and cosine similarity
+  vectors.py   hashing embedder and sparse cosine similarity
   seed.py      demo data
   cli.py       command line interface
 docs/          this file

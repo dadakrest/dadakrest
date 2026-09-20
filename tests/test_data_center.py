@@ -19,7 +19,7 @@ import datacenter.vectors  # noqa: E402
 from datacenter import DATABASE_KEYS, DataCenter  # noqa: E402
 from datacenter.cli import main as cli_main  # noqa: E402
 from datacenter.seed import seed  # noqa: E402
-from datacenter.vectors import cosine_similarity, embed_text, loads, tokenize  # noqa: E402
+from datacenter.vectors import embed, loads, similarity, tokenize  # noqa: E402
 
 
 class DataCenterTestCase(unittest.TestCase):
@@ -240,13 +240,25 @@ class TestDocumentsAndSearch(DataCenterTestCase):
         """Not even with the floor turned off: zero similarity is not a match."""
         self.assertEqual(self.center.search("photosynthesis chlorophyll", min_score=0.0), [])
 
-    def test_scores_are_the_cosine_similarity_of_the_stored_vectors(self) -> None:
+    def test_scores_are_the_similarity_of_the_stored_vectors(self) -> None:
         hit = self.center.search("firewall rules")[0]
         row = self.center.db("embeddings").query_one(
             "SELECT vector FROM embeddings WHERE document_id = ?", (hit["document_id"],)
         )
-        expected = cosine_similarity(embed_text("firewall rules"), loads(row["vector"]))
+        expected = similarity(embed("firewall rules"), loads(row["vector"]))
         self.assertAlmostEqual(hit["score"], expected, places=4)
+
+    def test_a_one_word_query_finds_a_long_document(self) -> None:
+        """The defect the score floor used to cause.
+
+        A one-word query scores 1/sqrt(N) against a document of N distinct
+        words, so an absolute floor of 0.15 made anything over ~44 words
+        unreachable by a single term.
+        """
+        body = " ".join(f"clause{index}" for index in range(200))
+        self.center.add_document("Long policy", f"{body} firewall {body}")
+        titles = [hit["title"] for hit in self.center.search("firewall", limit=10)]
+        self.assertIn("Long policy", titles)
 
     def test_limit_must_be_at_least_one(self) -> None:
         for limit in (0, -1, None):
@@ -257,8 +269,13 @@ class TestDocumentsAndSearch(DataCenterTestCase):
         self.assertEqual(self.center.reindex(), 2)
 
 
-class TestEmbeddingWidth(DataCenterTestCase):
-    """What the index does when the embedder behind it changes width."""
+class TestEmbeddingScheme(DataCenterTestCase):
+    """What the index does when the embedding scheme behind it changes.
+
+    `dimensions` records the bucket space a vector was built in, so vectors
+    from an older scheme are excluded from a search rather than compared
+    against numbers that mean something else.
+    """
 
     def setUp(self) -> None:
         super().setUp()
@@ -268,45 +285,50 @@ class TestEmbeddingWidth(DataCenterTestCase):
         )
 
     @contextlib.contextmanager
-    def embedder_of_width(self, dimensions: int):
-        """Run the block with an embedder of another width in place."""
-        original = datacenter.vectors.embed_text
-        datacenter.vectors.embed_text = lambda text, dims=dimensions: original(text, dims)
+    def scheme(self, space: int):
+        """Run the block as though the embedder hashed into another space."""
+        original_embed = datacenter.vectors.embed
+        original_space = datacenter.core.BUCKET_SPACE
+        datacenter.vectors.embed = lambda text, _space=space: original_embed(text, _space)
+        datacenter.core.BUCKET_SPACE = space
         try:
             yield
         finally:
-            datacenter.vectors.embed_text = original
+            datacenter.vectors.embed = original_embed
+            datacenter.core.BUCKET_SPACE = original_space
 
-    def stored_widths(self) -> list[int]:
+    def stored_spaces(self) -> list[int]:
         rows = self.center.db("embeddings").query("SELECT dimensions FROM embeddings")
         return [row["dimensions"] for row in rows]
 
-    def test_the_stored_width_is_the_one_the_embedder_returned(self) -> None:
-        with self.embedder_of_width(1536):
+    def test_the_stored_space_is_the_one_the_vectors_were_built_in(self) -> None:
+        with self.scheme(1536):
             self.center.reindex()
             self.assertTrue(self.center.search("firewall rules"))
-        self.assertEqual(self.stored_widths(), [1536])
+        self.assertEqual(self.stored_spaces(), [1536])
 
     def test_a_stale_index_asks_for_a_reindex_instead_of_answering_nothing(self) -> None:
-        with self.embedder_of_width(1536), self.assertRaises(RuntimeError) as raised:
+        with self.scheme(1536), self.assertRaises(RuntimeError) as raised:
             self.center.search("firewall rules")
         self.assertIn("reindex", str(raised.exception))
 
-    def test_status_counts_vectors_of_another_width(self) -> None:
+    def test_status_counts_vectors_from_another_scheme(self) -> None:
         self.assertEqual(self.center.status()["stale_embeddings"], 0)
-        with self.embedder_of_width(1536):
+        with self.scheme(1536):
             self.center.reindex()
         self.assertEqual(self.center.status()["stale_embeddings"], 1)
 
-    def test_a_vector_that_contradicts_its_width_column_is_skipped(self) -> None:
-        """One unreadable row must not take the rest of the index down with it."""
+    def test_an_unreadable_vector_is_skipped_not_fatal(self) -> None:
+        """One corrupt blob must not take the rest of the index down with it."""
         self.center.add_document("Meeting notes", "unrelated filler text")
         self.center.db("embeddings").execute(
-            "UPDATE embeddings SET vector = ? WHERE document_id = 2",
-            (json.dumps({"dim": 8, "values": {"1": 1.0}}),),
+            "UPDATE embeddings SET vector = ? WHERE document_id = 2", ("{not json",),
         )
         results = self.center.search("firewall rules")
         self.assertEqual([hit["document_id"] for hit in results], [1])
+        self.assertTrue(
+            any(event["action"] == "search_skip" for event in self.center.recent_events())
+        )
 
 
 class TestDatasets(DataCenterTestCase):
@@ -463,17 +485,25 @@ class TestSeed(DataCenterTestCase):
 
 class TestVectors(unittest.TestCase):
     def test_embedding_is_deterministic_and_normalized(self) -> None:
-        vector = embed_text("security audit invoice")
-        self.assertEqual(vector, embed_text("security audit invoice"))
-        self.assertAlmostEqual(sum(value * value for value in vector), 1.0, places=6)
+        vector = embed("security audit invoice")
+        self.assertEqual(vector, embed("security audit invoice"))
+        self.assertAlmostEqual(sum(w * w for w in vector.values()), 1.0, places=6)
+
+    def test_only_the_buckets_a_text_uses_are_stored(self) -> None:
+        """Sparse, not dense: the bucket space is far too large to materialize."""
+        self.assertEqual(len(embed("security audit invoice")), 3)
 
     def test_related_text_scores_above_unrelated_text(self) -> None:
-        anchor = embed_text("invoice for the security audit")
-        related = embed_text("security audit invoice")
-        unrelated = embed_text("tuesday lunch menu")
-        self.assertGreater(
-            cosine_similarity(anchor, related), cosine_similarity(anchor, unrelated)
-        )
+        anchor = embed("invoice for the security audit")
+        related = embed("security audit invoice")
+        unrelated = embed("tuesday lunch menu")
+        self.assertGreater(similarity(anchor, related), similarity(anchor, unrelated))
+
+    def test_unrelated_text_shares_no_bucket(self) -> None:
+        """The wide bucket space makes a collision a ~2**-63 event, so
+        unrelated text scores exactly zero rather than a small positive."""
+        self.assertEqual(similarity(embed("photosynthesis chlorophyll"),
+                                    embed("invoice payment terms")), 0.0)
 
     def test_accented_words_stay_whole(self) -> None:
         """'Zürich' is one token, not the fragments 'z' and 'rich'."""
@@ -491,11 +521,11 @@ class TestVectors(unittest.TestCase):
         self.assertEqual(tokenize(composed), tokenize(decomposed))
 
     def test_empty_text_has_zero_similarity(self) -> None:
-        self.assertEqual(cosine_similarity(embed_text(""), embed_text("anything")), 0.0)
+        self.assertEqual(similarity(embed(""), embed("anything")), 0.0)
 
-    def test_length_mismatch_raises(self) -> None:
-        with self.assertRaises(ValueError):
-            cosine_similarity([1.0, 0.0], [1.0, 0.0, 0.0])
+    def test_similarity_is_symmetric(self) -> None:
+        left, right = embed("invoice for the security audit"), embed("security audit")
+        self.assertEqual(similarity(left, right), similarity(right, left))
 
 
 class TestCli(unittest.TestCase):

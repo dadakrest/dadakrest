@@ -16,11 +16,24 @@ from .seed import seed as seed_data
 
 
 def _human_size(size: int) -> str:
+    """Render a byte count. Divides in float and keeps one decimal above
+    bytes, so 1536 reads as 1.5KB rather than being truncated to 1KB."""
+    value = float(size)
     for unit in ("B", "KB", "MB", "GB"):
-        if size < 1024 or unit == "GB":
-            return f"{size:.0f}{unit}" if unit == "B" else f"{size / 1:.0f}{unit}"
-        size //= 1024
-    return f"{size}B"
+        # 1023.95 rather than 1024: a value that only reaches 1024 once it is
+        # rounded to one decimal belongs to the next unit, not as "1024.0MB".
+        if value < (1024 if unit == "B" else 1023.95) or unit == "GB":
+            return f"{value:.0f}{unit}" if unit == "B" else f"{value:.1f}{unit}"
+        value /= 1024
+    return f"{value:.1f}GB"
+
+
+def _positive_int(text: str) -> int:
+    """An argparse type for counts that are meaningless below one."""
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return value
 
 
 def _print_status(report: dict[str, Any]) -> None:
@@ -81,7 +94,10 @@ def cmd_seed(args: argparse.Namespace) -> int:
 
 
 def cmd_validate_data(args: argparse.Namespace) -> int:
-    problems = validate(args.data)
+    try:
+        problems = validate(args.data)
+    except DataFileError as error:
+        problems = str(error).splitlines()
     if problems:
         print("\n".join(problems))
         print(f"{len(problems)} problem(s) in {args.data}")
@@ -113,7 +129,18 @@ def cmd_search(args: argparse.Namespace) -> int:
 
 
 def cmd_add_document(args: argparse.Namespace) -> int:
-    body = Path(args.file).read_text() if args.file else (args.body or "")
+    if args.file:
+        try:
+            body = Path(args.file).read_text(encoding="utf-8")
+        except OSError as error:
+            print(f"cannot read {args.file}: {error.strerror or error}", file=sys.stderr)
+            return 1
+        except UnicodeDecodeError:
+            print(f"cannot read {args.file}: not valid UTF-8 text", file=sys.stderr)
+            return 1
+    else:
+        body = args.body or ""
+
     with _open(args) as center:
         center.provision()
         document_id = center.add_document(
@@ -226,7 +253,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     search = sub.add_parser("search", help="semantic search over stored documents")
     search.add_argument("query")
-    search.add_argument("--limit", type=int, default=5)
+    search.add_argument("--limit", type=_positive_int, default=5)
     search.set_defaults(func=cmd_search)
 
     add_document = sub.add_parser("add-document", help="store and index a document")
@@ -260,7 +287,7 @@ def build_parser() -> argparse.ArgumentParser:
     backup.set_defaults(func=cmd_backup)
 
     events = sub.add_parser("events", help="show the audit trail")
-    events.add_argument("--limit", type=int, default=20)
+    events.add_argument("--limit", type=_positive_int, default=20)
     events.set_defaults(func=cmd_events)
 
     return parser
@@ -269,7 +296,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        code = int(args.func(args))
+        try:
+            code = int(args.func(args))
+        except FileNotFoundError as error:
+            # Raised by the engine when a command reads a database that was
+            # never provisioned; reads do not create, so say what to run.
+            print(error, file=sys.stderr)
+            print(f"run: python -m datacenter --root {args.root} init", file=sys.stderr)
+            return 1
         # Most commands print less than one buffer of output, so nothing has
         # reached the pipe yet: flush here, where the handler below can still
         # catch the error, rather than leaving it to the interpreter's flush

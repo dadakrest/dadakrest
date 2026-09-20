@@ -22,10 +22,12 @@ VERSION = "1.0.0"
 #: SDDU13_ROOT environment variable or `DataCenter(root=...)`.
 DEFAULT_ROOT = Path(os.environ.get("SDDU13_ROOT", Path.cwd() / "storage"))
 
-#: Dimensionality of the local hashing embedder (see datacenter.vectors).
-#: Wider is better here - tokens are hashed into buckets, and a narrow space
-#: makes unrelated words collide and score as similar.
-EMBEDDING_DIM = 4096
+#: The space the local embedder hashes tokens into. It is deliberately huge:
+#: an embedding is stored as a sparse map of the buckets it actually uses, so a
+#: wide space costs nothing and makes two different words sharing a bucket a
+#: ~2**-63 event rather than a ~1/4096 one. Collisions used to be filtered by a
+#: minimum score, which cannot work — see DataCenter.search.
+BUCKET_SPACE = 2**63 - 1
 
 
 @dataclass(frozen=True)

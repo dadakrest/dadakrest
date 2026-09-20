@@ -12,10 +12,10 @@ from typing import Any
 
 from . import vectors
 from .config import (
+    BUCKET_SPACE,
     DATABASES,
     DATA_CENTER_NAME,
     DEFAULT_ROOT,
-    EMBEDDING_DIM,
     VERSION,
     get_spec,
 )
@@ -419,16 +419,17 @@ class DataCenter:
         if document is None:
             raise KeyError(f"no document with id {document_id}")
 
-        vector = vectors.embed_text(f"{document['title']}\n{document['body']}")
+        vector = vectors.embed(f"{document['title']}\n{document['body']}")
         embedding_id = self.db("embeddings").upsert(
             "embeddings",
             {
                 "document_id": document_id,
                 "model": model,
-                # The width the embedder actually returned, not the width it
-                # was asked for: swapping in a model of another size has to
-                # show up here or the column says nothing.
-                "dimensions": len(vector),
+                # The bucket space the vector was built in, not its length:
+                # two embeddings are only comparable when they hash into the
+                # same space, and swapping in another embedder must show up
+                # here or the column says nothing.
+                "dimensions": BUCKET_SPACE,
                 "vector": vectors.dumps(vector),
                 "created_at": _utc_now(),
             },
@@ -444,8 +445,13 @@ class DataCenter:
             self.index_document(int(row["id"]), model=model)
         return len(documents)
 
-    #: Scores below this are treated as hash collisions rather than matches.
-    min_score = 0.15
+    #: No floor by default. An absolute cosine cannot separate a collision
+    #: from a match: a one-word query scores 1/sqrt(N) against a document of N
+    #: distinct words, so any floor high enough to reject a collision in a
+    #: short document also rejects a real hit in a long one. Collisions are
+    #: made negligible in the embedder instead (see config.BUCKET_SPACE).
+    #: Callers can still pass `min_score` to ask for a stronger overlap.
+    min_score = 0.0
 
     def search(
         self,
@@ -465,35 +471,31 @@ class DataCenter:
             raise ValueError("limit must be at least 1")
 
         threshold = self.min_score if min_score is None else min_score
-        query_vector = vectors.embed_text(query)
-        # Width is part of the match: vectors written by an embedder of a
-        # different dimensionality are not comparable to this query.
+        query_vector = vectors.embed(query)
+        # The bucket space is part of the match: vectors hashed into a
+        # different space are not comparable to this query.
         rows = self.db("embeddings").query(
             "SELECT document_id, vector FROM embeddings WHERE model = ? AND dimensions = ?",
-            (model, len(query_vector)),
+            (model, BUCKET_SPACE),
         )
         if not rows:
-            self._require_current_index(model, len(query_vector))
+            self._require_current_index(model, BUCKET_SPACE)
 
-        # Only the buckets the query itself uses can contribute anything, and
-        # every stored vector is L2-normalized, so summing over those buckets
-        # is the cosine similarity without walking thousands of zeros per row.
-        buckets = [(index, weight) for index, weight in enumerate(query_vector) if weight]
         scored: list[tuple[float, int]] = []
-        mismatched = 0
+        unreadable = 0
         for row in rows:
-            stored = vectors.loads(row["vector"])
-            if len(stored) != len(query_vector):
-                # The dimensions column disagrees with the vector beside it:
-                # skip that one row rather than abandoning the whole query.
-                mismatched += 1
+            try:
+                stored = vectors.loads(row["vector"])
+            except (ValueError, KeyError, TypeError):
+                # A corrupt blob is one lost document, not a failed search.
+                unreadable += 1
                 continue
-            score = sum(weight * stored[index] for index, weight in buckets)
+            score = vectors.similarity(query_vector, stored)
             if score > 0.0 and score >= threshold:
                 scored.append((score, int(row["document_id"])))
         scored.sort(key=lambda pair: (-pair[0], pair[1]))
-        if mismatched:
-            self.log("embeddings", "search_skip", detail=f"{mismatched} vectors of another width")
+        if unreadable:
+            self.log("embeddings", "search_skip", detail=f"{unreadable} unreadable vectors")
 
         results: list[dict[str, Any]] = []
         for score, document_id in scored[:limit]:
@@ -513,8 +515,8 @@ class DataCenter:
     def _require_current_index(self, model: str, dimensions: int) -> None:
         """Refuse to pass off a stale index as an empty one.
 
-        Changing `EMBEDDING_DIM` (or the embedder behind it) leaves every
-        stored vector outside the width filter, so search would quietly answer
+        Changing `BUCKET_SPACE` (or the embedder behind it) leaves every
+        stored vector outside the space filter, so search would quietly answer
         "no matches" for every query until the index is rebuilt.
         """
         row = self.db("embeddings").query_one(
@@ -522,12 +524,12 @@ class DataCenter:
         )
         if row and row["n"]:
             raise RuntimeError(
-                f"{row['n']} embeddings for {model!r} were built at a width other than "
-                f"{dimensions}; run reindex()"
+                f"{row['n']} embeddings for {model!r} were built in a bucket space "
+                f"other than {dimensions}; run reindex()"
             )
 
     def _stale_embeddings(self) -> int:
-        """Stored vectors whose width is not the one the embedder writes now.
+        """Stored vectors whose bucket space is not the one the embedder uses now.
 
         They are excluded from every search until `reindex()` rebuilds them,
         and nothing else in a health report would show it.
@@ -536,7 +538,7 @@ class DataCenter:
         if not embeddings.path.exists() or "embeddings" not in embeddings.tables():
             return 0
         row = embeddings.query_one(
-            "SELECT COUNT(*) AS n FROM embeddings WHERE dimensions != ?", (EMBEDDING_DIM,)
+            "SELECT COUNT(*) AS n FROM embeddings WHERE dimensions != ?", (BUCKET_SPACE,)
         )
         return int(row["n"]) if row else 0
 
