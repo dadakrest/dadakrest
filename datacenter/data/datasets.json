@@ -26,6 +26,228 @@
         "category": "security",
         "hours": 6.25,
         "status": "open"
+      },
+      {
+        "ticket": "SUP-1004",
+        "category": "software",
+        "hours": 3.25,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1005",
+        "category": "software",
+        "hours": 3.75,
+        "status": "open"
+      },
+      {
+        "ticket": "SUP-1006",
+        "category": "security",
+        "hours": 1.0,
+        "status": "open"
+      },
+      {
+        "ticket": "SUP-1007",
+        "category": "storage",
+        "hours": 3.75,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1008",
+        "category": "hardware",
+        "hours": 2.5,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1009",
+        "category": "security",
+        "hours": 11.0,
+        "status": "escalated"
+      },
+      {
+        "ticket": "SUP-1010",
+        "category": "access",
+        "hours": 4.5,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1011",
+        "category": "storage",
+        "hours": 1.0,
+        "status": "open"
+      },
+      {
+        "ticket": "SUP-1012",
+        "category": "access",
+        "hours": 4.0,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1013",
+        "category": "cooling",
+        "hours": 2.25,
+        "status": "waiting-on-client"
+      },
+      {
+        "ticket": "SUP-1014",
+        "category": "cooling",
+        "hours": 4.0,
+        "status": "open"
+      },
+      {
+        "ticket": "SUP-1015",
+        "category": "network",
+        "hours": 3.0,
+        "status": "open"
+      },
+      {
+        "ticket": "SUP-1016",
+        "category": "access",
+        "hours": 4.5,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1017",
+        "category": "access",
+        "hours": 2.5,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1018",
+        "category": "security",
+        "hours": 2.25,
+        "status": "open"
+      },
+      {
+        "ticket": "SUP-1019",
+        "category": "power",
+        "hours": 3.25,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1020",
+        "category": "storage",
+        "hours": 7.75,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1021",
+        "category": "security",
+        "hours": 6.75,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1022",
+        "category": "software",
+        "hours": 4.25,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1023",
+        "category": "power",
+        "hours": 3.0,
+        "status": "waiting-on-client"
+      },
+      {
+        "ticket": "SUP-1024",
+        "category": "access",
+        "hours": 7.25,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1025",
+        "category": "hardware",
+        "hours": 7.25,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1026",
+        "category": "access",
+        "hours": 8.25,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1027",
+        "category": "cooling",
+        "hours": 1.0,
+        "status": "open"
+      },
+      {
+        "ticket": "SUP-1028",
+        "category": "power",
+        "hours": 1.5,
+        "status": "open"
+      },
+      {
+        "ticket": "SUP-1029",
+        "category": "security",
+        "hours": 6.25,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1030",
+        "category": "software",
+        "hours": 3.0,
+        "status": "waiting-on-client"
+      },
+      {
+        "ticket": "SUP-1031",
+        "category": "hardware",
+        "hours": 1.25,
+        "status": "open"
+      },
+      {
+        "ticket": "SUP-1032",
+        "category": "power",
+        "hours": 1.0,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1033",
+        "category": "security",
+        "hours": 5.75,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1034",
+        "category": "network",
+        "hours": 3.0,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1035",
+        "category": "network",
+        "hours": 0.75,
+        "status": "waiting-on-client"
+      },
+      {
+        "ticket": "SUP-1036",
+        "category": "access",
+        "hours": 1.0,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1037",
+        "category": "network",
+        "hours": 2.75,
+        "status": "waiting-on-client"
+      },
+      {
+        "ticket": "SUP-1038",
+        "category": "storage",
+        "hours": 2.5,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1039",
+        "category": "storage",
+        "hours": 5.25,
+        "status": "closed"
+      },
+      {
+        "ticket": "SUP-1040",
+        "category": "access",
+        "hours": 1.5,
+        "status": "closed"
       }
     ]
   }
