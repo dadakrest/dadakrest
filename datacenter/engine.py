@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from .config import DatabaseSpec
-from .schema import SCHEMAS
+from .schema import MIGRATIONS, SCHEMAS
 
 #: `INSERT ... RETURNING` landed in SQLite 3.35.
 _SUPPORTS_RETURNING = sqlite3.sqlite_version_info >= (3, 35, 0)
@@ -121,11 +121,37 @@ class Database:
 
     # -- provisioning and health -------------------------------------------
 
-    def provision(self) -> None:
-        """Apply the database's schema. Safe to call repeatedly."""
+    def provision(self) -> int:
+        """Migrate, then apply the database's schema. Safe to call repeatedly.
+
+        Returns the number of rows the migration step changed, which is 0 for
+        a fresh database and for one already on the current schema.
+        """
+        migrated = self.migrate()
         for statement in SCHEMAS[self.spec.key]:
             self.connection.execute(statement)
         self.connection.commit()
+        return migrated
+
+    def migrate(self) -> int:
+        """Bring a database written by an older version up to what the current
+        schema accepts, and return the number of rows changed.
+
+        Runs before the schema itself, because a constraint added after the
+        first release cannot be applied while the rows that violate it are
+        still there.
+        """
+        statements = MIGRATIONS.get(self.spec.key, ())
+        if not statements:
+            return 0
+
+        existing = set(self.tables())
+        changed = 0
+        for table, statement in statements:
+            if table in existing:
+                changed += max(self.connection.execute(statement).rowcount, 0)
+        self.connection.commit()
+        return changed
 
     def tables(self) -> list[str]:
         rows = self.query(

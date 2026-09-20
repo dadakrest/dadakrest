@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -46,6 +47,69 @@ class TestProvisioning(DataCenterTestCase):
         self.center.provision()
         self.center.provision()
         self.assertTrue(all(self.center.verify().values()))
+
+    def test_provisioning_upgrades_a_database_that_holds_duplicate_records(self) -> None:
+        """A data center from before UNIQUE(dataset_id, payload) can be reopened.
+
+        The earlier version stored an exact duplicate as a second row, and the
+        index cannot be created while those rows are there.
+        """
+        datasets = self.center.db("datasets")
+        datasets.execute("DROP INDEX IF EXISTS idx_records_unique")
+        dataset_id = self.center.create_dataset("legacy")
+        for _ in range(3):
+            datasets.execute(
+                "INSERT INTO records (dataset_id, payload) VALUES (?, ?)",
+                (dataset_id, '{"a": 1}'),
+            )
+        datasets.execute(
+            "INSERT INTO records (dataset_id, payload) VALUES (?, ?)",
+            (dataset_id, '{"a": 2}'),
+        )
+        self.assertEqual(datasets.row_counts()["records"], 4)
+
+        self.center.provision()  # must not raise
+
+        payloads = [row["payload"] for row in datasets.query("SELECT payload FROM records ORDER BY id")]
+        self.assertEqual(payloads, ['{"a": 1}', '{"a": 2}'])
+        self.assertTrue(self.center.verify()["datasets"])
+
+    def test_upgrading_a_root_whose_audit_database_does_not_exist_yet(self) -> None:
+        """The pre-existing database is migrated before audit is provisioned.
+
+        The audit database is created last, so a migration cannot be logged
+        while the loop is still running.
+        """
+        root = Path(self._tmp.name) / "legacy"
+        root.mkdir()
+        connection = sqlite3.connect(root / "datasets.db")
+        connection.executescript(
+            "CREATE TABLE datasets (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "name TEXT NOT NULL UNIQUE, description TEXT, schema_json TEXT, "
+            "created_at TEXT NOT NULL DEFAULT (datetime('now')));"
+            "CREATE TABLE records (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE, "
+            "payload TEXT NOT NULL, ingested_at TEXT NOT NULL DEFAULT (datetime('now')));"
+        )
+        connection.execute("INSERT INTO datasets (name) VALUES ('legacy')")
+        for _ in range(2):
+            connection.execute("INSERT INTO records (dataset_id, payload) VALUES (1, '{}')")
+        connection.commit()
+        connection.close()
+
+        center = DataCenter(root=root)
+        try:
+            center.provision()  # must not raise
+            self.assertEqual(center.db("datasets").row_counts()["records"], 1)
+            actions = [event["action"] for event in center.recent_events()]
+            self.assertIn("migrate", actions)
+        finally:
+            center.close()
+
+    def test_migration_leaves_a_current_database_alone(self) -> None:
+        self.center.add_record("d", {"a": 1})
+        self.assertEqual(self.center.db("datasets").migrate(), 0)
+        self.assertEqual(len(self.center.list_records("d")), 1)
 
     def test_unknown_database_raises(self) -> None:
         with self.assertRaises(KeyError):

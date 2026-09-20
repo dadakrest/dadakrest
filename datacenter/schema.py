@@ -3,6 +3,9 @@
 Each entry in SCHEMAS is a list of statements applied in order when the
 database is provisioned. Every statement is `IF NOT EXISTS`, so provisioning is
 idempotent and safe to re-run against an existing data center.
+
+MIGRATIONS holds the statements that run first, to bring a database written by
+an earlier version up to what the current schema can accept.
 """
 
 from __future__ import annotations
@@ -164,5 +167,23 @@ SCHEMAS: dict[str, tuple[str, ...]] = {
         )
         """,
         "CREATE INDEX IF NOT EXISTS idx_events_db ON events(database, occurred_at)",
+    ),
+}
+
+#: Statements run before a database's schema, so that a database created by an
+#: older version can still be provisioned. Each is `(table, statement)`: the
+#: statement runs only when that table already exists, and must be safe to run
+#: again on a database that has already been migrated.
+MIGRATIONS: dict[str, tuple[tuple[str, str], ...]] = {
+    "datasets": (
+        (
+            "records",
+            # UNIQUE(dataset_id, payload) arrived after the first release. The
+            # version before it stored an exact duplicate as a second row, and
+            # the index cannot be created while those rows are there, so drop
+            # the later copies and keep the earliest of each.
+            "DELETE FROM records WHERE id NOT IN "
+            "(SELECT MIN(id) FROM records GROUP BY dataset_id, payload)",
+        ),
     ),
 }

@@ -48,9 +48,18 @@ class DataCenter:
         """Create every database and apply its schema. Idempotent."""
         self.root.mkdir(parents=True, exist_ok=True)
         provisioned: list[str] = []
+        migrations: list[tuple[str, int]] = []
         for spec in DATABASES:
-            self._databases[spec.key].provision()
+            migrated = self._databases[spec.key].provision()
+            if migrated:
+                migrations.append((spec.key, migrated))
             provisioned.append(spec.key)
+
+        # Logged only now: the audit database is provisioned last, so there is
+        # nowhere to write an event until the whole loop has run.
+        for key, migrated in migrations:
+            rows = "row" if migrated == 1 else "rows"
+            self.log(key, "migrate", detail=f"{migrated} {rows} removed to meet the current schema")
         self.log("audit", "provision", detail=f"{len(provisioned)} databases ready")
         return provisioned
 
