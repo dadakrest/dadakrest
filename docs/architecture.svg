@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000"
+     font-family="Arial, Helvetica, sans-serif">
+  <title>Software da Database User 13 — seven-database AI data center</title>
+  <desc>Architecture picture: JSON data files and the CLI or Python API feed the DataCenter facade,
+        which reads and writes seven SQLite databases (contacts, documents, datasets, models,
+        embeddings, jobs, audit), logs every write to the audit database, and produces backups and
+        search results, status reports and the event trail.</desc>
+
+  <defs>
+    <marker id="arrow" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="9"
+            refX="11" refY="4.5" orient="auto">
+      <path d="M0,0 L11,4.5 L0,9 Z" fill="#4A4A4A"/>
+    </marker>
+    <marker id="arrow-audit" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="7"
+            refX="8" refY="3.5" orient="auto">
+      <path d="M0,0 L8,3.5 L0,7 Z" fill="#7B6CA3"/>
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="1600" height="1000" fill="#FFFFFF"/>
+
+  <!-- title -->
+  <text x="800" y="46" text-anchor="middle" font-size="26" font-weight="bold" fill="#2B2B2B">Software da Database User 13 — seven-database AI data center</text>
+  <text x="800" y="74" text-anchor="middle" font-size="15" fill="#5B5B5B">How data gets in, where it lives and what comes out</text>
+
+  <!-- ===================== 1. INPUTS ===================== -->
+  <text x="30" y="108" font-size="14" font-weight="bold" fill="#5B5B5B" letter-spacing="1">INPUTS</text>
+
+  <!-- Data files -->
+  <rect x="30" y="120" width="300" height="170" rx="10" fill="#E4ECF4" stroke="#5C7C9E" stroke-width="1.5"/>
+  <text x="46" y="146" font-size="16" font-weight="bold" fill="#1E3A55">Data files (JSON)</text>
+  <text x="46" y="168" font-size="14" fill="#5B5B5B">datacenter/data/ · one array each</text>
+  <text x="46" y="194" font-size="14" fill="#2B2B2B">organizations.json</text>
+  <text x="200" y="194" font-size="14" fill="#2B2B2B">contacts.json</text>
+  <text x="46" y="214" font-size="14" fill="#2B2B2B">documents.json</text>
+  <text x="200" y="214" font-size="14" fill="#2B2B2B">datasets.json</text>
+  <text x="46" y="234" font-size="14" fill="#2B2B2B">models.json</text>
+  <text x="200" y="234" font-size="14" fill="#2B2B2B">jobs.json</text>
+  <text x="46" y="262" font-size="14" fill="#5B5B5B">or part files: documents/*.json</text>
+
+  <!-- data files -> loader -->
+  <path d="M180,290 L180,320" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <text x="190" y="311" font-size="14" fill="#5B5B5B">read_file()</text>
+
+  <!-- Loader -->
+  <rect x="30" y="320" width="300" height="130" rx="10" fill="#E4ECF4" stroke="#5C7C9E" stroke-width="1.5"/>
+  <text x="46" y="346" font-size="16" font-weight="bold" fill="#1E3A55">loader.validate → load_all</text>
+  <text x="46" y="370" font-size="14" fill="#2B2B2B">validate() checks all files first</text>
+  <text x="46" y="390" font-size="14" fill="#2B2B2B">bad file → nothing is written</text>
+  <text x="46" y="410" font-size="14" fill="#5B5B5B">keys: name, email, external_id</text>
+  <text x="46" y="430" font-size="14" fill="#5B5B5B">refill = update, never duplicate</text>
+
+  <!-- loader -> facade -->
+  <path d="M330,385 L430,385" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <text x="380" y="373" text-anchor="middle" font-size="14" fill="#5B5B5B">add_* calls</text>
+
+  <!-- CLI / Python API -->
+  <rect x="30" y="480" width="300" height="220" rx="10" fill="#E4ECF4" stroke="#5C7C9E" stroke-width="1.5"/>
+  <text x="46" y="506" font-size="16" font-weight="bold" fill="#1E3A55">CLI / Python API</text>
+  <text x="46" y="530" font-size="14" fill="#2B2B2B">python -m datacenter &lt;command&gt;</text>
+  <text x="46" y="552" font-size="14" fill="#5B5B5B">init · seed · validate-data</text>
+  <text x="46" y="572" font-size="14" fill="#5B5B5B">status · search · verify · backup</text>
+  <text x="46" y="592" font-size="14" fill="#5B5B5B">add-document · add-contact</text>
+  <text x="46" y="612" font-size="14" fill="#5B5B5B">documents · contacts · datasets</text>
+  <text x="46" y="632" font-size="14" fill="#5B5B5B">jobs · events</text>
+  <text x="46" y="658" font-size="14" fill="#2B2B2B">from datacenter import DataCenter</text>
+  <text x="46" y="678" font-size="14" fill="#5B5B5B">with DataCenter(root) as center: …</text>
+
+  <!-- CLI -> facade -->
+  <path d="M330,590 L380,590 L380,430 L430,430" fill="none" stroke="#4A4A4A" stroke-width="2.2"
+        stroke-linejoin="round" marker-end="url(#arrow)"/>
+  <text x="355" y="578" text-anchor="middle" font-size="14" fill="#5B5B5B">calls</text>
+
+  <!-- ===================== 2. FACADE ===================== -->
+  <text x="430" y="188" font-size="14" font-weight="bold" fill="#5B5B5B" letter-spacing="1">FACADE</text>
+
+  <rect x="430" y="200" width="320" height="250" rx="10" fill="#F7EEDC" stroke="#B08D4B" stroke-width="1.5"/>
+  <text x="446" y="232" font-size="20" font-weight="bold" fill="#5A431A">DataCenter facade</text>
+  <text x="734" y="232" text-anchor="end" font-size="14" fill="#5B5B5B">v1.0.0</text>
+  <text x="446" y="254" font-size="14" fill="#5B5B5B">datacenter/core.py</text>
+  <line x1="446" y1="266" x2="734" y2="266" stroke="#B08D4B" stroke-width="1" opacity="0.6"/>
+
+  <text x="446" y="292" font-size="14" font-weight="bold" fill="#5A431A">provision</text>
+  <text x="530" y="292" font-size="14" fill="#2B2B2B">create 7 .db, apply schema</text>
+  <text x="446" y="318" font-size="14" font-weight="bold" fill="#5A431A">writes</text>
+  <text x="530" y="318" font-size="14" fill="#2B2B2B">upsert on natural keys</text>
+  <text x="446" y="344" font-size="14" font-weight="bold" fill="#5A431A">search</text>
+  <text x="530" y="344" font-size="14" fill="#2B2B2B">cosine over stored vectors</text>
+  <text x="446" y="370" font-size="14" font-weight="bold" fill="#5A431A">jobs</text>
+  <text x="530" y="370" font-size="14" fill="#2B2B2B">claim → run → record a run</text>
+  <text x="446" y="396" font-size="14" font-weight="bold" fill="#5A431A">audit</text>
+  <text x="530" y="396" font-size="14" fill="#2B2B2B">log() after every write</text>
+  <text x="446" y="422" font-size="14" font-weight="bold" fill="#5A431A">backup</text>
+  <text x="530" y="422" font-size="14" fill="#2B2B2B">copy 7 .db + manifest.json</text>
+
+  <!-- embedder attached below the facade -->
+  <line x1="600" y1="450" x2="600" y2="480" stroke="#B08D4B" stroke-width="2"/>
+  <text x="610" y="470" font-size="14" fill="#5B5B5B">embed_text()</text>
+
+  <rect x="430" y="480" width="320" height="130" rx="10" fill="#FBF6EA" stroke="#B08D4B" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="446" y="506" font-size="16" font-weight="bold" fill="#5A431A">Local hashing embedder</text>
+  <text x="446" y="530" font-size="14" fill="#2B2B2B">vectors.embed_text · local-hashing-v1</text>
+  <text x="446" y="550" font-size="14" fill="#5B5B5B">tokens → blake2b bucket → 4096 dims</text>
+  <text x="446" y="570" font-size="14" fill="#5B5B5B">L2-normalized, deterministic, offline</text>
+  <text x="446" y="590" font-size="14" fill="#5B5B5B">a stand-in: swap for a real model</text>
+
+  <!-- facade -> databases bus -->
+  <path d="M750,325 L800,325" fill="none" stroke="#4A4A4A" stroke-width="2.2"/>
+  <path d="M800,208 L800,784" fill="none" stroke="#4A4A4A" stroke-width="2.2"/>
+  <circle cx="800" cy="325" r="3.5" fill="#4A4A4A"/>
+  <path d="M800,208 L870,208" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <path d="M800,304 L870,304" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <path d="M800,400 L870,400" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <path d="M800,496 L870,496" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <path d="M800,592 L870,592" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <path d="M800,688 L870,688" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <path d="M800,784 L870,784" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <circle cx="800" cy="208" r="3.5" fill="#4A4A4A"/>
+  <circle cx="800" cy="304" r="3.5" fill="#4A4A4A"/>
+  <circle cx="800" cy="400" r="3.5" fill="#4A4A4A"/>
+  <circle cx="800" cy="496" r="3.5" fill="#4A4A4A"/>
+  <circle cx="800" cy="592" r="3.5" fill="#4A4A4A"/>
+  <circle cx="800" cy="688" r="3.5" fill="#4A4A4A"/>
+  <circle cx="800" cy="784" r="3.5" fill="#4A4A4A"/>
+  <text transform="translate(790,496) rotate(-90)" text-anchor="middle" font-size="14" fill="#5B5B5B">engine.Database · sqlite3 · read / write</text>
+
+  <!-- ===================== 3. SEVEN DATABASES ===================== -->
+  <rect x="850" y="110" width="390" height="740" rx="14" fill="#F6F9F6" stroke="#9DB5A2" stroke-width="1.5" stroke-dasharray="8 5"/>
+  <text x="866" y="132" font-size="15" font-weight="bold" fill="#24482C">Seven SQLite databases, one file each</text>
+  <text x="866" y="152" font-size="14" fill="#5B5B5B">storage root: --root, SDDU13_ROOT or ./storage</text>
+
+  <!-- contacts -->
+  <rect x="870" y="166" width="290" height="84" rx="10" fill="#E5F0E7" stroke="#5F8F6A" stroke-width="1.5"/>
+  <text x="884" y="190" font-size="16" font-weight="bold" fill="#24482C">Contacts</text>
+  <text x="1146" y="190" text-anchor="end" font-size="14" fill="#5B5B5B">contacts.db</text>
+  <text x="884" y="212" font-size="14" fill="#2B2B2B">organizations · contacts</text>
+  <text x="884" y="232" font-size="14" fill="#2B2B2B">contact_channels</text>
+
+  <!-- documents -->
+  <rect x="870" y="262" width="290" height="84" rx="10" fill="#E5F0E7" stroke="#5F8F6A" stroke-width="1.5"/>
+  <text x="884" y="286" font-size="16" font-weight="bold" fill="#24482C">Documents</text>
+  <text x="1146" y="286" text-anchor="end" font-size="14" fill="#5B5B5B">documents.db</text>
+  <text x="884" y="308" font-size="14" fill="#2B2B2B">documents · document_tags</text>
+  <text x="884" y="328" font-size="14" fill="#5B5B5B">text, metadata, sha256 checksum</text>
+
+  <!-- datasets -->
+  <rect x="870" y="358" width="290" height="84" rx="10" fill="#E5F0E7" stroke="#5F8F6A" stroke-width="1.5"/>
+  <text x="884" y="382" font-size="16" font-weight="bold" fill="#24482C">Datasets</text>
+  <text x="1146" y="382" text-anchor="end" font-size="14" fill="#5B5B5B">datasets.db</text>
+  <text x="884" y="404" font-size="14" fill="#2B2B2B">datasets · records</text>
+  <text x="884" y="424" font-size="14" fill="#5B5B5B">records kept as canonical JSON</text>
+
+  <!-- models -->
+  <rect x="870" y="454" width="290" height="84" rx="10" fill="#E5F0E7" stroke="#5F8F6A" stroke-width="1.5"/>
+  <text x="884" y="478" font-size="16" font-weight="bold" fill="#24482C">Model registry</text>
+  <text x="1146" y="478" text-anchor="end" font-size="14" fill="#5B5B5B">models.db</text>
+  <text x="884" y="500" font-size="14" fill="#2B2B2B">models · model_versions</text>
+  <text x="884" y="520" font-size="14" fill="#5B5B5B">AI models and their versions</text>
+
+  <!-- embeddings -->
+  <rect x="870" y="550" width="290" height="84" rx="10" fill="#E5F0E7" stroke="#5F8F6A" stroke-width="1.5"/>
+  <text x="884" y="574" font-size="16" font-weight="bold" fill="#24482C">Embeddings</text>
+  <text x="1146" y="574" text-anchor="end" font-size="14" fill="#5B5B5B">embeddings.db</text>
+  <text x="884" y="596" font-size="14" fill="#2B2B2B">embeddings</text>
+  <text x="884" y="616" font-size="14" fill="#5B5B5B">one vector per (document, model)</text>
+
+  <!-- jobs -->
+  <rect x="870" y="646" width="290" height="84" rx="10" fill="#E5F0E7" stroke="#5F8F6A" stroke-width="1.5"/>
+  <text x="884" y="670" font-size="16" font-weight="bold" fill="#24482C">Jobs</text>
+  <text x="1146" y="670" text-anchor="end" font-size="14" fill="#5B5B5B">jobs.db</text>
+  <text x="884" y="692" font-size="14" fill="#2B2B2B">jobs · job_runs</text>
+  <text x="884" y="712" font-size="14" fill="#5B5B5B">pending → running → done / failed</text>
+
+  <!-- audit -->
+  <rect x="870" y="742" width="290" height="84" rx="10" fill="#ECE7F3" stroke="#7B6CA3" stroke-width="1.5"/>
+  <text x="884" y="766" font-size="16" font-weight="bold" fill="#3E3160">Audit</text>
+  <text x="1146" y="766" text-anchor="end" font-size="14" fill="#5B5B5B">audit.db</text>
+  <text x="884" y="788" font-size="14" fill="#2B2B2B">events</text>
+  <text x="884" y="808" font-size="14" fill="#5B5B5B">append-only, written by log()</text>
+
+  <!-- every database -> audit (thin rail) -->
+  <path d="M1160,208 L1198,208" fill="none" stroke="#7B6CA3" stroke-width="1.3" marker-end="url(#arrow-audit)"/>
+  <path d="M1160,304 L1198,304" fill="none" stroke="#7B6CA3" stroke-width="1.3" marker-end="url(#arrow-audit)"/>
+  <path d="M1160,400 L1198,400" fill="none" stroke="#7B6CA3" stroke-width="1.3" marker-end="url(#arrow-audit)"/>
+  <path d="M1160,496 L1198,496" fill="none" stroke="#7B6CA3" stroke-width="1.3" marker-end="url(#arrow-audit)"/>
+  <path d="M1160,592 L1198,592" fill="none" stroke="#7B6CA3" stroke-width="1.3" marker-end="url(#arrow-audit)"/>
+  <path d="M1160,688 L1198,688" fill="none" stroke="#7B6CA3" stroke-width="1.3" marker-end="url(#arrow-audit)"/>
+  <path d="M1200,208 L1200,784" fill="none" stroke="#7B6CA3" stroke-width="1.3"/>
+  <path d="M1200,784 L1160,784" fill="none" stroke="#7B6CA3" stroke-width="1.3" marker-end="url(#arrow-audit)"/>
+  <text transform="translate(1224,496) rotate(-90)" text-anchor="middle" font-size="14" fill="#7B6CA3">every write is logged</text>
+
+  <!-- ===================== 4. OUTPUTS ===================== -->
+  <text x="1320" y="148" font-size="14" font-weight="bold" fill="#5B5B5B" letter-spacing="1">OUTPUTS</text>
+
+  <!-- facade -> results (over the top of the storage column) -->
+  <path d="M600,200 L600,96 L1450,96 L1450,160" fill="none" stroke="#4A4A4A" stroke-width="2.2"
+        stroke-linejoin="round" marker-end="url(#arrow)"/>
+  <text x="1200" y="88" text-anchor="middle" font-size="14" fill="#5B5B5B">search() · status() · recent_events()</text>
+
+  <rect x="1320" y="160" width="260" height="150" rx="10" fill="#EFEFEF" stroke="#7A7A7A" stroke-width="1.5"/>
+  <text x="1336" y="186" font-size="16" font-weight="bold" fill="#2B2B2B">Search results /</text>
+  <text x="1336" y="208" font-size="16" font-weight="bold" fill="#2B2B2B">status / events</text>
+  <text x="1336" y="236" font-size="14" fill="#5B5B5B">search: top hits + score</text>
+  <text x="1336" y="256" font-size="14" fill="#5B5B5B">status: health, size, rows</text>
+  <text x="1336" y="276" font-size="14" fill="#5B5B5B">events: recent audit trail</text>
+  <text x="1336" y="296" font-size="14" fill="#5B5B5B">verify: integrity check</text>
+
+  <!-- databases -> backups -->
+  <path d="M1240,635 L1320,635" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <text x="1280" y="623" text-anchor="middle" font-size="14" fill="#5B5B5B">backup()</text>
+
+  <rect x="1320" y="560" width="260" height="150" rx="10" fill="#EFEFEF" stroke="#7A7A7A" stroke-width="1.5"/>
+  <text x="1336" y="586" font-size="16" font-weight="bold" fill="#2B2B2B">Backups</text>
+  <text x="1336" y="606" font-size="14" fill="#2B2B2B">timestamped folder + manifest</text>
+  <text x="1336" y="634" font-size="14" fill="#5B5B5B">&lt;dest&gt;/&lt;YYYYMMDDTHHMMSSZ&gt;/</text>
+  <text x="1336" y="654" font-size="14" fill="#5B5B5B">7 .db copies (sqlite3 backup)</text>
+  <text x="1336" y="674" font-size="14" fill="#5B5B5B">manifest.json: name, version,</text>
+  <text x="1336" y="694" font-size="14" fill="#5B5B5B">created_at, databases</text>
+
+  <!-- ===================== footer / legend ===================== -->
+  <line x1="30" y1="880" x2="1570" y2="880" stroke="#D0D0D0" stroke-width="1"/>
+  <path d="M30,912 L82,912" fill="none" stroke="#4A4A4A" stroke-width="2.2" marker-end="url(#arrow)"/>
+  <text x="94" y="917" font-size="14" fill="#2B2B2B">data flow</text>
+  <path d="M190,912 L242,912" fill="none" stroke="#7B6CA3" stroke-width="1.3" marker-end="url(#arrow-audit)"/>
+  <text x="254" y="917" font-size="14" fill="#2B2B2B">audit trail — every write is logged</text>
+  <text x="800" y="917" text-anchor="middle" font-size="14" fill="#5B5B5B">python -m datacenter --root &lt;dir&gt; &lt;command&gt;</text>
+  <text x="1570" y="917" text-anchor="end" font-size="14" fill="#2B2B2B">stdlib only · SQLite · Python 3.10+</text>
+  <text x="800" y="946" text-anchor="middle" font-size="14" fill="#5B5B5B">datacenter/ package: config · schema · engine · core · vectors · loader · seed · cli</text>
+</svg>

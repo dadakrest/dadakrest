@@ -1,0 +1,12 @@
+# Runtime storage for the data center (databases are provisioned, not committed)
+storage/
+backups/
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

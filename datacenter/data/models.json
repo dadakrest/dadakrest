@@ -1,0 +1,973 @@
+[
+  {
+    "name": "local-hashing-v1",
+    "provider": "built-in",
+    "task": "embedding",
+    "description": "Deterministic local hashing embedder shipped with the data center.",
+    "versions": [
+      {
+        "version": "1.0.0",
+        "dimensions": 4096,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "text-embedding-3-large",
+    "provider": "OpenAI",
+    "task": "embedding",
+    "description": "OpenAI's most capable text embedding model, producing 3072-dimensional vectors that can be shortened through the dimensions parameter without retraining.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": 3072,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "text-embedding-3-small",
+    "provider": "OpenAI",
+    "task": "embedding",
+    "description": "OpenAI's smaller third-generation embedding model, returning 1536-dimensional vectors at a lower price than text-embedding-ada-002.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": 1536,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "gemini-embedding-001",
+    "provider": "Google",
+    "task": "embedding",
+    "description": "Google's Gemini-based text embedding model, generally available in the Gemini API since July 2025 with a default 3072-dimensional output that supports Matryoshka truncation.",
+    "versions": [
+      {
+        "version": "001",
+        "dimensions": 3072,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "text-embedding-004",
+    "provider": "Google",
+    "task": "embedding",
+    "description": "Google's previous-generation text embedding model in the Gemini API, returning 768-dimensional vectors.",
+    "versions": [
+      {
+        "version": "004",
+        "dimensions": 768,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "embed-english-v3.0",
+    "provider": "Cohere",
+    "task": "embedding",
+    "description": "Cohere's English embedding model with 1024-dimensional output and an input_type parameter that distinguishes documents from search queries.",
+    "versions": [
+      {
+        "version": "3.0",
+        "dimensions": 1024,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "embed-multilingual-v3.0",
+    "provider": "Cohere",
+    "task": "embedding",
+    "description": "Cohere's multilingual embedding model covering more than 100 languages with 1024-dimensional output.",
+    "versions": [
+      {
+        "version": "3.0",
+        "dimensions": 1024,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "embed-v4.0",
+    "provider": "Cohere",
+    "task": "embedding",
+    "description": "Cohere's multimodal embedding model that places text and images in one vector space, with output sizes from 256 to 1536 dimensions.",
+    "versions": [
+      {
+        "version": "4.0",
+        "dimensions": 1536,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "voyage-3-large",
+    "provider": "Voyage AI",
+    "task": "embedding",
+    "description": "Voyage AI's highest-quality general-purpose embedding model, defaulting to 1024 dimensions with a 32,000-token context length.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": 1024,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "voyage-3.5",
+    "provider": "Voyage AI",
+    "task": "embedding",
+    "description": "Voyage AI's general-purpose embedding model released in May 2025, defaulting to 1024 dimensions with optional 256, 512 and 2048 outputs.",
+    "versions": [
+      {
+        "version": "3.5",
+        "dimensions": 1024,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "BAAI/bge-large-en-v1.5",
+    "provider": "BAAI",
+    "task": "embedding",
+    "description": "The large English model in BAAI's General Embedding family, a 335M-parameter BERT-style encoder producing 1024-dimensional vectors.",
+    "versions": [
+      {
+        "version": "1.5",
+        "dimensions": 1024,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "sentence-transformers/all-MiniLM-L6-v2",
+    "provider": "Sentence-Transformers",
+    "task": "embedding",
+    "description": "A six-layer MiniLM sentence encoder trained on more than one billion sentence pairs; it is the default example model in the Sentence-Transformers library and returns 384-dimensional vectors.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": 384,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "sentence-transformers/all-mpnet-base-v2",
+    "provider": "Sentence-Transformers",
+    "task": "embedding",
+    "description": "An MPNet-based sentence encoder from the same training run as all-MiniLM-L6-v2, trading speed for higher quality with 768-dimensional output.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": 768,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "nvidia/NV-Embed-v2",
+    "provider": "NVIDIA",
+    "task": "embedding",
+    "description": "NVIDIA's decoder-based embedding model built on Mistral 7B with latent-attention pooling; it topped the MTEB leaderboard on release in August 2024 and outputs 4096-dimensional vectors.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": 4096,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "jinaai/jina-embeddings-v3",
+    "provider": "Jina AI",
+    "task": "embedding",
+    "description": "Jina AI's 570M-parameter multilingual embedding model with task-specific LoRA adapters and Matryoshka output that can be truncated below its 1024 dimensions.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": 1024,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "Qwen/Qwen3-Embedding-8B",
+    "provider": "Alibaba",
+    "task": "embedding",
+    "description": "The largest model in the Qwen3 Embedding series, built on the Qwen3 8B base and producing 4096-dimensional multilingual vectors.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": 4096,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "nomic-ai/nomic-embed-text-v1.5",
+    "provider": "Nomic",
+    "task": "embedding",
+    "description": "Nomic's open-weights text embedding model with an 8192-token context window and Matryoshka training that allows truncation below its 768 dimensions.",
+    "versions": [
+      {
+        "version": "1.5",
+        "dimensions": 768,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "claude-opus-5",
+    "provider": "Anthropic",
+    "task": "chat",
+    "description": "Anthropic's Opus-tier model with a 1M-token context window; adaptive thinking is on by default and reasoning depth is tuned through effort levels from low to max.",
+    "versions": [
+      {
+        "version": "5",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "claude-sonnet-5",
+    "provider": "Anthropic",
+    "task": "chat",
+    "description": "Anthropic's Sonnet-tier model for high-volume production workloads, with a 1M-token context window and adaptive thinking.",
+    "versions": [
+      {
+        "version": "5",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "claude-haiku-4-5",
+    "provider": "Anthropic",
+    "task": "chat",
+    "description": "Anthropic's fastest and lowest-cost model, with a 200K-token context window and a budget_tokens setting for extended thinking.",
+    "versions": [
+      {
+        "version": "4.5",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "gpt-4.1",
+    "provider": "OpenAI",
+    "task": "chat",
+    "description": "OpenAI's GPT-4.1 model, released in April 2025 with a one-million-token context window and improvements aimed at coding and instruction following.",
+    "versions": [
+      {
+        "version": "gpt-4.1-2025-04-14",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "gpt-5",
+    "provider": "OpenAI",
+    "task": "chat",
+    "description": "OpenAI's GPT-5 model, released in August 2025 as a reasoning model whose reasoning_effort parameter includes a minimal setting.",
+    "versions": [
+      {
+        "version": "gpt-5-2025-08-07",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "gemini-2.5-pro",
+    "provider": "Google",
+    "task": "chat",
+    "description": "Google's Gemini 2.5 Pro thinking model, generally available since June 2025 with a one-million-token context window.",
+    "versions": [
+      {
+        "version": "2.5",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "meta-llama/Llama-3.3-70B-Instruct",
+    "provider": "Meta",
+    "task": "chat",
+    "description": "Meta's 70B-parameter instruction-tuned Llama model from December 2024, offered as a text-only model with a 128k-token context window.",
+    "versions": [
+      {
+        "version": "3.3",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
+    "provider": "Meta",
+    "task": "chat",
+    "description": "Meta's natively multimodal mixture-of-experts model with 17B active parameters spread across 128 experts, released in April 2025.",
+    "versions": [
+      {
+        "version": "4",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "mistral-large-latest",
+    "provider": "Mistral",
+    "task": "chat",
+    "description": "Mistral's 123B-parameter flagship dense model, reached through a rolling alias that resolves to the newest dated release.",
+    "versions": [
+      {
+        "version": "mistral-large-2407",
+        "dimensions": null,
+        "is_active": false
+      },
+      {
+        "version": "mistral-large-2411",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "mistral-small-latest",
+    "provider": "Mistral",
+    "task": "chat",
+    "description": "Mistral's 24B-parameter small model; the 3.1 release added image understanding and a 128k-token context window under the Apache 2.0 licence.",
+    "versions": [
+      {
+        "version": "mistral-small-2503",
+        "dimensions": null,
+        "is_active": false
+      },
+      {
+        "version": "mistral-small-2506",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "command-a-03-2025",
+    "provider": "Cohere",
+    "task": "chat",
+    "description": "Cohere's 111B-parameter Command A model, released in March 2025 with a 256k-token context window and a focus on agentic and multilingual enterprise use.",
+    "versions": [
+      {
+        "version": "03-2025",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "command-r-plus",
+    "provider": "Cohere",
+    "task": "chat",
+    "description": "Cohere's 104B-parameter Command R+ model, tuned for retrieval-augmented generation and tool use with a 128k-token context window.",
+    "versions": [
+      {
+        "version": "04-2024",
+        "dimensions": null,
+        "is_active": false
+      },
+      {
+        "version": "08-2024",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "Qwen/Qwen3-235B-A22B",
+    "provider": "Alibaba",
+    "task": "chat",
+    "description": "Alibaba's flagship Qwen3 mixture-of-experts model with 235B total and 22B active parameters, supporting switchable thinking and non-thinking modes.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "deepseek-chat",
+    "provider": "DeepSeek",
+    "task": "chat",
+    "description": "DeepSeek's endpoint for its V3 series, a 671B-parameter mixture-of-experts model with 37B active parameters per token.",
+    "versions": [
+      {
+        "version": "V3",
+        "dimensions": null,
+        "is_active": false
+      },
+      {
+        "version": "V3-0324",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "deepseek-reasoner",
+    "provider": "DeepSeek",
+    "task": "chat",
+    "description": "DeepSeek's endpoint for the R1 reasoning model, which exposes its chain of thought before the final answer and was released under the MIT licence.",
+    "versions": [
+      {
+        "version": "R1",
+        "dimensions": null,
+        "is_active": false
+      },
+      {
+        "version": "R1-0528",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "microsoft/Phi-4",
+    "provider": "Microsoft",
+    "task": "chat",
+    "description": "Microsoft's 14B-parameter small language model, trained heavily on synthetic data and released in December 2024.",
+    "versions": [
+      {
+        "version": "4",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "amazon.nova-pro-v1:0",
+    "provider": "Amazon",
+    "task": "chat",
+    "description": "Amazon's multimodal Nova Pro model on Bedrock, accepting text, image and video input with a 300k-token context window.",
+    "versions": [
+      {
+        "version": "1",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "grok-4",
+    "provider": "xAI",
+    "task": "chat",
+    "description": "xAI's Grok 4 reasoning model, released in July 2025 through the xAI API with a 256k-token context window.",
+    "versions": [
+      {
+        "version": "grok-4-0709",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "rerank-v3.5",
+    "provider": "Cohere",
+    "task": "rerank",
+    "description": "Cohere's multilingual reranking model released in December 2024, scoring query-document pairs for relevance across more than 100 languages.",
+    "versions": [
+      {
+        "version": "3.5",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "rerank-2",
+    "provider": "Voyage AI",
+    "task": "rerank",
+    "description": "Voyage AI's general-purpose reranker with a 16,000-token context length per query-document pair, offered alongside a faster rerank-2-lite variant.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "BAAI/bge-reranker-v2-m3",
+    "provider": "BAAI",
+    "task": "rerank",
+    "description": "BAAI's lightweight multilingual cross-encoder reranker, built on the bge-m3 backbone and scoring query-passage pairs directly.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "jinaai/jina-reranker-v2-base-multilingual",
+    "provider": "Jina AI",
+    "task": "rerank",
+    "description": "Jina AI's 278M-parameter multilingual cross-encoder reranker with support for function-calling and code retrieval use cases.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "Qwen/Qwen3-Reranker-8B",
+    "provider": "Alibaba",
+    "task": "rerank",
+    "description": "The largest Qwen3 reranker, which scores relevance by predicting a yes-or-no token from an instruction-formatted query-document prompt.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    "provider": "Sentence-Transformers",
+    "task": "rerank",
+    "description": "A compact MiniLM cross-encoder trained on the MS MARCO passage ranking task, widely used to rerank the top results from a first-stage retriever.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "whisper-1",
+    "provider": "OpenAI",
+    "task": "speech-to-text",
+    "description": "OpenAI's hosted Whisper transcription and translation endpoint, accepting audio files of up to 25 MB and returning text, SRT or VTT output.",
+    "versions": [
+      {
+        "version": "1",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "openai/whisper",
+    "provider": "OpenAI",
+    "task": "speech-to-text",
+    "description": "OpenAI's open-source multilingual speech recognition family; large-v3-turbo prunes the decoder to four layers for much faster transcription with little loss in accuracy.",
+    "versions": [
+      {
+        "version": "large-v3",
+        "dimensions": null,
+        "is_active": false
+      },
+      {
+        "version": "large-v3-turbo",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "scribe_v1",
+    "provider": "ElevenLabs",
+    "task": "speech-to-text",
+    "description": "ElevenLabs' speech-to-text model released in February 2025, with speaker diarization, word-level timestamps and audio-event tagging.",
+    "versions": [
+      {
+        "version": "1",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "nova-3",
+    "provider": "Deepgram",
+    "task": "speech-to-text",
+    "description": "Deepgram's Nova-3 speech-to-text model, released in February 2025 with multilingual code-switching and self-serve keyterm prompting.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "nvidia/parakeet-tdt-0.6b-v2",
+    "provider": "NVIDIA",
+    "task": "speech-to-text",
+    "description": "NVIDIA's 600M-parameter FastConformer transducer for English transcription, released in May 2025 with punctuation, capitalisation and word timestamps.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "facebook/seamless-m4t-v2-large",
+    "provider": "Meta",
+    "task": "speech-to-text",
+    "description": "Meta's multilingual and multimodal translation model, handling speech-to-text, text-to-text and speech-to-speech translation across nearly 100 languages.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "tts-1",
+    "provider": "OpenAI",
+    "task": "text-to-speech",
+    "description": "OpenAI's latency-optimised text-to-speech model, paired with a higher-quality tts-1-hd variant that uses the same set of built-in voices.",
+    "versions": [
+      {
+        "version": "1",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "eleven_multilingual_v2",
+    "provider": "ElevenLabs",
+    "task": "text-to-speech",
+    "description": "ElevenLabs' multilingual text-to-speech model supporting 29 languages and voice cloning.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "eleven_v3",
+    "provider": "ElevenLabs",
+    "task": "text-to-speech",
+    "description": "ElevenLabs' most expressive text-to-speech model, released as an alpha in June 2025 with inline audio tags and support for more than 70 languages.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "gemini-2.5-flash-preview-tts",
+    "provider": "Google",
+    "task": "text-to-speech",
+    "description": "Google's Gemini 2.5 Flash text-to-speech preview model, which produces single-speaker and multi-speaker audio from styled text prompts.",
+    "versions": [
+      {
+        "version": "2.5",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "coqui/XTTS-v2",
+    "provider": "Coqui",
+    "task": "text-to-speech",
+    "description": "Coqui's multilingual text-to-speech model with few-second voice cloning across 17 languages.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "dall-e-3",
+    "provider": "OpenAI",
+    "task": "image-generation",
+    "description": "OpenAI's third-generation image model, which rewrites prompts before generation and outputs square or wide images at 1024 pixels and above.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "gpt-image-1",
+    "provider": "OpenAI",
+    "task": "image-generation",
+    "description": "OpenAI's natively multimodal image generation model released in April 2025, supporting generation, editing and transparent backgrounds.",
+    "versions": [
+      {
+        "version": "1",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "stabilityai/stable-diffusion-xl-base-1.0",
+    "provider": "Stability AI",
+    "task": "image-generation",
+    "description": "Stability AI's SDXL base model, a 3.5B-parameter latent diffusion model that generates 1024x1024 images.",
+    "versions": [
+      {
+        "version": "1.0",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "stabilityai/stable-diffusion-3.5-large",
+    "provider": "Stability AI",
+    "task": "image-generation",
+    "description": "Stability AI's 8B-parameter Multimodal Diffusion Transformer, released in October 2024 under the Stability AI Community licence.",
+    "versions": [
+      {
+        "version": "3.5",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "black-forest-labs/FLUX.1-dev",
+    "provider": "Black Forest Labs",
+    "task": "image-generation",
+    "description": "Black Forest Labs' 12B-parameter rectified-flow transformer for text-to-image generation, distributed under a non-commercial licence.",
+    "versions": [
+      {
+        "version": "1",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "imagen-3.0-generate-002",
+    "provider": "Google",
+    "task": "image-generation",
+    "description": "Google's Imagen 3 text-to-image model as served on Vertex AI, with prompt-based generation and a built-in SynthID watermark.",
+    "versions": [
+      {
+        "version": "002",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "meta-llama/Llama-3.2-11B-Vision-Instruct",
+    "provider": "Meta",
+    "task": "vision",
+    "description": "Meta's 11B-parameter multimodal Llama model that adds an image encoder and cross-attention adapters to the Llama 3.1 text model.",
+    "versions": [
+      {
+        "version": "3.2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "pixtral-large-latest",
+    "provider": "Mistral",
+    "task": "vision",
+    "description": "Mistral's 124B-parameter multimodal model, combining a 1B vision encoder with the Mistral Large 2 decoder.",
+    "versions": [
+      {
+        "version": "pixtral-large-2411",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "Qwen/Qwen2.5-VL-72B-Instruct",
+    "provider": "Alibaba",
+    "task": "vision",
+    "description": "Alibaba's largest Qwen2.5 vision-language model, with dynamic-resolution image input, document parsing and video understanding.",
+    "versions": [
+      {
+        "version": "2.5",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "microsoft/Florence-2-large",
+    "provider": "Microsoft",
+    "task": "vision",
+    "description": "Microsoft's 0.77B-parameter vision foundation model that handles captioning, detection, grounding and OCR through text prompts.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "google/paligemma2-3b-pt-224",
+    "provider": "Google",
+    "task": "vision",
+    "description": "Google's PaliGemma 2 vision-language model, pairing a SigLIP image encoder with a 3B Gemma 2 decoder at 224-pixel resolution.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "codestral-latest",
+    "provider": "Mistral",
+    "task": "code",
+    "description": "Mistral's code generation model with fill-in-the-middle support; the January 2025 release expanded the context window to 256k tokens.",
+    "versions": [
+      {
+        "version": "codestral-2405",
+        "dimensions": null,
+        "is_active": false
+      },
+      {
+        "version": "codestral-2501",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "Qwen/Qwen2.5-Coder-32B-Instruct",
+    "provider": "Alibaba",
+    "task": "code",
+    "description": "Alibaba's 32B-parameter code model, the largest in the Qwen2.5-Coder series, released in November 2024.",
+    "versions": [
+      {
+        "version": "2.5",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "deepseek-ai/DeepSeek-Coder-V2-Instruct",
+    "provider": "DeepSeek",
+    "task": "code",
+    "description": "DeepSeek's mixture-of-experts code model with 236B total and 21B active parameters, supporting 338 programming languages.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "bigcode/starcoder2-15b",
+    "provider": "BigCode",
+    "task": "code",
+    "description": "The 15B-parameter model from the BigCode StarCoder2 release, trained on The Stack v2 with a 16k-token context window.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "omni-moderation-latest",
+    "provider": "OpenAI",
+    "task": "moderation",
+    "description": "OpenAI's multimodal moderation model based on GPT-4o, classifying text and images against 13 harm categories at no charge.",
+    "versions": [
+      {
+        "version": "latest",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "meta-llama/Llama-Guard-4-12B",
+    "provider": "Meta",
+    "task": "moderation",
+    "description": "Meta's 12B-parameter multimodal safety classifier, pruned from Llama 4 Scout to label text and image prompts and responses against the MLCommons hazard taxonomy.",
+    "versions": [
+      {
+        "version": "4",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "meta-llama/Llama-Guard-3-8B",
+    "provider": "Meta",
+    "task": "moderation",
+    "description": "Meta's Llama 3.1-based safety classifier that flags prompts and responses across 14 hazard categories in eight languages.",
+    "versions": [
+      {
+        "version": "3",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "google/shieldgemma-2-4b-it",
+    "provider": "Google",
+    "task": "moderation",
+    "description": "Google's image safety classifier built on Gemma 3, checking images for sexually explicit, dangerous and violent content.",
+    "versions": [
+      {
+        "version": "2",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  },
+  {
+    "name": "mistral-moderation-latest",
+    "provider": "Mistral",
+    "task": "moderation",
+    "description": "Mistral's moderation classifier built on Ministral 8B, scoring text and chat messages across nine policy categories.",
+    "versions": [
+      {
+        "version": "mistral-moderation-2411",
+        "dimensions": null,
+        "is_active": true
+      }
+    ]
+  }
+]
