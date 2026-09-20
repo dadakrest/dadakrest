@@ -59,11 +59,14 @@ FILES: tuple[str, ...] = (
 #: Any contact email must end in one of these, so the data set is always
 #: demonstrably fictional.
 FICTIONAL_DOMAIN_RE = re.compile(
-    r"@([a-z0-9-]+\.)*(example|test|invalid|localhost)$|"
-    r"@([a-z0-9-]+\.)*example\.(com|net|org)$"
+    r"@([a-z0-9-]+\.)*(example|test|invalid|localhost)\Z|"
+    r"@([a-z0-9-]+\.)*example\.(com|net|org)\Z"
 )
 
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+$")
+#: \A and \Z rather than ^ and $: in Python those also match around a
+#: trailing newline, so "ada@x.example\n" would pass as a second, distinct
+#: contact.
+_EMAIL_RE = re.compile(r"\A[^@\s]+@[^@\s]+\Z")
 
 
 class DataFileError(ValueError):
@@ -72,7 +75,14 @@ class DataFileError(ValueError):
 
 def _read_array(path: Path, label: str) -> list[dict[str, Any]]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise DataFileError(f"{label}: not valid UTF-8 ({error})") from error
+    except OSError as error:
+        raise DataFileError(f"{label}: cannot be read ({error})") from error
+
+    try:
+        payload = json.loads(text)
     except json.JSONDecodeError as error:
         raise DataFileError(f"{label}: not valid JSON ({error})") from error
     if not isinstance(payload, list):
@@ -98,44 +108,133 @@ def part_files(data_dir: Path, name: str) -> list[Path]:
     return paths
 
 
+def read_sources(data_dir: Path, name: str) -> list[tuple[str, dict[str, Any]]]:
+    """Every entry of one kind of data, each paired with a label naming the
+    file it came from and its index inside that file.
+
+    A message built from the label points at the entry someone can actually
+    find, which a running index across concatenated part files does not.
+    """
+    data_dir = Path(data_dir)
+    entries: list[tuple[str, dict[str, Any]]] = []
+    for path in part_files(data_dir, name):
+        relative = str(path.relative_to(data_dir))
+        for index, item in enumerate(_read_array(path, relative)):
+            entries.append((f"{relative}[{index}]", item))
+    return entries
+
+
 def read_file(data_dir: Path, name: str) -> list[dict[str, Any]]:
     """Read one kind of data across its single file and part files; nothing
     on disk is an empty list."""
-    data_dir = Path(data_dir)
-    items: list[dict[str, Any]] = []
-    for path in part_files(data_dir, name):
-        items.extend(_read_array(path, str(path.relative_to(data_dir))))
-    return items
+    return [item for _, item in read_sources(Path(data_dir), name)]
 
 
 # -- validation ---------------------------------------------------------------
 
-def _require(name: str, index: int, item: dict[str, Any], *keys: str) -> list[str]:
-    return [
-        f"{name}[{index}]: missing or empty {key!r}"
-        for key in keys
-        if not item.get(key)
-    ]
+#: What each field is allowed to be. A value of the wrong type either crashes
+#: the validator or, worse, reaches SQLite and is coerced there, so the shape
+#: is checked before anything else is asked of it.
+_TYPES: dict[str, dict[str, tuple[tuple[type, ...], str]]] = {
+    "organizations": {
+        "name": ((str,), "a string"),
+        "industry": ((str,), "a string"),
+        "website": ((str,), "a string"),
+    },
+    "contacts": {
+        "full_name": ((str,), "a string"),
+        "email": ((str,), "a string"),
+        "role": ((str,), "a string"),
+        "phone": ((str,), "a string"),
+        "organization": ((str,), "a string"),
+        "notes": ((str,), "a string"),
+        "channels": ((list,), "a list"),
+    },
+    "documents": {
+        "external_id": ((str,), "a string"),
+        "title": ((str,), "a string"),
+        "body": ((str,), "a string"),
+        "source": ((str,), "a string"),
+        "mime_type": ((str,), "a string"),
+        "owner_email": ((str,), "a string"),
+        "tags": ((list,), "a list"),
+    },
+    "datasets": {
+        "name": ((str,), "a string"),
+        "description": ((str,), "a string"),
+        "schema": ((dict,), "an object of field -> type"),
+        "records": ((list,), "a list"),
+    },
+    "models": {
+        "name": ((str,), "a string"),
+        "provider": ((str,), "a string"),
+        "task": ((str,), "a string"),
+        "description": ((str,), "a string"),
+        "versions": ((list,), "a list"),
+    },
+    "jobs": {
+        "kind": ((str,), "a string"),
+        "payload": ((dict,), "an object"),
+        "priority": ((int,), "a whole number"),
+    },
+}
 
 
-def _unique(name: str, items: list[dict[str, Any]], key: str) -> list[str]:
-    seen: dict[Any, int] = {}
+def _shape(label: str, kind: str, item: dict[str, Any]) -> list[str]:
+    """Check every field of one entry against _TYPES."""
     problems: list[str] = []
-    for index, item in enumerate(items):
-        value = item.get(key)
-        if value in seen:
-            problems.append(f"{name}[{index}]: duplicate {key} {value!r} (first at [{seen[value]}])")
-        else:
-            seen[value] = index
+    for key, (kinds, what) in _TYPES[kind].items():
+        if key not in item or item[key] is None:
+            continue
+        value = item[key]
+        # bool is a subclass of int, and "priority": true is not a number.
+        if isinstance(value, bool) and bool not in kinds:
+            problems.append(f"{label}: {key!r} must be {what}")
+        elif not isinstance(value, kinds):
+            problems.append(f"{label}: {key!r} must be {what}")
     return problems
 
 
-def _check_email(name: str, index: int, email: str) -> list[str]:
+def _flag(label: str, item: dict[str, Any], key: str) -> list[str]:
+    """A true/false field must actually be a JSON boolean.
+
+    Without this, "false" and "no" are truthy strings and set the flag.
+    """
+    if key in item and item[key] is not None and not isinstance(item[key], bool):
+        return [f"{label}: {key!r} must be true or false"]
+    return []
+
+
+def _require(label: str, item: dict[str, Any], *keys: str) -> list[str]:
+    return [f"{label}: missing or empty {key!r}" for key in keys if not item.get(key)]
+
+
+def _unique(entries: list[tuple[str, dict[str, Any]]], key: str) -> list[str]:
+    """Report entries that share a natural key.
+
+    Only string values are compared: anything else has already been reported
+    by _shape, and comparing Python values would miss that SQLite stores 1 and
+    "1" in a TEXT column as the same key, letting one entry overwrite another.
+    """
+    seen: dict[str, str] = {}
+    problems: list[str] = []
+    for label, item in entries:
+        value = item.get(key)
+        if not isinstance(value, str):
+            continue
+        if value in seen:
+            problems.append(f"{label}: duplicate {key} {value!r} (first at {seen[value]})")
+        else:
+            seen[value] = label
+    return problems
+
+
+def _check_email(label: str, email: str) -> list[str]:
     if not _EMAIL_RE.match(email):
-        return [f"{name}[{index}]: {email!r} is not an email address"]
+        return [f"{label}: {email!r} is not an email address"]
     if not FICTIONAL_DOMAIN_RE.search(email.lower()):
         return [
-            f"{name}[{index}]: {email!r} must use a reserved domain "
+            f"{label}: {email!r} must use a reserved domain "
             "(.example, .test, .invalid, example.com) so the data stays fictional"
         ]
     return []
@@ -144,81 +243,108 @@ def _check_email(name: str, index: int, email: str) -> list[str]:
 def validate(data_dir: Path | str = DATA_DIR) -> list[str]:
     """Return every problem found in the data files. Empty means valid."""
     data_dir = Path(data_dir)
+    # A typo in --data used to validate clean and then seed nothing.
+    if not data_dir.exists():
+        return [f"{data_dir}: no such data directory"]
+    if not data_dir.is_dir():
+        return [f"{data_dir}: is not a directory"]
+
     problems: list[str] = []
 
-    organizations = read_file(data_dir, "organizations.json")
-    for index, org in enumerate(organizations):
-        problems += _require("organizations", index, org, "name")
-    problems += _unique("organizations", organizations, "name")
-    org_names = {org.get("name") for org in organizations}
+    organizations = read_sources(data_dir, "organizations.json")
+    for label, org in organizations:
+        shape = _shape(label, "organizations", org)
+        problems += shape
+        if not shape:
+            problems += _require(label, org, "name")
+    problems += _unique(organizations, "name")
+    org_names = {org["name"] for _, org in organizations if isinstance(org.get("name"), str)}
 
-    contacts = read_file(data_dir, "contacts.json")
-    for index, contact in enumerate(contacts):
-        problems += _require("contacts", index, contact, "full_name", "email")
+    contacts = read_sources(data_dir, "contacts.json")
+    for label, contact in contacts:
+        shape = _shape(label, "contacts", contact)
+        problems += shape
+        if shape:
+            continue
+        problems += _require(label, contact, "full_name", "email")
         if contact.get("email"):
-            problems += _check_email("contacts", index, str(contact["email"]))
+            problems += _check_email(label, contact["email"])
         organization = contact.get("organization")
         if organization and organization not in org_names:
             problems.append(
-                f"contacts[{index}]: organization {organization!r} is not in organizations.json"
+                f"{label}: organization {organization!r} is not in organizations.json"
             )
         for channel_index, channel in enumerate(contact.get("channels") or []):
+            channel_label = f"{label}.channels[{channel_index}]"
             if not isinstance(channel, dict) or not channel.get("channel") or not channel.get("handle"):
-                problems.append(
-                    f"contacts[{index}].channels[{channel_index}]: needs 'channel' and 'handle'"
-                )
-    problems += _unique("contacts", contacts, "email")
+                problems.append(f"{channel_label}: needs 'channel' and 'handle'")
+                continue
+            problems += _flag(channel_label, channel, "is_primary")
+    problems += _unique(contacts, "email")
 
-    documents = read_file(data_dir, "documents.json")
-    for index, document in enumerate(documents):
-        problems += _require("documents", index, document, "external_id", "title", "body")
-        tags = document.get("tags", [])
-        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
-            problems.append(f"documents[{index}]: 'tags' must be a list of strings")
+    documents = read_sources(data_dir, "documents.json")
+    for label, document in documents:
+        shape = _shape(label, "documents", document)
+        problems += shape
+        if shape:
+            continue
+        problems += _require(label, document, "external_id", "title", "body")
+        if not all(isinstance(tag, str) for tag in document.get("tags") or []):
+            problems.append(f"{label}: 'tags' must be a list of strings")
         owner = document.get("owner_email")
         if owner:
-            problems += _check_email("documents", index, str(owner))
-    problems += _unique("documents", documents, "external_id")
+            problems += _check_email(label, owner)
+    problems += _unique(documents, "external_id")
 
-    datasets = read_file(data_dir, "datasets.json")
-    for index, dataset in enumerate(datasets):
-        problems += _require("datasets", index, dataset, "name")
+    datasets = read_sources(data_dir, "datasets.json")
+    for label, dataset in datasets:
+        shape = _shape(label, "datasets", dataset)
+        problems += shape
+        if shape:
+            continue
+        problems += _require(label, dataset, "name")
         schema = dataset.get("schema") or {}
-        records = dataset.get("records") or []
-        if not isinstance(schema, dict):
-            problems.append(f"datasets[{index}]: 'schema' must be an object of field -> type")
-            schema = {}
-        if not isinstance(records, list):
-            problems.append(f"datasets[{index}]: 'records' must be a list")
-            records = []
-        for record_index, record in enumerate(records):
+        for record_index, record in enumerate(dataset.get("records") or []):
+            record_label = f"{label}.records[{record_index}]"
             if not isinstance(record, dict):
-                problems.append(f"datasets[{index}].records[{record_index}]: must be an object")
+                problems.append(f"{record_label}: must be an object")
                 continue
             unknown = set(record) - set(schema)
             if schema and unknown:
                 problems.append(
-                    f"datasets[{index}].records[{record_index}]: fields not in schema: "
-                    + ", ".join(sorted(unknown))
+                    f"{record_label}: fields not in schema: " + ", ".join(sorted(unknown))
                 )
-    problems += _unique("datasets", datasets, "name")
+    problems += _unique(datasets, "name")
 
-    models = read_file(data_dir, "models.json")
-    for index, model in enumerate(models):
-        problems += _require("models", index, model, "name", "provider", "task")
+    models = read_sources(data_dir, "models.json")
+    for label, model in models:
+        shape = _shape(label, "models", model)
+        problems += shape
+        if shape:
+            continue
+        problems += _require(label, model, "name", "provider", "task")
         versions = model.get("versions") or []
         if not versions:
-            problems.append(f"models[{index}]: needs at least one entry in 'versions'")
+            problems.append(f"{label}: needs at least one entry in 'versions'")
         for version_index, version in enumerate(versions):
+            version_label = f"{label}.versions[{version_index}]"
             if not isinstance(version, dict) or not version.get("version"):
-                problems.append(f"models[{index}].versions[{version_index}]: needs 'version'")
-    problems += _unique("models", models, "name")
+                problems.append(f"{version_label}: needs 'version'")
+                continue
+            if not isinstance(version["version"], str):
+                problems.append(f"{version_label}: 'version' must be a string")
+            dimensions = version.get("dimensions")
+            if dimensions is not None and (isinstance(dimensions, bool) or not isinstance(dimensions, int)):
+                problems.append(f"{version_label}: 'dimensions' must be a whole number")
+            problems += _flag(version_label, version, "is_active")
+    problems += _unique(models, "name")
 
-    jobs = read_file(data_dir, "jobs.json")
-    for index, job in enumerate(jobs):
-        problems += _require("jobs", index, job, "kind")
-        if job.get("payload") is not None and not isinstance(job["payload"], dict):
-            problems.append(f"jobs[{index}]: 'payload' must be an object")
+    jobs = read_sources(data_dir, "jobs.json")
+    for label, job in jobs:
+        shape = _shape(label, "jobs", job)
+        problems += shape
+        if not shape:
+            problems += _require(label, job, "kind")
 
     return problems
 
@@ -237,6 +363,19 @@ def load_all(center: DataCenter, data_dir: Path | str = DATA_DIR) -> dict[str, i
         raise DataFileError("\n".join(problems))
 
     counts = {key: 0 for key in ("organizations", "contacts", "documents", "records", "models", "jobs")}
+
+    with center.transaction():
+        _load(center, data_dir, counts)
+
+    center.log(
+        "audit", "load_data", detail=f"{data_dir}: " + ", ".join(f"{k}={v}" for k, v in counts.items())
+    )
+    return counts
+
+
+def _load(center: DataCenter, data_dir: Path, counts: dict[str, int]) -> None:
+    """Write every data file into the data center. Called inside a transaction
+    by load_all, so an error part-way through keeps none of it."""
 
     for org in read_file(data_dir, "organizations.json"):
         center.add_organization(
@@ -287,9 +426,11 @@ def load_all(center: DataCenter, data_dir: Path | str = DATA_DIR) -> dict[str, i
             description=dataset.get("description", ""),
             schema=dataset.get("schema") or {},
         )
-        for record in dataset.get("records") or []:
-            center.add_record(dataset["name"], record)
-            counts["records"] += 1
+        # Replaced wholesale, not appended to: an edited record would
+        # otherwise be stored beside the version it was meant to correct.
+        counts["records"] += center.replace_records(
+            dataset["name"], dataset.get("records") or []
+        )
 
     for job in read_file(data_dir, "jobs.json"):
         payload = job.get("payload") or {}
@@ -297,5 +438,4 @@ def load_all(center: DataCenter, data_dir: Path | str = DATA_DIR) -> dict[str, i
             center.submit_job(job["kind"], payload, priority=int(job.get("priority", 100)))
             counts["jobs"] += 1
 
-    center.log("audit", "load_data", detail=f"{data_dir}: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
-    return counts
+

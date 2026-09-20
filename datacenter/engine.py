@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -20,6 +22,7 @@ class Database:
         self.spec = spec
         self.path = Path(root) / spec.filename
         self._connection: sqlite3.Connection | None = None
+        self._autocommit = True
 
     # -- connection handling ------------------------------------------------
 
@@ -48,15 +51,40 @@ class Database:
     # -- statements ---------------------------------------------------------
 
     def execute(self, sql: str, params: Sequence[Any] = ()) -> sqlite3.Cursor:
-        """Run a single statement and commit it."""
+        """Run a single statement, committing unless a transaction is open."""
         cursor = self.connection.execute(sql, params)
-        self.connection.commit()
+        self._commit()
         return cursor
 
     def executemany(self, sql: str, rows: Iterable[Sequence[Any]]) -> sqlite3.Cursor:
         cursor = self.connection.executemany(sql, rows)
-        self.connection.commit()
+        self._commit()
         return cursor
+
+    def _commit(self) -> None:
+        if self._autocommit:
+            self.connection.commit()
+
+    @contextmanager
+    def transaction(self) -> "Iterator[Database]":
+        """Hold every write in the block until it ends, then commit once.
+
+        If the block raises, nothing it wrote is kept. Nesting is a no-op, so
+        the outermost block decides when the work lands.
+        """
+        if not self._autocommit:
+            yield self
+            return
+
+        self._autocommit = False
+        try:
+            yield self
+            self.connection.commit()
+        except BaseException:
+            self.connection.rollback()
+            raise
+        finally:
+            self._autocommit = True
 
     def query(self, sql: str, params: Sequence[Any] = ()) -> list[sqlite3.Row]:
         return list(self.connection.execute(sql, params).fetchall())
@@ -108,7 +136,7 @@ class Database:
 
         if _SUPPORTS_RETURNING:
             row = self.connection.execute(statement + " RETURNING id", parameters).fetchone()
-            self.connection.commit()
+            self._commit()
             return int(row["id"])
 
         self.execute(statement, parameters)  # pragma: no cover - legacy SQLite

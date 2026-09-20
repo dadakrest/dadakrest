@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -62,6 +64,20 @@ class DataCenter:
             self.log(key, "migrate", detail=f"{migrated} {rows} removed to meet the current schema")
         self.log("audit", "provision", detail=f"{len(provisioned)} databases ready")
         return provisioned
+
+    @contextmanager
+    def transaction(self) -> "Iterator[DataCenter]":
+        """Run a block with every database held in a transaction.
+
+        If the block raises, none of its writes are kept — including the audit
+        events, because nothing happened. Each database commits separately, so
+        this protects against an error part-way through, not against the
+        process being killed between commits.
+        """
+        with ExitStack() as stack:
+            for database in self._databases.values():
+                stack.enter_context(database.transaction())
+            yield self
 
     def db(self, key: str) -> Database:
         get_spec(key)  # raises a helpful KeyError for unknown keys
@@ -285,6 +301,44 @@ class DataCenter:
             record_id = int(row["id"])
         self.log("datasets", "add_record", detail=dataset)
         return record_id
+
+    def replace_records(self, dataset: str, payloads: list[dict[str, Any]]) -> int:
+        """Make a dataset's records exactly `payloads`, and return how many.
+
+        A refill rather than an append: an edited record replaces the version
+        before it instead of sitting beside it, and a record dropped from the
+        source is dropped here too. Records added through `add_record` to a
+        dataset that a data file also defines do not survive this.
+        """
+        dataset_id = self.create_dataset(dataset)
+        datasets = self.db("datasets")
+        canonical = [json.dumps(payload, sort_keys=True) for payload in payloads]
+
+        for payload in canonical:
+            datasets.execute(
+                "INSERT OR IGNORE INTO records (dataset_id, payload, ingested_at) "
+                "VALUES (?, ?, ?)",
+                (dataset_id, payload, _utc_now()),
+            )
+
+        if canonical:
+            placeholders = ", ".join("?" for _ in canonical)
+            cursor = datasets.execute(
+                f"DELETE FROM records WHERE dataset_id = ? AND payload NOT IN ({placeholders})",
+                (dataset_id, *canonical),
+            )
+        else:
+            cursor = datasets.execute(
+                "DELETE FROM records WHERE dataset_id = ?", (dataset_id,)
+            )
+        removed = max(cursor.rowcount, 0)
+
+        self.log(
+            "datasets",
+            "replace_records",
+            detail=f"{dataset}: {len(canonical)} kept, {removed} removed",
+        )
+        return len(canonical)
 
     def list_datasets(self) -> list[dict[str, Any]]:
         rows = self.db("datasets").query(
