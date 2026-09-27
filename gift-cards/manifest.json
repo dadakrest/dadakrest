@@ -1,0 +1,14 @@
+{
+  "name": "Family Gift Cards",
+  "short_name": "Family Gifts",
+  "description": "Kids earn Peace Points for getting along and trade them for family gift cards.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f5fb",
+  "theme_color": "#6c4cf5",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
