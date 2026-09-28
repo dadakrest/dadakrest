@@ -36,6 +36,10 @@
   }
   header h1 { margin: 0; font-size: 1.3rem; }
   header p { margin: 2px 0 0; opacity: .85; font-size: .9rem; }
+  .badge {
+    flex: 0 0 auto; align-self: flex-start; background: rgba(255,255,255,.2); border-radius: 99px;
+    padding: 4px 10px; font-size: .75rem; font-weight: 600; white-space: nowrap;
+  }
   main { max-width: 640px; margin: 0 auto; padding: 16px; }
   h2 { font-size: 1.1rem; margin: 20px 0 10px; }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
@@ -74,6 +78,11 @@
   .tag { display: inline-block; font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
   .list-item { padding: 10px 0; border-bottom: 1px solid var(--line); }
   .list-item:last-child { border-bottom: 0; }
+  .codebox {
+    font-family: ui-monospace, monospace; font-size: 1.05rem; font-weight: 700; letter-spacing: 1px;
+    text-align: center; background: var(--bg); border: 1px dashed var(--line); border-radius: 10px;
+    padding: 12px 8px; margin: 10px 0; word-break: break-all; user-select: all;
+  }
   nav {
     position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line);
     display: flex; padding-bottom: env(safe-area-inset-bottom); z-index: 5;
@@ -103,8 +112,13 @@
 </head>
 <body>
 <header>
-  <h1 id="appTitle">Family Gift Cards</h1>
-  <p id="appSub">Earn Peace Points, trade them for gift cards</p>
+  <div class="spread">
+    <div style="min-width:0">
+      <h1 id="appTitle">Family Gift Cards</h1>
+      <p id="appSub">Earn Peace Points, trade them for gift cards</p>
+    </div>
+    <span id="syncBadge" class="badge" hidden></span>
+  </div>
 </header>
 <main id="view"></main>
 
@@ -131,12 +145,27 @@
 (() => {
   'use strict';
 
+  // ---------- Sync server ----------
+  // A publishable key is meant to be public. The database only answers the gc_* functions
+  // (see supabase/schema.sql), and a family's data can only be reached with its family code.
+  const SYNC_URL = 'https://seqeuadetaioxuzmcbal.supabase.co';
+  const SYNC_KEY = 'sb_publishable_VxZKocXeodCEnQyE_Q2DMw_ZcoRmWnh';
+  const SYNC_EVERY = 10 * 1000;          // check for changes from other phones while the app is open
+  const SYNC_RETRY = 60 * 1000;          // back off after a server error
+  const RELOCK_AFTER = 2 * 60 * 1000;    // parent mode locks after the app is in the background this long
+
   // ---------- Constants ----------
-  const STORE_KEY = 'familyGiftCards.v1';
+  const STORE_KEY = 'familyGiftCards.v2';
+  const OLD_STORE_KEY = 'familyGiftCards.v1';
   const MAX_AGE = 15;                               // kids profiles are for ages 1–15
   const MIN_AGE = 1;
   const STORAGE_CAP = 1024 * 1024 * 1024 - 1;       // stay under 1 GB
   const APP_DATA_WARN = 4 * 1024 * 1024;            // localStorage usually tops out near 5 MB
+  const LOG_MAX = 300;
+  const WALLET_MAX = 2000;
+  const IMPORT_MAX = 900 * 1024;                    // the server takes events up to 1 MB
+  const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';   // no I, L, O, U: easy to read aloud
+  const CODE_LEN = 25;                              // 125 random bits
   const AVATARS = ['🦁','🐯','🐼','🦊','🐸','🐵','🦄','🐙','🐢','🐬','🚀','⚽','🎨','🎸','🌟','🌈'];
   const CARD_EMOJI = ['🎁','🍦','🎮','📚','🍕','🎬','🧸','🛝','🎟️','🛍️','🏊','🌙','📱','🎨'];
   const PEACE_ACTS = [
@@ -154,57 +183,454 @@
       appTitle: 'Family Gift Cards',
       tagline: 'Earn Peace Points, trade them for gift cards',
       accent: '#6c4cf5',
-      pin: '',                // empty = not set yet
       pointsName: 'Peace Points',
+      pinHash: '',            // empty = no PIN set yet
+      pinSalt: '',
     },
     kids: [],                 // {id, name, age, avatar, points}
     cards: [],                // {id, title, emoji, cost, color, minAge, maxAge, stock (-1 = unlimited), note}
     wallet: [],               // {id, kidId, cardId, title, emoji, color, code, at, used}
     log: [],                  // {id, kidId, text, pts, at}
-    peaceActs: PEACE_ACTS,
+    peaceActs: PEACE_ACTS.map(a => ({ ...a })),
   });
 
-  // ---------- State ----------
-  let state = load();
-  let tab = 'home';
-  let parentUnlocked = false;
-
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return defaults();
-      const d = JSON.parse(raw);
-      const base = defaults();
-      return { ...base, ...d, settings: { ...base.settings, ...(d.settings || {}) } };
-    } catch { return defaults(); }
-  }
-  function save() {
-    const json = JSON.stringify(state);
-    if (json.length * 2 > STORAGE_CAP) { toast('Too much data — export a backup and clear old history.'); return false; }
-    try { localStorage.setItem(STORE_KEY, json); return true; }
-    catch { toast('Phone storage for this app is full. Clear history in Setup.'); return false; }
-  }
-
-  // ---------- Helpers ----------
+  // ---------- Small helpers ----------
   const $ = s => document.querySelector(s);
-  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const randomBytes = n => crypto.getRandomValues(new Uint8Array(n));
+  const hex = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  const uid = () => hex(randomBytes(8));
+  const uuid = () => {
+    const b = randomBytes(16);
+    b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+    const h = hex(b);
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  };
+  const randomCode = len => Array.from(randomBytes(len), b => CODE_ALPHABET[b & 31]).join('');
+  const giftCode = () => randomCode(12).replace(/(.{4})(?!$)/g, '$1-');
+  const normalizeCode = s => String(s || '').toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/[^0-9A-Z]/g, '');
+  const formatCode = c => c.replace(/(.{5})(?!$)/g, '$1-');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  const kidById = id => state.kids.find(k => k.id === id);
-  const cardById = id => state.cards.find(c => c.id === id);
   const fmtDate = t => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const fmtBytes = b => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : b < 1073741824 ? (b/1048576).toFixed(1) + ' MB' : (b/1073741824).toFixed(2) + ' GB';
-  const giftCode = () => Array.from({ length: 3 }, () => Math.random().toString(36).slice(2, 6).toUpperCase()).join('-');
+
+  // Input cleaning: every change from another phone passes through these before it touches state.
+  const str = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
+  const int = (v, lo, hi) => {
+    const n = typeof v === 'number' || (typeof v === 'string' && v.trim() !== '') ? Math.trunc(Number(v)) : NaN;
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : null;
+  };
+  const arr = v => Array.isArray(v) ? v : [];
+  const isColor = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+  const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+
+  // SHA-256 for the parent PIN, in plain JS so it also works where crypto.subtle is missing.
+  const sha256 = (() => {
+    const K = new Uint32Array([
+      0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+      0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+      0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+      0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+      0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+      0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+      0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+      0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+    const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+    return text => {
+      const data = new TextEncoder().encode(text);
+      const total = Math.ceil((data.length + 9) / 64) * 64;
+      const buf = new Uint8Array(total);
+      buf.set(data); buf[data.length] = 0x80;
+      const dv = new DataView(buf.buffer);
+      dv.setUint32(total - 8, Math.floor(data.length / 0x20000000));
+      dv.setUint32(total - 4, (data.length * 8) >>> 0);
+      const H = new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+      const W = new Uint32Array(64);
+      for (let o = 0; o < total; o += 64) {
+        for (let i = 0; i < 16; i++) W[i] = dv.getUint32(o + i * 4);
+        for (let i = 16; i < 64; i++) {
+          const s0 = rotr(W[i-15], 7) ^ rotr(W[i-15], 18) ^ (W[i-15] >>> 3);
+          const s1 = rotr(W[i-2], 17) ^ rotr(W[i-2], 19) ^ (W[i-2] >>> 10);
+          W[i] = W[i-16] + s0 + W[i-7] + s1;
+        }
+        let [a, b, c, d, e, f, g, h] = H;
+        for (let i = 0; i < 64; i++) {
+          const t1 = (h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + W[i]) | 0;
+          const t2 = ((rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+          h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+        }
+        H[0] += a; H[1] += b; H[2] += c; H[3] += d; H[4] += e; H[5] += f; H[6] += g; H[7] += h;
+      }
+      return Array.from(H, x => x.toString(16).padStart(8, '0')).join('');
+    };
+  })();
+  const hashPin = pin => { const pinSalt = hex(randomBytes(16)); return { pinSalt, pinHash: sha256(pinSalt + ':' + pin) }; };
+
+  // ---------- Cleaning stored or synced data ----------
+  function cleanKid(k) {
+    if (!isObj(k)) return null;
+    const id = str(k.id, 40), name = str(k.name, 24), age = Number(k.age);
+    if (!id || !name || !Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) return null;
+    return { id, name, age, avatar: str(k.avatar, 16) || '🌟', points: int(k.points, 0, 1e6) ?? 0 };
+  }
+  function cleanCard(c) {
+    if (!isObj(c)) return null;
+    const id = str(c.id, 40), title = str(c.title, 40), cost = int(c.cost, 1, 1e6);
+    if (!id || !title || cost === null) return null;
+    let minAge = int(c.minAge, MIN_AGE, MAX_AGE) ?? MIN_AGE, maxAge = int(c.maxAge, MIN_AGE, MAX_AGE) ?? MAX_AGE;
+    if (minAge > maxAge) [minAge, maxAge] = [maxAge, minAge];
+    return {
+      id, title, cost, minAge, maxAge,
+      stock: int(c.stock, -1, 10000) ?? -1,
+      note: str(c.note, 80),
+      emoji: str(c.emoji, 16) || '🎁',
+      color: isColor(c.color) ? c.color : '#6c4cf5',
+    };
+  }
+  function cleanWallet(w) {
+    if (!isObj(w)) return null;
+    const id = str(w.id, 40), kidId = str(w.kidId, 40);
+    if (!id || !kidId) return null;
+    return {
+      id, kidId, cardId: str(w.cardId, 40), title: str(w.title, 40) || 'Gift card', emoji: str(w.emoji, 16) || '🎁',
+      color: isColor(w.color) ? w.color : '#6c4cf5', code: str(w.code, 20), at: int(w.at, 0, 8.64e15) ?? 0, used: w.used === true,
+    };
+  }
+  function cleanLog(l) {
+    if (!isObj(l)) return null;
+    return { id: str(l.id, 60) || uid(), kidId: str(l.kidId, 40), text: str(l.text, 120), pts: int(l.pts, -1e6, 1e6) ?? 0, at: int(l.at, 0, 8.64e15) ?? 0 };
+  }
+  function cleanAct(a) {
+    if (!isObj(a)) return null;
+    const label = str(a.label, 40), pts = int(a.pts, 1, 1000);
+    return label && pts ? { label, pts } : null;
+  }
+  function cleanState(d) {
+    const s = defaults();
+    if (!isObj(d)) return s;
+    const ds = isObj(d.settings) ? d.settings : {};
+    for (const k of ['familyName', 'appTitle', 'tagline', 'pointsName']) if (typeof ds[k] === 'string') s.settings[k] = str(ds[k], 60);
+    if (isColor(ds.accent)) s.settings.accent = ds.accent;
+    if (typeof ds.pinHash === 'string' && /^[0-9a-f]{64}$/.test(ds.pinHash)) {
+      s.settings.pinHash = ds.pinHash; s.settings.pinSalt = str(ds.pinSalt, 64);
+    } else if (typeof ds.pin === 'string' && /^\d{4,6}$/.test(ds.pin)) {
+      Object.assign(s.settings, hashPin(ds.pin));     // backups from the first version kept the PIN as-is
+    }
+    s.kids = arr(d.kids).map(cleanKid).filter(Boolean).slice(0, 50);
+    s.cards = arr(d.cards).map(cleanCard).filter(Boolean).slice(0, 200);
+    s.wallet = arr(d.wallet).map(cleanWallet).filter(Boolean).slice(0, WALLET_MAX);
+    s.log = arr(d.log).map(cleanLog).filter(Boolean).slice(0, LOG_MAX);
+    const acts = arr(d.peaceActs).map(cleanAct).filter(Boolean).slice(0, 30);
+    if (acts.length) s.peaceActs = acts;
+    return s;
+  }
+
+  // ---------- Changes ----------
+  // Every change is an event. Phones replay the family's events in the server's order,
+  // so they all end up with the same state. Rules (like "enough points?") are checked
+  // during replay, which is what stops two phones spending the same points twice.
+  function addLog(s, ev, kidId, text, p, n = 0) {
+    s.log.unshift({ id: ev.id + (n ? ':' + n : ''), kidId, text: str(text, 120), pts: p, at: int(ev.at, 0, 8.64e15) ?? 0 });
+    if (s.log.length > LOG_MAX) s.log.length = LOG_MAX;
+  }
+
+  function apply(s, ev, onReject) {
+    if (!isObj(ev)) return s;
+    const kid = id => s.kids.find(k => k.id === id);
+    switch (ev.type) {
+      case 'settings': {
+        const v = isObj(ev.settings) ? ev.settings : {};
+        for (const k of ['familyName', 'appTitle', 'tagline', 'pointsName']) if (typeof v[k] === 'string') s.settings[k] = str(v[k], 60);
+        if (isColor(v.accent)) s.settings.accent = v.accent;
+        break;
+      }
+      case 'acts': {
+        const acts = arr(ev.acts).map(cleanAct).filter(Boolean).slice(0, 30);
+        if (acts.length) s.peaceActs = acts;
+        break;
+      }
+      case 'pin':
+        if (typeof ev.pinHash === 'string' && /^[0-9a-f]{64}$/.test(ev.pinHash)) {
+          s.settings.pinHash = ev.pinHash; s.settings.pinSalt = str(ev.pinSalt, 64);
+        }
+        break;
+      case 'kid.add': {
+        const k = cleanKid({ ...(isObj(ev.kid) ? ev.kid : {}), points: 0 });
+        if (k && !kid(k.id) && s.kids.length < 50) s.kids.push(k);
+        break;
+      }
+      case 'kid.edit': {
+        const k = kid(ev.kidId), c = k && cleanKid({ ...k, name: ev.name, age: ev.age });
+        if (c) Object.assign(k, c);
+        break;
+      }
+      case 'kid.remove':
+        s.kids = s.kids.filter(k => k.id !== ev.kidId);
+        s.wallet = s.wallet.filter(w => w.kidId !== ev.kidId);
+        break;
+      case 'points': {
+        const k = kid(ev.kidId), n = int(ev.pts, -1e6, 1e6);
+        if (!k || !n) break;
+        const before = k.points;
+        k.points = Math.min(1e6, Math.max(0, k.points + n));
+        addLog(s, ev, k.id, ev.text, k.points - before);
+        break;
+      }
+      case 'card.add': {
+        const c = cleanCard(ev.card);
+        if (c && !s.cards.some(x => x.id === c.id) && s.cards.length < 200) s.cards.push(c);
+        break;
+      }
+      case 'card.remove':
+        s.cards = s.cards.filter(c => c.id !== ev.cardId);
+        break;
+      case 'redeem': {
+        const k = kid(ev.kidId), c = s.cards.find(x => x.id === ev.cardId), walletId = str(ev.walletId, 40);
+        if (!k || !c || !walletId || s.wallet.some(w => w.id === walletId)) break;
+        if (c.stock === 0 || k.points < c.cost || k.age < c.minAge || k.age > c.maxAge) {
+          addLog(s, ev, k.id, `${k.name} couldn't get "${c.title}"`, 0);
+          onReject?.(ev, `${k.name} couldn't get "${c.title}": the points or cards were already used on another phone.`);
+          break;
+        }
+        k.points -= c.cost;
+        if (c.stock > 0) c.stock--;
+        s.wallet.unshift({ id: walletId, kidId: k.id, cardId: c.id, title: c.title, emoji: c.emoji, color: c.color,
+                           code: str(ev.code, 20), at: int(ev.at, 0, 8.64e15) ?? 0, used: false });
+        if (s.wallet.length > WALLET_MAX) s.wallet = s.wallet.filter((w, i) => i < WALLET_MAX || !w.used);
+        addLog(s, ev, k.id, `${k.name} got "${c.title}"`, -c.cost);
+        break;
+      }
+      case 'used': {
+        const w = s.wallet.find(x => x.id === ev.walletId);
+        if (w) w.used = true;
+        break;
+      }
+      case 'clear':
+        s.log = [];
+        s.wallet = s.wallet.filter(w => !w.used);
+        break;
+      case 'import': {
+        const next = cleanState(ev.state);
+        if (!next.settings.pinHash) Object.assign(next.settings, { pinHash: s.settings.pinHash, pinSalt: s.settings.pinSalt });
+        s = next;
+        break;
+      }
+      case 'reset': {
+        const { pinHash, pinSalt } = s.settings;
+        s = defaults();
+        Object.assign(s.settings, { pinHash, pinSalt });
+        break;
+      }
+    }
+    return s;
+  }
+
+  // ---------- Stored data ----------
+  // store.base    = state after every event the server has confirmed (up to store.sync.cursor)
+  // store.pending = changes made on this phone that the server hasn't confirmed yet
+  // state         = base + pending, which is what the screen shows
+  let store = loadStore();
+  let state = null;
+  recompute();
+
+  function loadStore() {
+    let st = null;
+    try { st = JSON.parse(localStorage.getItem(STORE_KEY)); } catch {}
+    if (!isObj(st) || !isObj(st.base)) {
+      let old = null;
+      try { old = JSON.parse(localStorage.getItem(OLD_STORE_KEY)); } catch {}
+      st = { base: old };
+    }
+    const out = {
+      device: typeof st.device === 'string' && /^[0-9a-f-]{36}$/.test(st.device) ? st.device : uuid(),
+      base: cleanState(st.base),
+      pending: arr(st.pending).filter(e => isObj(e) && typeof e.id === 'string' && typeof e.type === 'string'),
+      sync: isObj(st.sync) && typeof st.sync.code === 'string' && st.sync.code.length === CODE_LEN
+        ? { code: st.sync.code, cursor: int(st.sync.cursor, 0, Number.MAX_SAFE_INTEGER) ?? 0 } : null,
+    };
+    if (!out.sync) { for (const e of out.pending) out.base = apply(out.base, e); out.pending = []; }
+    return out;
+  }
+  function persist() {
+    const json = JSON.stringify(store);
+    if (json.length * 2 > STORAGE_CAP) { toast('Too much data. Save a backup and clear old history.'); return false; }
+    try {
+      localStorage.setItem(STORE_KEY, json);
+      localStorage.removeItem(OLD_STORE_KEY);
+      return true;
+    } catch { toast('Phone storage for this app is full. Clear history in Setup.'); return false; }
+  }
+  function recompute() {
+    let s = clone(store.base);
+    for (const e of store.pending) s = apply(s, e);
+    state = s;
+  }
+  function commit(type, data = {}) {
+    const ev = { ...data, id: uuid(), type, at: Date.now(), by: store.device };
+    if (store.sync) store.pending.push(ev);
+    else store.base = apply(store.base, ev);
+    persist();
+    recompute();
+    scheduleSync();
+    return ev;
+  }
+
+  // ---------- Sync ----------
+  const sync = { status: 'idle', error: '', busy: false, again: false, lastTry: 0, timer: 0 };
+  const ERRORS = {
+    family_not_found: 'This family code isn\'t on the sync server.',
+    bad_code: 'That family code isn\'t valid.',
+    server_full: 'The sync server has no room for another family.',
+    family_full: 'This family\'s sync storage is full.',
+  };
+  const friendly = e => e.offline ? 'No internet connection.' : (ERRORS[e.message] || 'The sync server had a problem. Trying again soon.');
+
+  async function rpc(fn, args) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 20000);
+    try {
+      let res;
+      try {
+        res = await fetch(`${SYNC_URL}/rest/v1/rpc/${fn}`, {
+          method: 'POST', cache: 'no-store', signal: ctl.signal,
+          headers: { apikey: SYNC_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        });
+      } catch {
+        throw Object.assign(new Error('offline'), { offline: true });
+      }
+      let body = null;
+      try { body = await res.json(); } catch {}
+      if (!res.ok) throw Object.assign(new Error(body?.message || `HTTP ${res.status}`), { status: res.status });
+      return body;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  const refusedEvent = e => ['bad_event', 'bad_events', 'too_big'].includes(e.message);
+
+  async function pushPending(link) {
+    const list = store.pending.slice();
+    const send = events => rpc('gc_push', { p_secret: link.code, p_device: store.device, p_events: events });
+    for (let i = 0; i < list.length;) {
+      const batch = [];
+      let size = 0;
+      while (i < list.length && batch.length < 100) {
+        const n = JSON.stringify(list[i]).length;
+        if (batch.length && size + n > 800 * 1024) break;
+        batch.push(list[i]); size += n; i++;
+      }
+      try {
+        await send(batch);
+      } catch (e) {
+        if (!refusedEvent(e)) throw e;
+        // The server refused something in this batch: send them one by one and drop what it refuses.
+        for (const ev of batch) {
+          try { await send([ev]); }
+          catch (e2) {
+            if (!refusedEvent(e2)) throw e2;
+            if (store.sync !== link) return;
+            store.pending = store.pending.filter(p => p.id !== ev.id);
+            persist();
+            toast('One change was too big to sync and was undone.');
+          }
+        }
+      }
+      if (store.sync !== link) return;
+    }
+  }
+
+  async function pullAll(link) {
+    for (let page = 0; page < 10000; page++) {
+      const r = await rpc('gc_pull', { p_secret: link.code, p_after: link.cursor, p_limit: 500 });
+      if (store.sync !== link) return;            // left or switched family meanwhile
+      const events = arr(r?.events);
+      const confirmed = new Set();
+      for (const e of events) {
+        if (!(e?.seq > link.cursor)) continue;
+        store.base = apply(store.base, e.body, (ev, msg) => { if (ev.by === store.device) toast(msg); });
+        link.cursor = e.seq;
+        if (typeof e.body?.id === 'string') confirmed.add(e.body.id);
+      }
+      if (confirmed.size) store.pending = store.pending.filter(p => !confirmed.has(p.id));
+      if (events.length) persist();
+      if (!events.length || link.cursor >= (r?.last_seq || 0)) return;
+    }
+  }
+
+  async function syncNow() {
+    const link = store.sync;
+    if (!link) return;
+    if (sync.busy) { sync.again = true; return; }
+    sync.busy = true;
+    sync.lastTry = Date.now();
+    const before = JSON.stringify(state);
+    setSyncStatus('syncing');
+    try {
+      if (store.pending.length) await pushPending(link);
+      await pullAll(link);
+      if (store.sync === link) setSyncStatus('ok');
+    } catch (e) {
+      if (store.sync === link) setSyncStatus(e.offline ? 'offline' : 'error', friendly(e));
+    } finally {
+      sync.busy = false;
+      recompute();
+      if (JSON.stringify(state) !== before) render(true);
+      if (sync.again) { sync.again = false; scheduleSync(0); }
+    }
+  }
+
+  function scheduleSync(delay = 400) {
+    if (!store.sync) return;
+    clearTimeout(sync.timer);
+    sync.timer = setTimeout(syncNow, delay);
+  }
+
+  function setSyncStatus(status, error = '') {
+    sync.status = status;
+    sync.error = error;
+    updateBadge();
+    const el = $('#syncStatusText');
+    if (el) el.textContent = syncStatusText();
+  }
+  function syncStatusText() {
+    const waiting = store.pending.length;
+    switch (sync.status) {
+      case 'ok': return waiting ? `Sending ${waiting} change${waiting === 1 ? '' : 's'}…` : 'Up to date ✓';
+      case 'syncing': return 'Syncing…';
+      case 'offline': return `Offline. ${waiting} change${waiting === 1 ? '' : 's'} will sync later`;
+      case 'error': return sync.error;
+      default: return 'Connecting…';
+    }
+  }
+  function updateBadge() {
+    const b = $('#syncBadge');
+    if (!store.sync) { b.hidden = true; return; }
+    b.hidden = false;
+    b.textContent = { ok: '✓ Synced', syncing: '⟳ Syncing', offline: '☁ Offline', error: '⚠ Sync issue' }[sync.status] || '⟳ Syncing';
+  }
+
+  // ---------- Screen helpers ----------
+  let tab = 'home';
+  let parentUnlocked = false;
+  let showCode = false;
+  let shopKid = null;
+  let walletKid = null;
+  let hiddenAt = 0;
+  let renderWaiting = false;
+  let renderRetry = 0;
+  let pointerDown = false;
+
+  const kidById = id => state.kids.find(k => k.id === id);
+  const cardById = id => state.cards.find(c => c.id === id);
   const pts = () => esc(state.settings.pointsName);
 
   function toast(msg) {
     const t = document.createElement('div');
     t.className = 'toast'; t.textContent = msg;
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2600);
-  }
-  function addLog(kidId, text, p) {
-    state.log.unshift({ id: uid(), kidId, text, pts: p, at: Date.now() });
-    if (state.log.length > 500) state.log.length = 500;   // keep history small
+    setTimeout(() => t.remove(), 3200);
   }
   function applyTheme() {
     const s = state.settings;
@@ -219,6 +645,7 @@
   function askPin(title) {
     return new Promise(resolve => {
       const dlg = $('#pinDialog');
+      if (dlg.open) { resolve(null); return; }
       let entry = '';
       $('#pinTitle').textContent = title;
       const dots = () => $('#pinDots').textContent = '•'.repeat(entry.length) || ' ';
@@ -236,35 +663,86 @@
         pad.appendChild(b);
       });
       $('#pinCancel').onclick = () => { dlg.close(); resolve(null); };
+      dlg.oncancel = () => resolve(null);
       dots();
       dlg.showModal();
     });
   }
+  async function newPin() {
+    const p1 = await askPin('Create a 4–6 digit parent PIN');
+    if (!p1) return false;
+    if (p1.length < 4) { toast('PIN needs at least 4 digits'); return false; }
+    const p2 = await askPin('Type the PIN again');
+    if (p1 !== p2) { toast('PINs did not match'); return false; }
+    commit('pin', hashPin(p1));
+    return true;
+  }
   async function unlockParent() {
     if (parentUnlocked) return true;
-    if (!state.settings.pin) {
-      const p1 = await askPin('Create a 4–6 digit parent PIN');
-      if (!p1) return false;
-      if (p1.length < 4) { toast('PIN needs at least 4 digits'); return false; }
-      const p2 = await askPin('Type the PIN again');
-      if (p1 !== p2) { toast('PINs did not match'); return false; }
-      state.settings.pin = p1; save();
+    if (!state.settings.pinHash) {
+      if (!(await newPin())) return false;
       parentUnlocked = true; toast('Parent PIN saved'); return true;
     }
     const p = await askPin('Parent PIN');
-    if (p === state.settings.pin) { parentUnlocked = true; return true; }
+    if (p !== null && sha256(state.settings.pinSalt + ':' + p) === state.settings.pinHash) { parentUnlocked = true; return true; }
     if (p !== null) toast('Wrong PIN');
     return false;
   }
 
   // ---------- Views ----------
+  function recentLog() {
+    const items = state.log.slice(0, 8);
+    if (!items.length) return '';
+    return `<h2>Recent</h2><div class="panel">${items.map(l => `<div class="list-item spread">
+      <span>${esc(kidById(l.kidId)?.avatar || '')} ${esc(l.text)}<br><span class="muted">${fmtDate(l.at)}</span></span>
+      <b style="flex:0 0 auto;color:${l.pts >= 0 ? 'var(--ok)' : 'var(--warn)'}">${l.pts > 0 ? '+' : ''}${l.pts}</b></div>`).join('')}</div>`;
+  }
+
+  function walletView(k) {
+    const items = state.wallet.filter(w => w.kidId === k.id);
+    return `<button class="ghost small" data-act="back">← Back</button>
+      <h2>${esc(k.avatar)} ${esc(k.name)}'s wallet</h2>` +
+      (items.map(w => `<div class="gcard" style="background:${esc(w.color)};${w.used ? 'opacity:.5' : ''}">
+        <div class="emoji">${esc(w.emoji)}</div>
+        <div><div class="title">${esc(w.title)}</div>
+        <div class="code">${esc(w.code)}</div>
+        <div style="font-size:.8rem;opacity:.9">${w.used ? 'Used' : 'Ready to use'} · got it ${fmtDate(w.at)}</div></div>
+      </div>`).join('') || '<div class="panel empty">No gift cards yet. Earn points on the Peace Board!</div>');
+  }
+
+  function syncPanel() {
+    if (!store.sync) {
+      return `<div class="panel">
+        <p class="muted" style="margin-top:0">Keep every phone in the family up to date automatically. Points, gift cards and settings show up on all phones within seconds.</p>
+        <button style="width:100%" data-act="startFamily">Start syncing from this phone</button>
+        <label for="joinCode">Already started on another phone? Type its family code:</label>
+        <input id="joinCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX">
+        <button class="ghost" style="width:100%;margin-top:8px" data-act="joinFamily">Join family</button>
+      </div>`;
+    }
+    const code = parentUnlocked && showCode
+      ? `<div class="codebox">${esc(formatCode(store.sync.code))}</div>
+         <p class="muted">Add another phone: open the app there, go to Setup, and type this code (or send it the link). Anyone with this code can see and change your family's data, so only give it to phones you trust.</p>
+         <div class="row"><button class="ghost" data-act="copyCode">Copy code</button><button class="ghost" data-act="shareCode">Send link</button></div>`
+      : `<button class="ghost" style="width:100%" data-act="revealCode">Add another phone (show family code)</button>`;
+    return `<div class="panel">
+      <div class="spread"><span>This phone</span><b id="syncStatusText">${esc(syncStatusText())}</b></div>
+      <p class="muted">Changes show up on the other phones within about 10 seconds while the app is open. Changes made offline are kept and sent when the internet is back.</p>
+      ${code}
+      <button class="ghost" style="width:100%;margin-top:10px" data-act="syncNow">Sync now</button>
+    </div>`;
+  }
+
   const views = {
     home() {
+      const wk = walletKid && kidById(walletKid);
+      if (wk) return walletView(wk);
       if (!state.kids.length) {
         return `<div class="panel empty">
           <div style="font-size:3rem">👨‍👩‍👧‍👦</div>
           <p>No kids added yet.</p>
-          <p class="muted">Go to <b>Parent</b> to add kids (ages ${MIN_AGE}–${MAX_AGE}) and make gift cards.</p>
+          <p class="muted">Go to <b>Parent</b> to add kids (ages ${MIN_AGE}–${MAX_AGE}) and make gift cards.
+          Already set up on another phone? Go to <b>Setup</b> and join your family.</p>
         </div>`;
       }
       return `<h2>Our kids</h2>` + state.kids.map(k => {
@@ -272,35 +750,33 @@
         return `<div class="panel">
           <div class="kid">
             <div class="avatar">${esc(k.avatar)}</div>
-            <div style="flex:1">
+            <div style="flex:1;min-width:0">
               <div style="font-weight:700">${esc(k.name)} <span class="tag">age ${k.age}</span></div>
               <div class="muted">${mine} gift card${mine === 1 ? '' : 's'} in wallet</div>
             </div>
             <div style="text-align:right"><div class="points">${k.points}</div><div class="muted" style="font-size:.75rem">${pts()}</div></div>
           </div>
           <div class="row" style="margin-top:10px">
-            <button class="ghost small" data-act="openWallet" data-id="${k.id}">Wallet</button>
-            <button class="small" data-act="goShop" data-id="${k.id}">Get a gift card</button>
+            <button class="ghost small" data-act="openWallet" data-id="${esc(k.id)}">Wallet</button>
+            <button class="small" data-act="goShop" data-id="${esc(k.id)}">Get a gift card</button>
           </div>
         </div>`;
       }).join('') + recentLog();
     },
 
     cards() {
-      const kidSel = state.kids.length ? `<label>Shopping as</label>
-        <select id="shopKid">${state.kids.map(k => `<option value="${k.id}" ${k.id === shopKid ? 'selected' : ''}>${esc(k.avatar)} ${esc(k.name)} — ${k.points} pts</option>`).join('')}</select>` : '';
       const kid = kidById(shopKid) || state.kids[0];
-      if (kid) shopKid = kid.id;
-      const list = state.cards;
+      shopKid = kid ? kid.id : null;
+      const kidSel = kid ? `<label for="shopKid">Shopping as</label>
+        <select id="shopKid">${state.kids.map(k => `<option value="${esc(k.id)}" ${k.id === shopKid ? 'selected' : ''}>${esc(k.avatar)} ${esc(k.name)} (${k.points} pts)</option>`).join('')}</select>` : '';
       if (!state.cards.length) return kidSel + `<div class="panel empty"><div style="font-size:3rem">🎁</div><p>No gift cards yet.</p><p class="muted">A parent can create them in <b>Parent</b>.</p></div>`;
-      return kidSel + `<h2>Gift card shop</h2>` + list.map(c => {
-        const tooYoung = kid && c.minAge && kid.age < c.minAge;
-        const tooOld = kid && c.maxAge && kid.age > c.maxAge;
+      return kidSel + `<h2>Gift card shop</h2>` + state.cards.map(c => {
+        const wrongAge = kid && (kid.age < c.minAge || kid.age > c.maxAge);
         const soldOut = c.stock === 0;
-        const cant = !kid || kid.points < c.cost || tooYoung || tooOld || soldOut;
+        const cant = !kid || kid.points < c.cost || wrongAge || soldOut;
         let why = '';
         if (soldOut) why = 'Sold out';
-        else if (tooYoung || tooOld) why = `Ages ${c.minAge || MIN_AGE}–${c.maxAge || MAX_AGE}`;
+        else if (wrongAge) why = `Ages ${c.minAge}–${c.maxAge}`;
         else if (kid && kid.points < c.cost) why = `Need ${c.cost - kid.points} more`;
         return `<div class="gcard" style="background:${esc(c.color)}">
           <div class="cost">${c.cost} pts</div>
@@ -309,8 +785,8 @@
             <div class="title">${esc(c.title)}</div>
             ${c.note ? `<div style="opacity:.9;font-size:.9rem">${esc(c.note)}</div>` : ''}
             <div class="spread" style="margin-top:8px">
-              <span style="font-size:.8rem;opacity:.9">${c.stock === -1 ? 'Unlimited' : c.stock + ' left'} · ages ${c.minAge || MIN_AGE}–${c.maxAge || MAX_AGE}</span>
-              <button class="small" data-act="redeem" data-id="${c.id}" ${cant ? 'disabled' : ''}>${cant && why ? why : 'Get it'}</button>
+              <span style="font-size:.8rem;opacity:.9">${c.stock === -1 ? 'Unlimited' : c.stock + ' left'} · ages ${c.minAge}–${c.maxAge}</span>
+              <button class="small" data-act="redeem" data-id="${esc(c.id)}" ${cant ? 'disabled' : ''}>${cant && why ? why : 'Get it'}</button>
             </div>
           </div>
         </div>`;
@@ -319,11 +795,12 @@
 
     peace() {
       if (!state.kids.length) return `<div class="panel empty">Add kids in <b>Parent</b> first.</div>`;
+      const opts = sel => state.kids.map((k, i) => `<option value="${esc(k.id)}" ${i === sel ? 'selected' : ''}>${esc(k.avatar)} ${esc(k.name)}</option>`).join('');
       return `<div class="panel">
           <h2 style="margin-top:0">🕊️ Peace Board</h2>
           <p class="muted">Getting along earns ${pts()}. A parent approves each one with the PIN.</p>
-          <label>Who?</label>
-          <select id="peaceKid">${state.kids.map(k => `<option value="${k.id}">${esc(k.avatar)} ${esc(k.name)}</option>`).join('')}</select>
+          <label for="peaceKid">Who?</label>
+          <select id="peaceKid">${opts(0)}</select>
           <label>What happened?</label>
           <div id="peaceActs">${state.peaceActs.map((a, i) => `
             <button class="ghost" style="width:100%;margin-bottom:6px;text-align:left" data-act="peace" data-i="${i}">
@@ -335,8 +812,8 @@
           <h2 style="margin-top:0">🤝 Make peace together</h2>
           <p class="muted">Two kids made up after a fight? Both get a bonus.</p>
           <div class="row">
-            <select id="peaceA">${state.kids.map(k => `<option value="${k.id}">${esc(k.name)}</option>`).join('')}</select>
-            <select id="peaceB">${state.kids.map((k, i) => `<option value="${k.id}" ${i === 1 ? 'selected' : ''}>${esc(k.name)}</option>`).join('')}</select>
+            <select id="peaceA" aria-label="First kid">${opts(0)}</select>
+            <select id="peaceB" aria-label="Second kid">${opts(1)}</select>
           </div>
           <button style="width:100%;margin-top:10px" data-act="makePeace">We made peace (+10 each)</button>
         </div>` + recentLog();
@@ -346,7 +823,7 @@
       if (!parentUnlocked) {
         return `<div class="panel empty"><div style="font-size:3rem">🔒</div>
           <p>Parents only.</p>
-          <button data-act="unlock">${state.settings.pin ? 'Enter PIN' : 'Create parent PIN'}</button></div>`;
+          <button data-act="unlock">${state.settings.pinHash ? 'Enter PIN' : 'Create parent PIN'}</button></div>`;
       }
       return `
       <div class="spread"><h2>Kids (ages ${MIN_AGE}–${MAX_AGE})</h2><button class="ghost small" data-act="lock">Lock</button></div>
@@ -354,13 +831,13 @@
         ${state.kids.map(k => `<div class="list-item spread">
           <span>${esc(k.avatar)} <b>${esc(k.name)}</b> <span class="tag">age ${k.age}</span> <span class="muted">${k.points} pts</span></span>
           <span style="display:flex;gap:6px;flex:0 0 auto">
-            <button class="ghost small" data-act="adjust" data-id="${k.id}">± pts</button>
-            <button class="ghost small" data-act="editKid" data-id="${k.id}">Edit</button>
+            <button class="ghost small" data-act="adjust" data-id="${esc(k.id)}">± pts</button>
+            <button class="ghost small" data-act="editKid" data-id="${esc(k.id)}">Edit</button>
           </span></div>`).join('') || '<p class="muted">No kids yet.</p>'}
         <h3 style="font-size:1rem;margin:14px 0 0">Add a kid</h3>
         <div class="row">
-          <div><label>Name</label><input id="kName" maxlength="24" placeholder="Name"></div>
-          <div style="flex:0 0 90px"><label>Age</label><input id="kAge" type="number" min="${MIN_AGE}" max="${MAX_AGE}" inputmode="numeric" placeholder="${MIN_AGE}-${MAX_AGE}"></div>
+          <div><label for="kName">Name</label><input id="kName" maxlength="24" placeholder="Name"></div>
+          <div style="flex:0 0 90px"><label for="kAge">Age</label><input id="kAge" type="number" min="${MIN_AGE}" max="${MAX_AGE}" inputmode="numeric" placeholder="${MIN_AGE}-${MAX_AGE}"></div>
         </div>
         <label>Avatar</label>
         <div class="emoji-pick" id="kAvatar">${AVATARS.map((a, i) => `<button type="button" class="${i === 0 ? 'sel' : ''}" data-v="${a}">${a}</button>`).join('')}</div>
@@ -369,18 +846,18 @@
 
       <h2>Make a gift card</h2>
       <div class="panel">
-        <label>Name of the gift card</label>
+        <label for="cTitle">Name of the gift card</label>
         <input id="cTitle" maxlength="40" placeholder="e.g. Ice cream trip, 1 hr video games, $10 store card">
-        <label>Note (optional)</label>
+        <label for="cNote">Note (optional)</label>
         <input id="cNote" maxlength="80" placeholder="e.g. Weekends only">
         <div class="row">
-          <div><label>Cost (pts)</label><input id="cCost" type="number" min="1" value="50" inputmode="numeric"></div>
-          <div><label>How many (0 = unlimited)</label><input id="cStock" type="number" min="0" value="0" inputmode="numeric"></div>
+          <div><label for="cCost">Cost (pts)</label><input id="cCost" type="number" min="1" value="50" inputmode="numeric"></div>
+          <div><label for="cStock">How many (0 = unlimited)</label><input id="cStock" type="number" min="0" value="0" inputmode="numeric"></div>
         </div>
         <div class="row">
-          <div><label>From age</label><input id="cMin" type="number" min="${MIN_AGE}" max="${MAX_AGE}" value="${MIN_AGE}" inputmode="numeric"></div>
-          <div><label>To age</label><input id="cMax" type="number" min="${MIN_AGE}" max="${MAX_AGE}" value="${MAX_AGE}" inputmode="numeric"></div>
-          <div><label>Color</label><input id="cColor" type="color" value="${esc(state.settings.accent)}"></div>
+          <div><label for="cMin">From age</label><input id="cMin" type="number" min="${MIN_AGE}" max="${MAX_AGE}" value="${MIN_AGE}" inputmode="numeric"></div>
+          <div><label for="cMax">To age</label><input id="cMax" type="number" min="${MIN_AGE}" max="${MAX_AGE}" value="${MAX_AGE}" inputmode="numeric"></div>
+          <div><label for="cColor">Color</label><input id="cColor" type="color" value="${esc(state.settings.accent)}"></div>
         </div>
         <label>Picture</label>
         <div class="emoji-pick" id="cEmoji">${CARD_EMOJI.map((a, i) => `<button type="button" class="${i === 0 ? 'sel' : ''}" data-v="${a}">${a}</button>`).join('')}</div>
@@ -391,37 +868,41 @@
         <h3 style="font-size:1rem;margin:0 0 6px">Gift cards in the shop</h3>
         ${state.cards.map(c => `<div class="list-item spread">
           <span>${esc(c.emoji)} ${esc(c.title)} <span class="muted">${c.cost} pts · ages ${c.minAge}–${c.maxAge}</span></span>
-          <button class="danger small" data-act="delCard" data-id="${c.id}">Remove</button></div>`).join('') || '<p class="muted">None yet.</p>'}
+          <button class="danger small" data-act="delCard" data-id="${esc(c.id)}">Remove</button></div>`).join('') || '<p class="muted">None yet.</p>'}
       </div>
 
       <h2>Cards waiting to be used</h2>
       <div class="panel">
         ${state.wallet.filter(w => !w.used).map(w => `<div class="list-item spread">
           <span>${esc(w.emoji)} ${esc(w.title)}<br><span class="muted">${esc(kidById(w.kidId)?.name || '?')} · ${esc(w.code)}</span></span>
-          <button class="small" data-act="markUsed" data-id="${w.id}">Mark used</button></div>`).join('') || '<p class="muted">Nothing waiting.</p>'}
+          <button class="small" data-act="markUsed" data-id="${esc(w.id)}">Mark used</button></div>`).join('') || '<p class="muted">Nothing waiting.</p>'}
       </div>`;
     },
 
     settings() {
       const s = state.settings;
-      return `<h2>Customize the app</h2>
+      return `<h2>Sync between phones</h2>
+      ${syncPanel()}
+
+      <h2>Customize the app</h2>
       <div class="panel">
-        <label>App name</label><input id="sTitle" maxlength="30" value="${esc(s.appTitle)}">
-        <label>Family name</label><input id="sFamily" maxlength="30" value="${esc(s.familyName)}">
-        <label>Tagline</label><input id="sTag" maxlength="60" value="${esc(s.tagline)}">
-        <label>What to call the points</label><input id="sPts" maxlength="20" value="${esc(s.pointsName)}">
-        <label>Main color</label><input id="sColor" type="color" value="${esc(s.accent)}">
-        <label>Peace Board actions (one per line: <i>text | points</i>)</label>
+        <label for="sTitle">App name</label><input id="sTitle" maxlength="30" value="${esc(s.appTitle)}">
+        <label for="sFamily">Family name</label><input id="sFamily" maxlength="30" value="${esc(s.familyName)}">
+        <label for="sTag">Tagline</label><input id="sTag" maxlength="60" value="${esc(s.tagline)}">
+        <label for="sPts">What to call the points</label><input id="sPts" maxlength="20" value="${esc(s.pointsName)}">
+        <label for="sColor">Main color</label><input id="sColor" type="color" value="${esc(s.accent)}">
+        <label for="sActs">Peace Board actions (one per line: <i>text | points</i>)</label>
         <textarea id="sActs" rows="6">${esc(state.peaceActs.map(a => a.label + ' | ' + a.pts).join('\n'))}</textarea>
         <button style="width:100%;margin-top:12px" data-act="saveSettings">Save (parent PIN)</button>
+        <button class="ghost" style="width:100%;margin-top:8px" data-act="changePin">Change parent PIN</button>
       </div>
 
       <h2>Phone storage</h2>
       <div class="panel" id="storagePanel"><p class="muted">Checking…</p></div>
 
-      <h2>Move to another phone</h2>
+      <h2>Backup file</h2>
       <div class="panel">
-        <p class="muted">Save a backup file, then open it on the other phone to copy everything over.</p>
+        <p class="muted" style="margin-top:0">Save a copy of everything as a file, or load one back${store.sync ? ' (loading replaces the data on every synced phone)' : ''}.</p>
         <div class="row">
           <button class="ghost" data-act="export">Save backup</button>
           <button class="ghost" data-act="import">Load backup</button>
@@ -438,23 +919,14 @@
 
       <h2>Danger zone</h2>
       <div class="panel">
-        <div class="row">
-          <button class="danger" data-act="clearLog">Clear history</button>
-          <button class="danger" data-act="reset">Erase everything</button>
-        </div>
+        <button class="danger" style="width:100%" data-act="clearLog">Clear history${store.sync ? ' (all phones)' : ''}</button>
+        ${store.sync ? `
+        <button class="danger" style="width:100%;margin-top:8px" data-act="leaveFamily">Stop syncing this phone</button>
+        <button class="danger" style="width:100%;margin-top:8px" data-act="reset">Erase everything on all phones</button>`
+        : `<button class="danger" style="width:100%;margin-top:8px" data-act="reset">Erase everything</button>`}
       </div>`;
     },
   };
-
-  let shopKid = null;
-
-  function recentLog() {
-    const items = state.log.slice(0, 8);
-    if (!items.length) return '';
-    return `<h2>Recent</h2><div class="panel">${items.map(l => `<div class="list-item spread">
-      <span>${esc(kidById(l.kidId)?.avatar || '')} ${esc(l.text)}<br><span class="muted">${fmtDate(l.at)}</span></span>
-      <b style="flex:0 0 auto;color:${l.pts >= 0 ? 'var(--ok)' : 'var(--warn)'}">${l.pts >= 0 ? '+' : ''}${l.pts}</b></div>`).join('')}</div>`;
-  }
 
   async function renderStorage() {
     const el = $('#storagePanel');
@@ -469,142 +941,171 @@
       ${usage != null ? `<div class="spread"><span>App total (incl. offline copy)</span><b>${fmtBytes(usage)}</b></div>` : ''}
       <div class="spread"><span>Limit</span><b>under 1 GB</b></div>
       <div class="bar" style="margin-top:8px"><div style="width:${Math.max(pct, 0.5)}%"></div></div>
-      <p class="muted" style="margin-bottom:0">The whole app is about 40 KB. Your family data stays on this phone and is kept well under 1 GB.
-      ${appBytes > APP_DATA_WARN ? '<br><b style="color:var(--warn)">Getting full — clear history or save a backup.</b>' : ''}</p>`;
+      <p class="muted" style="margin-bottom:0">The whole app is about 60 KB. Each phone keeps its own copy of the family's data, kept well under 1 GB.
+      ${appBytes > APP_DATA_WARN ? '<br><b style="color:var(--warn)">Getting full. Clear history or save a backup.</b>' : ''}</p>`;
   }
 
-  function render() {
+  // keepInputs: a background sync redraws the screen without wiping what someone is typing
+  // and without swapping a button out from under a finger.
+  function render(keepInputs = false) {
+    const view = $('#view');
+    const active = document.activeElement;
+    if (keepInputs && (pointerDown || (active && view.contains(active) && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)))) {
+      renderWaiting = true;
+      applyTheme(); updateBadge();
+      clearTimeout(renderRetry);
+      renderRetry = setTimeout(() => { if (renderWaiting) render(true); }, 700);
+      return;
+    }
+    renderWaiting = false;
+    clearTimeout(renderRetry);
+    const saved = keepInputs ? saveInputs(view) : null;
     applyTheme();
+    updateBadge();
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    $('#view').innerHTML = views[tab]();
+    view.innerHTML = views[tab]();
+    if (saved) restoreInputs(view, saved);
     if (tab === 'settings') { renderStorage(); if (deferredInstall) $('#installBtn').hidden = false; }
+  }
+  // Only fields the person changed are carried over; untouched ones show the newly synced values.
+  function saveInputs(root) {
+    const values = {}, picks = {};
+    root.querySelectorAll('input[id], textarea[id]').forEach(el => { if (el.type !== 'file' && el.value !== el.defaultValue) values[el.id] = el.value; });
+    root.querySelectorAll('select[id]').forEach(el => { if (el.selectedOptions[0] && !el.selectedOptions[0].defaultSelected) values[el.id] = el.value; });
+    root.querySelectorAll('.emoji-pick[id]').forEach(p => { picks[p.id] = p.querySelector('.sel')?.dataset.v; });
+    return { values, picks, scroll: window.scrollY };
+  }
+  function restoreInputs(root, saved) {
+    for (const [id, v] of Object.entries(saved.values)) {
+      const el = root.querySelector('#' + CSS.escape(id));
+      if (!el || (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === v))) continue;
+      el.value = v;
+    }
+    for (const [id, v] of Object.entries(saved.picks)) {
+      root.querySelectorAll(`#${CSS.escape(id)} button`).forEach(b => b.classList.toggle('sel', b.dataset.v === v));
+    }
+    window.scrollTo(0, saved.scroll);
   }
 
   // ---------- Actions ----------
   const actions = {
     unlock: async () => { if (await unlockParent()) render(); },
-    lock: () => { parentUnlocked = false; render(); },
+    lock: () => { parentUnlocked = false; showCode = false; render(); },
     goShop: el => { shopKid = el.dataset.id; tab = 'cards'; render(); },
-    openWallet(el) {
-      const k = kidById(el.dataset.id);
-      const items = state.wallet.filter(w => w.kidId === k.id);
-      $('#view').innerHTML = `<button class="ghost small" data-act="back">← Back</button>
-        <h2>${esc(k.avatar)} ${esc(k.name)}'s wallet</h2>` +
-        (items.map(w => `<div class="gcard" style="background:${esc(w.color)};${w.used ? 'opacity:.5' : ''}">
-          <div class="emoji">${esc(w.emoji)}</div>
-          <div><div class="title">${esc(w.title)}</div>
-          <div class="code">${esc(w.code)}</div>
-          <div style="font-size:.8rem;opacity:.9">${w.used ? 'Used' : 'Ready to use'} · got it ${fmtDate(w.at)}</div></div>
-        </div>`).join('') || '<div class="panel empty">No gift cards yet. Earn points on the Peace Board!</div>');
-    },
-    back: () => render(),
+    openWallet: el => { walletKid = el.dataset.id; render(); window.scrollTo(0, 0); },
+    back: () => { walletKid = null; render(); },
 
-    async redeem(el) {
-      const c = cardById(el.dataset.id);
-      const k = kidById(shopKid);
+    redeem(el) {
+      const c = cardById(el.dataset.id), k = kidById(shopKid);
       if (!c || !k || k.points < c.cost || c.stock === 0) return;
       if (!confirm(`Spend ${c.cost} points on "${c.title}" for ${k.name}?`)) return;
-      k.points -= c.cost;
-      if (c.stock > 0) c.stock--;
-      state.wallet.unshift({ id: uid(), kidId: k.id, cardId: c.id, title: c.title, emoji: c.emoji, color: c.color, code: giftCode(), at: Date.now(), used: false });
-      addLog(k.id, `${k.name} got "${c.title}"`, -c.cost);
-      save(); toast(`🎉 ${c.title} added to ${k.name}'s wallet`); render();
+      const ev = commit('redeem', { walletId: uid(), kidId: k.id, cardId: c.id, code: giftCode() });
+      if (state.wallet.some(w => w.id === ev.walletId)) toast(`🎉 ${c.title} added to ${k.name}'s wallet`);
+      else toast(`Couldn't get ${c.title}`);
+      render();
     },
 
     async peace(el) {
       const a = state.peaceActs[+el.dataset.i];
-      const k = kidById($('#peaceKid').value);
-      if (!a || !k) return;
+      const kidId = $('#peaceKid').value;
+      if (!a || !kidById(kidId)) return;
       if (!(await unlockParent())) return;
-      k.points += a.pts;
-      addLog(k.id, `${k.name}: ${a.label}`, a.pts);
-      save(); toast(`+${a.pts} for ${k.name} 🕊️`); render();
+      const k = kidById(kidId);
+      if (!k) return;
+      commit('points', { kidId: k.id, pts: a.pts, text: `${k.name}: ${a.label}` });
+      toast(`+${a.pts} for ${k.name} 🕊️`); render();
     },
     async makePeace() {
-      const a = kidById($('#peaceA').value), b = kidById($('#peaceB').value);
-      if (!a || !b || a === b) { toast('Pick two different kids'); return; }
+      const aId = $('#peaceA').value, bId = $('#peaceB').value;
+      if (!aId || aId === bId) { toast('Pick two different kids'); return; }
       if (!(await unlockParent())) return;
-      a.points += 10; b.points += 10;
-      addLog(a.id, `${a.name} made peace with ${b.name}`, 10);
-      addLog(b.id, `${b.name} made peace with ${a.name}`, 10);
-      save(); toast('🤝 Peace made! +10 each'); render();
+      const a = kidById(aId), b = kidById(bId);
+      if (!a || !b) return;
+      commit('points', { kidId: a.id, pts: 10, text: `${a.name} made peace with ${b.name}` });
+      commit('points', { kidId: b.id, pts: 10, text: `${b.name} made peace with ${a.name}` });
+      toast('🤝 Peace made! +10 each'); render();
     },
 
     addKid() {
       const name = $('#kName').value.trim();
-      const age = parseInt($('#kAge').value, 10);
+      const age = Number($('#kAge').value);
       const avatar = $('#kAvatar .sel')?.dataset.v || '🌟';
       if (!name) return toast('Type a name');
-      if (!(age >= MIN_AGE && age <= MAX_AGE)) return toast(`Age must be ${MIN_AGE}–${MAX_AGE}`);
-      state.kids.push({ id: uid(), name, age, avatar, points: 0 });
-      save(); toast(`${name} added`); render();
+      if (!Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) return toast(`Age must be ${MIN_AGE}–${MAX_AGE}`);
+      commit('kid.add', { kid: { id: uid(), name, age, avatar } });
+      toast(`${name} added`); render();
     },
     editKid(el) {
       const k = kidById(el.dataset.id);
-      const name = prompt('Name', k.name); if (name === null) return;
-      const ageStr = prompt(`Age (${MIN_AGE}–${MAX_AGE})`, k.age); if (ageStr === null) return;
-      const age = parseInt(ageStr, 10);
-      if (!(age >= MIN_AGE && age <= MAX_AGE)) return toast(`Age must be ${MIN_AGE}–${MAX_AGE}`);
+      if (!k) return;
+      const name = prompt('Name (leave empty to remove this kid)', k.name); if (name === null) return;
       if (!name.trim()) {
-        if (confirm(`Remove ${k.name} and their wallet?`)) {
-          state.kids = state.kids.filter(x => x.id !== k.id);
-          state.wallet = state.wallet.filter(w => w.kidId !== k.id);
-        }
-      } else { k.name = name.trim().slice(0, 24); k.age = age; }
-      save(); render();
+        if (confirm(`Remove ${k.name} and their wallet?`)) commit('kid.remove', { kidId: k.id });
+        return render();
+      }
+      const ageStr = prompt(`Age (${MIN_AGE}–${MAX_AGE})`, k.age); if (ageStr === null) return;
+      const age = Number(ageStr);
+      if (!Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) return toast(`Age must be ${MIN_AGE}–${MAX_AGE}`);
+      commit('kid.edit', { kidId: k.id, name: name.trim().slice(0, 24), age });
+      render();
     },
     adjust(el) {
       const k = kidById(el.dataset.id);
+      if (!k) return;
       const v = prompt(`Add or take away points for ${k.name} (e.g. 20 or -10)`, '10');
-      const n = parseInt(v, 10);
+      const n = int(v, -1e6, 1e6);
       if (!n) return;
-      k.points = Math.max(0, k.points + n);
-      addLog(k.id, `Parent ${n > 0 ? 'bonus' : 'adjustment'} for ${k.name}`, n);
-      save(); render();
+      commit('points', { kidId: k.id, pts: n, text: `Parent ${n > 0 ? 'bonus' : 'adjustment'} for ${k.name}` });
+      render();
     },
     addCard() {
       const title = $('#cTitle').value.trim();
-      const cost = parseInt($('#cCost').value, 10);
-      const stockIn = parseInt($('#cStock').value, 10) || 0;
-      let minAge = parseInt($('#cMin').value, 10), maxAge = parseInt($('#cMax').value, 10);
+      const cost = int($('#cCost').value, 0, 1e6);
+      const stock = int($('#cStock').value, 0, 10000) || 0;
+      let minAge = int($('#cMin').value, MIN_AGE, MAX_AGE) ?? MIN_AGE, maxAge = int($('#cMax').value, MIN_AGE, MAX_AGE) ?? MAX_AGE;
       if (!title) return toast('Name the gift card');
-      if (!(cost > 0)) return toast('Cost must be at least 1');
-      minAge = Math.min(MAX_AGE, Math.max(MIN_AGE, minAge || MIN_AGE));
-      maxAge = Math.min(MAX_AGE, Math.max(MIN_AGE, maxAge || MAX_AGE));
+      if (!cost) return toast('Cost must be at least 1');
       if (minAge > maxAge) [minAge, maxAge] = [maxAge, minAge];
-      state.cards.push({
+      commit('card.add', { card: {
         id: uid(), title, cost, note: $('#cNote').value.trim(),
         emoji: $('#cEmoji .sel')?.dataset.v || '🎁', color: $('#cColor').value,
-        stock: stockIn > 0 ? stockIn : -1, minAge, maxAge,
-      });
-      save(); toast('Gift card created'); render();
+        stock: stock > 0 ? stock : -1, minAge, maxAge,
+      } });
+      toast('Gift card created'); render();
     },
     delCard(el) {
       if (!confirm('Remove this gift card from the shop?')) return;
-      state.cards = state.cards.filter(c => c.id !== el.dataset.id);
-      save(); render();
+      commit('card.remove', { cardId: el.dataset.id });
+      render();
     },
     markUsed(el) {
-      const w = state.wallet.find(x => x.id === el.dataset.id);
-      if (w) { w.used = true; save(); render(); }
+      commit('used', { walletId: el.dataset.id });
+      render();
     },
 
     async saveSettings() {
       if (!(await unlockParent())) return;
-      const s = state.settings;
-      s.appTitle = $('#sTitle').value.trim() || 'Family Gift Cards';
-      s.familyName = $('#sFamily').value.trim() || 'Our Family';
-      s.tagline = $('#sTag').value.trim();
-      s.pointsName = $('#sPts').value.trim() || 'Peace Points';
-      s.accent = $('#sColor').value;
+      const next = {
+        appTitle: $('#sTitle').value.trim() || 'Family Gift Cards',
+        familyName: $('#sFamily').value.trim() || 'Our Family',
+        tagline: $('#sTag').value.trim(),
+        pointsName: $('#sPts').value.trim() || 'Peace Points',
+        accent: $('#sColor').value,
+      };
+      const changed = Object.fromEntries(Object.entries(next).filter(([k, v]) => state.settings[k] !== v));
+      if (Object.keys(changed).length) commit('settings', { settings: changed });
       const acts = $('#sActs').value.split('\n').map(line => {
         const [label, p] = line.split('|').map(x => x && x.trim());
-        const n = parseInt(p, 10);
-        return label && n > 0 ? { label: label.slice(0, 40), pts: Math.min(n, 1000) } : null;
-      }).filter(Boolean);
-      if (acts.length) state.peaceActs = acts;
-      save(); toast('Saved'); render();
+        return cleanAct({ label, pts: int(p, 1, 1000) });
+      }).filter(Boolean).slice(0, 30);
+      if (acts.length && JSON.stringify(acts) !== JSON.stringify(state.peaceActs)) commit('acts', { acts });
+      toast('Saved'); render();
     },
+    async changePin() {
+      if (!(await unlockParent())) return;
+      if (await newPin()) toast('New PIN saved');
+    },
+
     export() {
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
@@ -616,30 +1117,115 @@
     async import() {
       if (!(await unlockParent())) return;
       const inp = $('#importFile');
+      inp.value = '';
       inp.onchange = async () => {
         const f = inp.files[0]; if (!f) return;
         if (f.size > 20 * 1024 * 1024) return toast('That file is too big');
+        let d;
         try {
-          const d = JSON.parse(await f.text());
-          if (!Array.isArray(d.kids) || !d.settings) throw 0;
-          if (!confirm('Replace everything on this phone with the backup?')) return;
-          state = { ...defaults(), ...d, settings: { ...defaults().settings, ...d.settings } };
-          save(); parentUnlocked = false; toast('Backup loaded'); render();
-        } catch { toast('That is not a Family Gift Cards backup'); }
+          d = JSON.parse(await f.text());
+          if (!isObj(d) || !Array.isArray(d.kids) || !isObj(d.settings)) throw 0;
+        } catch { return toast('That is not a Family Gift Cards backup'); }
+        const next = cleanState(d);
+        if (store.sync && JSON.stringify(next).length > IMPORT_MAX) return toast('That backup is too big to sync. Clear its history first.');
+        if (!confirm(store.sync ? 'Replace everything on ALL synced phones with the backup?' : 'Replace everything on this phone with the backup?')) return;
+        commit('import', { state: next });
+        parentUnlocked = false; showCode = false; toast('Backup loaded'); render();
       };
       inp.click();
     },
     async clearLog() {
       if (!(await unlockParent())) return;
       if (!confirm('Clear history and used gift cards?')) return;
-      state.log = []; state.wallet = state.wallet.filter(w => !w.used);
-      save(); render();
+      commit('clear');
+      render();
     },
     async reset() {
       if (!(await unlockParent())) return;
-      if (!confirm('Erase ALL kids, cards, points and settings on this phone?')) return;
-      localStorage.removeItem(STORE_KEY);
-      state = defaults(); parentUnlocked = false; render();
+      if (store.sync) {
+        if (!confirm('Erase ALL kids, cards, points and settings on EVERY synced phone? The parent PIN stays the same.')) return;
+        commit('reset');
+      } else {
+        if (!confirm('Erase ALL kids, cards, points and settings on this phone?')) return;
+        store.base = defaults(); store.pending = [];
+        persist(); recompute();
+        parentUnlocked = false;
+      }
+      walletKid = null; render();
+    },
+
+    // --- sync ---
+    async startFamily() {
+      if (store.sync) return;
+      if (!(await unlockParent())) return;
+      const seed = clone(store.base);
+      if (JSON.stringify(seed).length > IMPORT_MAX) return toast('Too much history to sync. Clear history first.');
+      const code = randomCode(CODE_LEN);
+      setSyncStatus('syncing');
+      try { await rpc('gc_create_family', { p_secret: code }); }
+      catch (e) { setSyncStatus('idle'); return toast(friendly(e)); }
+      if (store.sync) return;
+      // The family starts from this phone's data: one "import" change with everything in it.
+      store.sync = { code, cursor: 0 };
+      store.pending = [{ id: uuid(), type: 'import', at: Date.now(), by: store.device, state: seed }];
+      store.base = defaults();
+      persist(); recompute();
+      showCode = true;
+      render();
+      syncNow();
+      toast('Syncing is on. Add your other phones with the family code.');
+    },
+    async joinFamily(el, rawCode) {
+      const code = normalizeCode(rawCode ?? $('#joinCode')?.value);
+      if (code.length !== CODE_LEN) return toast('A family code has 25 letters and numbers.');
+      if (store.sync?.code === code) return toast('This phone is already in that family.');
+      if (state.settings.pinHash && !(await unlockParent())) return;
+      const hasData = state.kids.length || state.cards.length;
+      const unsent = store.sync && store.pending.length;
+      const warn = hasData || store.sync
+        ? `Join this family? The kids, cards and points on THIS phone will be replaced by the family's${unsent ? ` (${unsent} unsynced change${unsent === 1 ? '' : 's'} will be lost)` : ''}.`
+        : 'Join this family and sync this phone with it?';
+      if (!confirm(warn)) return;
+      try { await rpc('gc_pull', { p_secret: code, p_after: 0, p_limit: 1 }); }
+      catch (e) { return toast(friendly(e)); }
+      store.sync = { code, cursor: 0 };
+      store.base = defaults();
+      store.pending = [];
+      parentUnlocked = false; showCode = false; walletKid = null;
+      persist(); recompute();
+      tab = 'home';
+      render();
+      await syncNow();
+      if (store.sync?.code === code && sync.status === 'ok') toast('Joined! This phone is synced with your family.');
+    },
+    async revealCode() {
+      if (!(await unlockParent())) return;
+      showCode = true; render();
+    },
+    copyCode() {
+      const text = formatCode(store.sync.code);
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => toast('Code copied'), () => prompt('Copy this code', text));
+      else prompt('Copy this code', text);
+    },
+    shareCode() {
+      const url = `${location.origin}${location.pathname}#join=${formatCode(store.sync.code)}`;
+      const text = `Join our ${state.settings.appTitle} on your phone: ${url}`;
+      if (navigator.share) navigator.share({ title: state.settings.appTitle, text, url }).catch(() => {});
+      else if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(() => toast('Link copied. Send it to the other phone.'), () => prompt('Copy this link', url));
+      else prompt('Copy this link', url);
+    },
+    syncNow: () => syncNow(),
+    async leaveFamily() {
+      if (!(await unlockParent())) return;
+      const unsent = store.pending.length;
+      if (!confirm(`Stop syncing this phone? It keeps its own copy, but changes won't reach the other phones anymore${unsent ? ` (${unsent} change${unsent === 1 ? '' : 's'} not sent yet)` : ''}.`)) return;
+      store.base = clone(state);
+      store.pending = [];
+      store.sync = null;
+      showCode = false;
+      persist(); recompute();
+      setSyncStatus('idle');
+      render();
     },
   };
 
@@ -649,7 +1235,7 @@
     if (pick) { pick.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('sel')); pick.classList.add('sel'); return; }
     const nav = e.target.closest('#nav button');
     if (nav) {
-      tab = nav.dataset.tab;
+      tab = nav.dataset.tab; walletKid = null;
       if (tab === 'parent' && !parentUnlocked) { render(); unlockParent().then(ok => ok && render()); return; }
       render(); window.scrollTo(0, 0); return;
     }
@@ -658,9 +1244,30 @@
     if (e.target.id === 'installBtn' && deferredInstall) { deferredInstall.prompt(); deferredInstall = null; e.target.hidden = true; }
   });
   document.addEventListener('change', e => { if (e.target.id === 'shopKid') { shopKid = e.target.value; render(); } });
+  document.addEventListener('pointerdown', () => { pointerDown = true; }, true);
+  for (const type of ['pointerup', 'pointercancel']) {
+    document.addEventListener(type, () => { setTimeout(() => { pointerDown = false; }, 0); }, true);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > RELOCK_AFTER && parentUnlocked) {
+      parentUnlocked = false; showCode = false; render();
+    }
+    scheduleSync(0);
+  });
+  window.addEventListener('online', () => scheduleSync(0));
+  window.addEventListener('storage', e => {
+    // the app is open in another tab on this phone
+    if (e.key === STORE_KEY) { store = loadStore(); recompute(); render(true); }
+  });
+  setInterval(() => {
+    if (!store.sync || document.visibilityState !== 'visible') return;
+    if (sync.status === 'error' && Date.now() - sync.lastTry < SYNC_RETRY) return;
+    syncNow();
+  }, SYNC_EVERY);
 
   let deferredInstall = null;
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; if (tab === 'settings') render(); });
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; if (tab === 'settings') render(true); });
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -669,6 +1276,15 @@
   navigator.storage?.persist?.().catch(() => {});
 
   render();
+  if (store.sync) syncNow();
+
+  // Opened from a "join our family" link
+  const join = location.hash.match(/join=([0-9A-Za-z-]+)/);
+  if (join) {
+    history.replaceState(null, '', location.pathname + location.search);
+    tab = 'settings'; render();
+    setTimeout(() => actions.joinFamily(null, join[1]), 300);
+  }
 })();
 </script>
 </body>

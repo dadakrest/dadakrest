@@ -1,5 +1,5 @@
 // Offline cache for Family Gift Cards. The whole app is a few KB, far under 1 GB.
-const CACHE = 'family-gift-cards-v1';
+const CACHE = 'family-gift-cards-v2';
 const FILES = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
