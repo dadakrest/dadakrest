@@ -45,12 +45,17 @@ that behaves identically to `python -m datacenter`.
 | Command | Does |
 |---|---|
 | `init` | Create all seven databases and apply their schemas. Idempotent. |
-| `seed` | Load demo data so there is something to query. |
+| `seed [--data DIR]` | Validate the JSON data files and load them. A refill: safe to repeat. |
+| `validate-data [--data DIR]` | Check the data files without writing anything. |
 | `status [--json]` | Per-database state, size and row counts. |
 | `search QUERY [--limit N]` | Semantic search over indexed documents (`N` is at least 1). |
 | `add-document TITLE [--body ... \| --file ...] [--tag t]` | Store and index a document. |
 | `add-contact NAME [--email ... --organization ...]` | Store a contact. |
-| `documents` / `contacts` | List what is stored. |
+| `documents` / `contacts` / `datasets` | List what is stored. |
+| `fees [--table government\|service\|employment]` | Show the fee tables. |
+| `plans` | List the business plans with their totals. |
+| `plan NAME [--json]` | Cost one plan, line by line. |
+| `portal [--host H] [--port P]` | Serve the read-only web portal. |
 | `jobs [--run]` | Show the queue, or run the next pending job. |
 | `verify` | Check every database is present, complete and readable. Exits non-zero on failure. |
 | `backup [DEST]` | Copy every provisioned database into a timestamped folder with a manifest. |
@@ -175,6 +180,80 @@ stored vector outside that filter until `center.reindex()` rebuilds them.
 Rather than answer "no matches" for every query, search raises and says to
 reindex, and `status --json` reports the count as `stale_embeddings`.
 
+## Fees and business plans
+
+Three datasets hold the money side, and each row carries a `fee_code`:
+
+| Dataset | What it holds |
+|---|---|
+| `government_fees` | Registration, permits, inspections, environmental, utility and tax administration charges the business **pays**. |
+| `service_fees` | The rate card the business **charges** — compute, inference, storage, egress, colocation, support, professional work. |
+| `employment_fees` | Per role: base salary, the employer tax percentage on top of it, monthly benefits, and any recruitment fee. |
+
+> The figures and the jurisdictions they name are invented for this sample data
+> set. They are not legal, tax or payroll advice.
+
+A **business plan** is a set of lines in the `business_plans` dataset, each
+naming a `fee_code`, a quantity and a number of months. `datacenter/plans.py`
+is what connects a line to the fee it refers to and costs it:
+
+```bash
+python -m datacenter plans
+python -m datacenter plan year-one-operating
+```
+
+```
+code      line                         basis                            amount
+------------------------------------------------------------------------------
+EMP-001   Operations lead              1 person x 12 months        $131,888.00
+...
+GOV-021   Sales tax filings            quarterly x4                     $180.00
+------------------------------------------------------------------------------
+          TOTAL                                                    $463,043.00
+```
+
+Each table prices things differently, so each has its own rule:
+
+- **government** — the amount, once per time it falls due inside the plan's
+  months. A quarterly fee over twelve months is charged four times.
+- **service** — `unit_price_usd` per unit, honouring `minimum_units`. A
+  per-month unit (`rack-month`, `gpu-month`, `month`) bills every month of the
+  line; a `year` unit bills every started year; anything else is the quantity
+  as the plan states it.
+- **employment** — a twelfth of base salary grossed up by `employer_tax_pct`,
+  plus monthly benefits, times people times months, plus the recruitment fee
+  once per person.
+
+A line naming a `fee_code` that no table defines is **refused**, not costed as
+zero. A plan that silently leaves a cost out is worse than one that will not
+add up.
+
+## The portal
+
+```bash
+python -m datacenter portal          # http://127.0.0.1:8013
+```
+
+Serves the data center as pages — overview, search, documents, contacts,
+datasets, fees, plans and the audit trail — using nothing but `http.server`.
+
+Two limits are enforced rather than merely intended:
+
+**It is read-only.** There is no POST handler and no write path; a POST gets
+`501`. Everything that changes the data center goes through the CLI or the
+Python API, where the audit trail records a named caller.
+
+**It binds `127.0.0.1` unless told otherwise.** There is no authentication of
+any kind, so a reachable bind publishes every contact, document and fee to
+whatever can route to it. The portal refuses a non-local `--host` unless you
+also pass `--allow-remote`, and warns when you do. Put it behind something
+that authenticates before exposing it.
+
+Everything a page displays comes from a database, so everything is escaped on
+the way out. Document bodies get a very small Markdown renderer that escapes
+first and only then adds its own tags, so a document containing a script tag is
+shown as those characters rather than run.
+
 ## Jobs
 
 Work that should not block a write goes on the queue:
@@ -231,6 +310,8 @@ datacenter/
   engine.py    SQLite wrapper: connect, query, upsert, backup, integrity
   core.py      DataCenter: provisioning, writes, search, jobs, audit, backups
   vectors.py   hashing embedder and sparse cosine similarity
+  plans.py     connects business plan lines to the fee tables and costs them
+  portal.py    read-only web portal (http.server, local by default)
   seed.py      demo data
   cli.py       command line interface
 docs/          this file
