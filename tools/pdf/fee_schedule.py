@@ -56,9 +56,20 @@ TABLE_LABELS = {
     FEE_TABLES["EMP"]: "Employment",
 }
 
+#: How many rows of a plan's table stay on the page with the plan's heading.
+#: The rest may run on to the next page, under a repeated header row.
+LEAD_ROWS = 3
+
 EXTRA_CSS = """
 <style>
+/* A totals row belongs after a table's last row only; Chromium would otherwise
+   repeat a tfoot on every page the table spans. The page wrapper keeps its own. */
+table:not(.page) > tfoot { display: table-row-group; }
 .keep { break-inside: avoid; }
+/* A plan's heading, its summary line and its first rows stay together; a
+   subtotal or the plan total never starts a page on its own. */
+.planmeta { break-after: avoid; }
+tr.stick, tr.subtotal, table.plan > tfoot { break-before: avoid; }
 .code, .nw { white-space: nowrap; }
 .stats5 .stat { flex: 1 1 auto; }
 .stats5 .stat span { white-space: nowrap; }
@@ -122,11 +133,12 @@ def code(value: Any) -> str:
 DASH = '<span class="muted">&ndash;</span>'
 
 
-def money_column(values: list[float]) -> list[str]:
-    """Amounts for one table column: whole dollars when every value is whole,
-    otherwise cents throughout, so a column never mixes the two."""
-    whole = all(float(value).is_integer() for value in values)
-    return [money(value, cents=not whole) for value in values]
+def money_columns(*columns: list[float]) -> list[list[str]]:
+    """Amounts for the money columns of one table: whole dollars when every
+    value in every column is whole, otherwise cents throughout, so neither a
+    column nor a row mixes the two."""
+    whole = all(float(value).is_integer() for values in columns for value in values)
+    return [[money(value, cents=not whole) for value in values] for values in columns]
 
 
 def money_or_dash(value: float | None) -> str:
@@ -366,9 +378,12 @@ def services_section(services: list[dict[str, Any]]) -> str:
 
 def employment_section(roles: list[dict[str, Any]], witness: tuple[dict[str, Any], dict[str, Any]]) -> str:
     ordered = sorted(roles, key=lambda r: text(r, "fee_code"))
-    base = money_column([number(role, "base_salary_usd") for role in ordered])
-    benefits = money_column([number(role, "benefits_usd_month") for role in ordered])
-    hiring = money_column([number(role, "recruitment_fee_usd") for role in ordered])
+    base, benefits, hiring, loaded = money_columns(
+        [number(role, "base_salary_usd") for role in ordered],
+        [number(role, "benefits_usd_month") for role in ordered],
+        [number(role, "recruitment_fee_usd") for role in ordered],
+        [cents(fully_loaded(role)) for role in ordered],
+    )
     rows = [[
         code(text(role, "fee_code")),
         with_note(text(role, "role"), role.get("notes")),
@@ -377,7 +392,7 @@ def employment_section(roles: list[dict[str, Any]], witness: tuple[dict[str, Any
         percent(number(role, "employer_tax_pct")),
         benefits[index],
         hiring[index],
-        money(cents(fully_loaded(role))),
+        loaded[index],
     ] for index, role in enumerate(ordered)]
     types: dict[str, int] = {}
     for role in ordered:
@@ -418,27 +433,38 @@ def plan_table(plan: dict[str, Any]) -> str:
     head = ("<colgroup>" + "".join(f'<col style="width:{w}">' for w in widths) + "</colgroup>"
             "<thead><tr><th>Code</th><th>Line</th><th>Fee</th><th>Basis</th>"
             '<th class="num">Amount</th></tr></thead>')
-    body = []
+    # (row class, cells) for every row, so the first LEAD_ROWS can be marked
+    # to stay with the plan's heading.
+    body: list[tuple[str, str]] = []
     for fee_table in TABLE_ORDER:
         lines = sorted((line for line in plan["lines"] if line["table"] == fee_table),
                        key=lambda line: line["fee_code"])
         if not lines:
             continue
         for line in lines:
-            body.append(
-                f"<tr><td>{code(line['fee_code'])}</td>"
+            body.append((
+                "",
+                f"<td>{code(line['fee_code'])}</td>"
                 f"<td>{with_note(line['line'], line.get('notes'))}</td>"
                 f"<td>{esc(line['description'])}</td><td>{esc(line['basis'])}</td>"
-                f'<td class="num">{money(line["amount_usd"])}</td></tr>')
-        body.append(
-            f'<tr class="subtotal"><td colspan="4">{esc(TABLE_LABELS[fee_table])} subtotal</td>'
-            f'<td class="num">{money(plan["subtotals"][fee_table])}</td></tr>')
+                f'<td class="num">{money(line["amount_usd"])}</td>'))
+        body.append((
+            "subtotal",
+            f'<td colspan="4">{esc(TABLE_LABELS[fee_table])} subtotal</td>'
+            f'<td class="num">{money(plan["subtotals"][fee_table])}</td>'))
     unknown = {line["table"] for line in plan["lines"]} - set(TABLE_ORDER)
     if unknown:
         raise FeeScheduleError(f"plan {plan['plan']}: lines from unexpected tables {sorted(unknown)}")
+    rows = []
+    for index, (kind, cells) in enumerate(body):
+        classes = [kind] if kind else []
+        if 0 < index < LEAD_ROWS:
+            classes.append("stick")
+        attr = f' class="{" ".join(classes)}"' if classes else ""
+        rows.append(f"<tr{attr}>{cells}</tr>")
     foot = (f'<tfoot><tr><td colspan="4">Plan total</td>'
             f'<td class="num">{money(plan["total_usd"])}</td></tr></tfoot>')
-    return f"<table>{head}<tbody>{''.join(body)}</tbody>{foot}</table>"
+    return f'<table class="plan">{head}<tbody>{"".join(rows)}</tbody>{foot}</table>'
 
 
 def plans_section(plans: list[dict[str, Any]]) -> str:
@@ -463,9 +489,11 @@ def plans_section(plans: list[dict[str, Any]]) -> str:
             widths=["22%", "9%", "8%", "15%", "15%", "15%", "16%"],
         ) + "</div>",
     ]
+    # A plan is not kept whole: a long one would leave most of a page empty.
+    # Its heading, summary line and first rows travel together (see EXTRA_CSS).
     for plan in plans:
         parts.append(
-            f'<div class="keep"><h3>{esc(plan["plan"])}</h3>'
+            f'<div class="plan"><h3>{esc(plan["plan"])}</h3>'
             f'<p class="planmeta">{plural(len(plan["lines"]), "line")} over '
             f'{plural(plan["months"], "month")} &middot; total {money(plan["total_usd"])} &middot; '
             f'monthly average {money(plan["monthly_average_usd"])}</p>'

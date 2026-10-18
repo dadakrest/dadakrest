@@ -499,17 +499,10 @@ def cross_file_links(dbs: list[dict[str, Any]]) -> list[tuple[str, str, str]]:
     return links
 
 
-def section_databases(dbs: list[dict[str, Any]], pending: list[str], title: str) -> str:
+def section_databases(dbs: list[dict[str, Any]], title: str) -> str:
     table_total = sum(len(d["tables"]) for d in dbs)
     column_total = sum(len(t["columns"]) for d in dbs for t in d["tables"])
     row_total = sum(t["rows"] for d in dbs for t in d["tables"])
-    if pending:
-        kinds = Counter(pending)
-        jobs = join_and([f"{k}" for k in kinds])
-        timing = (f" and before the {esc(jobs)} job{'s' if len(pending) != 1 else ''} that "
-                  f"loading queues {'has' if len(pending) == 1 else 'have'} run")
-    else:
-        timing = ""
     links = cross_file_links(dbs)
     links_text = ""
     if links:
@@ -521,8 +514,10 @@ def section_databases(dbs: list[dict[str, Any]], pending: list[str], title: str)
 <p>Each database is a separate SQLite file under the storage root. The columns below are read
 from the live schema with <code>PRAGMA table_info</code>, so they show what SQLite holds rather
 than what the source code intends: {esc(plural(table_total, "table"))} with
-{esc(plural(column_total, "column"))} in all. Row counts are those of a fresh root after the
-bundled data files are loaded{timing}; together the tables hold {esc(f"{row_total:,}")} rows.</p>
+{esc(plural(column_total, "column"))} in all. Row counts are those after
+<code>python -m datacenter seed</code> fills an empty root, which loads the bundled data files and
+runs the jobs that loading queues; together the tables hold {esc(f"{row_total:,}")} rows. The
+audit count grows with every later command.</p>
 <p>"Not null" is SQLite's own flag. An <code>INTEGER PRIMARY KEY</code> column is SQLite's row id:
 it reports as nullable, but SQLite assigns the next id when none is given. "References" names
 the column a foreign key points at, with what happens to this row when that one is deleted.
@@ -830,11 +825,11 @@ def section_search(center: DataCenter, indexed: int, documents: int, title: str)
                              if single_rank else
                              f", and &ldquo;{esc(full[0]['title'])}&rdquo; is not in its top "
                              f"{words(EXAMPLE_LIMIT)}")
-                 + ". The rarer terms are what move it to the top.")
+                 + ". The rarer terms move it to the top.")
     else:
         shift = (f"On its own, <code>{esc(first_word)}</code> already ranks this document "
                  "first.")
-    dropped_text = (f" (<code>{esc(join_and(dropped))}</code> is a stopword and is dropped)"
+    dropped_text = (f" (<code>{esc(join_and(dropped))}</code> is a stopword)"
                     if dropped else "")
 
     return f"""
@@ -865,15 +860,14 @@ term always scores below a short one matching the same term.</p>
 <div class="keep">
 <h3>Worked example</h3>
 <p>The query <code>{esc(EXAMPLE_QUERY)}</code> keeps {esc(words(len(terms)))}
-terms{dropped_text}. Their weights, counted over the {esc(f"{len(stored):,}")} indexed documents
-as search counts them, and the top results:</p>
+terms{dropped_text}; their weights over the {esc(f"{len(stored):,}")} indexed documents and the
+top results are below. {shift}</p>
 <div class="cols">
   <div>{table(["Term", "Documents with it", "IDF weight"], term_rows, numeric={1, 2},
               widths=["40%", "34%", "26%"])}</div>
   <div>{table(["#", "Document", "Score"], result_rows, numeric={0, 2},
               widths=["9%", "70%", "21%"])}</div>
 </div>
-<p>{shift}</p>
 </div>
 """
 
@@ -891,6 +885,15 @@ def build() -> Path:
     numbered = [f"{i}. {t}" for i, t in enumerate(titles, start=1)]
 
     with seeded_center() as center:
+        # `python -m datacenter seed` runs the jobs that loading queues before
+        # it returns. Do the same, so the row counts are the ones a reader gets
+        # from `seed` and then `status` on an empty root, and the ones the AI
+        # Data Center document prints.
+        while center.run_next_job() is not None:
+            pass
+        pending = center.pending_jobs()
+        if pending:
+            raise ValueError(f"{len(pending)} jobs are still pending after running the queue")
         # Everything counted is read before anything below writes: a search
         # logs an audit event, which would change the row counts.
         dbs = read_databases(center)
@@ -898,7 +901,6 @@ def build() -> Path:
         models = center.list_models()
         datasets = center.list_datasets()
         documents = len(center.list_documents())
-        pending = [job["kind"] for job in center.pending_jobs()]
         embeddings: dict[str, list[int]] = defaultdict(list)
         for row in center.db("embeddings").query(
                 "SELECT DISTINCT model, dimensions FROM embeddings ORDER BY model, dimensions"):
@@ -912,7 +914,7 @@ def build() -> Path:
 
         models_html = section_models(models, rows_of[("models", "models")],
                                      rows_of[("models", "model_versions")], embeddings, numbered[0])
-        databases_html = section_databases(dbs, pending, numbered[1])
+        databases_html = section_databases(dbs, numbered[1])
         datasets_html = section_datasets(center, datasets, rows_of[("datasets", "records")],
                                          numbered[2])
         tools_html, command_count, route_count = section_tools(center, numbered[3])

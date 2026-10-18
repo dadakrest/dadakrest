@@ -124,7 +124,7 @@ dl.defs div { margin: 0 0 3pt; break-inside: avoid; }
 .write.short tbody td { height: 24pt; }
 .write th { border-bottom: 1pt solid var(--ink); }
 .write tfoot td { height: 20pt; border-left: 0.5pt solid var(--rule); border-right: 0.5pt solid var(--rule);
-                  vertical-align: bottom; }
+                  border-bottom: 0.5pt solid var(--rule); vertical-align: bottom; }
 .choices { margin: 0 0 9pt; }
 .choice { display: flex; gap: 8pt; align-items: flex-start; margin: 6pt 0 0; break-inside: avoid; }
 .box { display: inline-block; flex: 0 0 auto; width: 11pt; height: 11pt; border: 1pt solid var(--ink);

@@ -33,15 +33,46 @@ from common import (  # noqa: E402
     table,
 )
 
-from datacenter import DATA_CENTER_NAME  # noqa: E402
+from datacenter import DATA_CENTER_NAME, DATA_DIR, loader, vectors  # noqa: E402
 from datacenter.cli import build_parser  # noqa: E402
-from datacenter.config import DATABASES  # noqa: E402
+from datacenter.config import BUCKET_SPACE, DATABASES  # noqa: E402
+from datacenter.core import DataCenter  # noqa: E402
 from datacenter.plans import FEE_TABLES, cost_all  # noqa: E402
 from datacenter.portal import DEFAULT_HOST, DEFAULT_PORT, NAV  # noqa: E402
 
 NAME = "ai-data-center"
 TITLE = "AI Data Center"
-ARCHITECTURE_PNG = REPO / "docs" / "architecture.png"
+
+#: A GPU with this status is installed in a host. Every other status (spare,
+#: out for repair, retired) is a card on the shelving, not in a rack.
+INSTALLED = "in-service"
+
+#: How the prose names a card that is not installed, by its status.
+SHELF_STATUS = {"spare": "spare", "repair": "out for repair", "retired": "retired"}
+
+DASH = '<span class="muted">&ndash;</span>'
+
+# The architecture figure is drawn at its printed size: the text column is
+# 7 in (504 pt) wide and one SVG unit is one point, so a font size in the
+# figure is its size on paper. Nothing in it is set smaller than FIG_MIN_TYPE.
+FIG_WIDTH = 504.0
+FIG_MIN_TYPE = 7.0
+FIG_SANS = "Liberation Sans, Arial, Helvetica, sans-serif"
+FIG_MONO = "Liberation Mono, DejaVu Sans Mono, monospace"
+FIG_INK = "#17201f"
+FIG_MUTED = "#56635f"
+FIG_STYLES = {
+    #        fill       stroke     title
+    "input": ("#E4ECF4", "#5C7C9E", "#1E3A55"),
+    "facade": ("#F7EEDC", "#B08D4B", "#5A431A"),
+    "embedder": ("#FBF6EA", "#B08D4B", "#5A431A"),
+    "group": ("#F6F9F6", "#9DB5A2", "#24482C"),
+    "database": ("#E5F0E7", "#5F8F6A", "#24482C"),
+    "audit": ("#ECE7F3", "#7B6CA3", "#3E3160"),
+    "output": ("#EFEFEF", "#7A7A7A", "#2B2B2B"),
+}
+FIG_ARROW = "#4A4A4A"
+FIG_AUDIT = "#7B6CA3"
 
 #: How many times a government fee charged each `period` falls due in a year.
 #: One-time fees are counted separately, so they recur zero times.
@@ -77,6 +108,11 @@ pre.cli { font-family: "Liberation Mono", "DejaVu Sans Mono", monospace; font-si
 td code { font-size: 8.5pt; }
 td .sub { display: block; color: var(--muted); font-size: 8.5pt; }
 .section-notice { margin-top: 2pt; }
+figure.arch svg { display: block; width: 100%; height: auto; }
+/* A long table may run on to the next page, but its heading, introduction
+   and first rows stay together, and the header row repeats. */
+.lead-rows > p { break-after: avoid; }
+.lead-rows tbody tr:nth-child(2), .lead-rows tbody tr:nth-child(3) { break-before: avoid; }
 """
 
 
@@ -124,6 +160,13 @@ def stat(value: str, label: str) -> str:
 def first_seen(values: list[str]) -> list[str]:
     """Distinct values in the order they first appear."""
     return list(dict.fromkeys(values))
+
+
+def money_or_dash(values: list[float]) -> str:
+    """The sum of some fees, or a dash when there were none to add up.
+
+    Tests the list, not the sum: a real $0.00 fee still prints as $0.00."""
+    return DASH if not values else money(sum(values))
 
 
 def requires_python() -> str:
@@ -217,9 +260,290 @@ runs the jobs that loading queues. The audit count grows with every later comman
 """
 
 
-def section_architecture() -> str:
-    if not ARCHITECTURE_PNG.exists():
-        raise FileNotFoundError(f"missing {ARCHITECTURE_PNG}")
+# -- the architecture figure --------------------------------------------------------
+
+def text_width(value: str, size: float, *, bold: bool = False, mono: bool = False) -> float:
+    """A generous estimate of a line's printed width in points.
+
+    Liberation Mono advances 0.6 em per character. Liberation Sans has Arial's
+    metrics; its advance widths are grouped into classes here, each rounded up
+    to the widest member, so a line that passes this check fits on paper.
+    """
+    if mono:
+        return len(value) * 0.6 * size
+    em = 0.0
+    for ch in value:
+        if ch in " .,:;'!|()[]/\\-ijlftrI·":
+            em += 0.39 if bold else 0.34
+        elif ch in "mwMW%@":
+            em += 0.95
+        elif ch.isupper() or ch in "&→":
+            em += 0.78
+        else:
+            em += 0.62 if bold else 0.57
+    return em * size
+
+
+def wrap(value: str, size: float, room: float, *, bold: bool = False) -> list[str]:
+    """Break a sentence into lines no wider than `room` points."""
+    lines: list[str] = []
+    for word in value.split():
+        if lines and text_width(f"{lines[-1]} {word}", size, bold=bold) <= room:
+            lines[-1] += f" {word}"
+        else:
+            if text_width(word, size, bold=bold) > room:
+                raise ValueError(f"figure: {word!r} is wider than its box")
+            lines.append(word)
+    return lines
+
+
+def bucket_space() -> tuple[str, str]:
+    """The embedder's bucket space as (plain text, SVG markup with an exponent)."""
+    exponent = (BUCKET_SPACE + 1).bit_length() - 1
+    sup = f'2<tspan dy="-2.6" font-size="{FIG_MIN_TYPE:g}">{exponent}</tspan>'
+    if BUCKET_SPACE == 2**exponent - 1:
+        return f"2{exponent} − 1", sup + '<tspan dy="2.6"> &#8722; 1</tspan>'
+    if BUCKET_SPACE == 2**exponent:
+        return f"2{exponent}", sup + '<tspan dy="2.6"></tspan>'
+    return f"{BUCKET_SPACE:,}", esc(f"{BUCKET_SPACE:,}")
+
+
+class Figure:
+    """An SVG drawn in points, refusing any text that is too small or too wide."""
+
+    def __init__(self) -> None:
+        self.items: list[str] = []
+
+    def box(self, x: float, y: float, w: float, h: float, style: str, *,
+            dashed: bool = False, radius: float = 4.0) -> None:
+        fill, stroke, _ = FIG_STYLES[style]
+        dash = ' stroke-dasharray="3 2"' if dashed else ""
+        self.items.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" '
+                          f'rx="{radius:g}" fill="{fill}" stroke="{stroke}" '
+                          f'stroke-width="0.8"{dash}/>')
+
+    def text(self, x: float, y: float, value: str, *, size: float = 7.5, bold: bool = False,
+             mono: bool = False, fill: str = FIG_INK, anchor: str = "start",
+             room: float | None = None, markup: str | None = None) -> None:
+        """One line of text. `markup`, when given, is drawn in place of the
+        escaped value; the value is still what is measured."""
+        if size < FIG_MIN_TYPE:
+            raise ValueError(f"figure: {value!r} is set at {size}pt, below {FIG_MIN_TYPE}pt")
+        if room is not None and text_width(value, size, bold=bold, mono=mono) > room:
+            raise ValueError(f"figure: {value!r} does not fit in {room:.0f}pt")
+        family = FIG_MONO if mono else FIG_SANS
+        weight = ' font-weight="700"' if bold else ""
+        self.items.append(f'<text x="{x:.1f}" y="{y:.1f}" font-family="{family}" '
+                          f'font-size="{size:g}"{weight} fill="{fill}" text-anchor="{anchor}">'
+                          f'{markup if markup is not None else esc(value)}</text>')
+
+    def arrow(self, *points: tuple[float, float], color: str = FIG_ARROW) -> None:
+        path = " ".join(f"{'M' if i == 0 else 'L'}{x:.1f},{y:.1f}" for i, (x, y) in enumerate(points))
+        self.items.append(f'<path d="{path}" fill="none" stroke="{color}" stroke-width="0.9" '
+                          f'stroke-linejoin="round" marker-end="url(#arch-arrow)"/>')
+
+    def line(self, *points: tuple[float, float], color: str = FIG_ARROW) -> None:
+        path = " ".join(f"{'M' if i == 0 else 'L'}{x:.1f},{y:.1f}" for i, (x, y) in enumerate(points))
+        self.items.append(f'<path d="{path}" fill="none" stroke="{color}" stroke-width="0.9"/>')
+
+    def dot(self, x: float, y: float) -> None:
+        self.items.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="1.6" fill="{FIG_ARROW}"/>')
+
+    def card(self, x: float, y: float, w: float, style: str, title: str, *,
+             right: str = "", mono: str = "", lines: list[str] | None = None,
+             markup: dict[int, str] | None = None, dashed: bool = False,
+             title_size: float = 8.5) -> float:
+        """A titled box: an optional file name on the right of the title, an
+        optional monospace line, then lines of text. Returns its bottom edge."""
+        pad, lead = 6.0, 9.4
+        lines = lines or []
+        height = 12.5 + (10.0 if mono else 0.0) + lead * len(lines) + 5.5
+        self.box(x, y, w, height, style, dashed=dashed)
+        room = w - 2 * pad
+        title_room = room - (text_width(right, 7.0, mono=True) + 6 if right else 0)
+        self.text(x + pad, y + 12, title, size=title_size, bold=True,
+                  fill=FIG_STYLES[style][2], room=title_room)
+        if right:
+            self.text(x + w - pad, y + 12, right, size=7.0, mono=True, fill=FIG_MUTED,
+                      anchor="end")
+        baseline = y + 12
+        if mono:
+            baseline += 10.0
+            self.text(x + pad, baseline, mono, size=7.5, mono=True, fill=FIG_MUTED, room=room)
+        for index, line in enumerate(lines):
+            baseline += lead
+            self.text(x + pad, baseline, line, room=room,
+                      markup=(markup or {}).get(index))
+        return y + height
+
+    def svg(self, height: float, label: str) -> str:
+        defs = ('<defs><marker id="arch-arrow" markerUnits="userSpaceOnUse" markerWidth="5.5" '
+                'markerHeight="4.4" refX="5.5" refY="2.2" orient="auto">'
+                f'<path d="M0,0 L5.5,2.2 L0,4.4 Z" fill="{FIG_ARROW}"/></marker></defs>')
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {FIG_WIDTH:g} {height:.1f}" '
+                f'width="{FIG_WIDTH:g}pt" height="{height:.1f}pt" role="img" '
+                f'aria-label="{esc(label)}">{defs}{"".join(self.items)}</svg>')
+
+
+def architecture_svg(command_count: int) -> str:
+    """How data gets in, where it lives and what comes out, drawn from the code.
+
+    The database boxes come from datacenter.config, the input files from the
+    loader, the embedder's name and bucket space from datacenter.vectors, and
+    every DataCenter method the figure names is checked to exist.
+    """
+    named = ("provision", "add_document", "search", "run_next_job", "log", "backup",
+             "status", "recent_events", "verify")
+    missing = [name for name in named if not callable(getattr(DataCenter, name, None))]
+    if missing:
+        raise ValueError(f"the figure names DataCenter methods that are gone: {missing}")
+
+    count = len(DATABASES)
+    fig = Figure()
+    top, gap = 16.0, 13.0
+    # A 1 pt margin all round keeps the outer strokes inside the drawing.
+    ax, aw = 1.0, 123.0          # inputs
+    bx, bw = 154.0, 176.0        # the DataCenter class
+    cx = 358.0                   # the databases
+    cw = FIG_WIDTH - 1.0 - cx
+    bus = 344.0
+
+    for x, label in ((ax, "INPUTS"), (bx, "FACADE"), (cx, "STORAGE")):
+        fig.text(x, 9, label, size=7, bold=True, fill=FIG_MUTED)
+
+    # Inputs: data files, the loader, the command line.
+    kinds = [name.removesuffix(".json") for name in loader.FILES]
+    folders = [kind for kind in kinds if (DATA_DIR / kind).is_dir()]
+    data_lines = wrap(f"{words(len(kinds)).capitalize()} kinds, one JSON array each: "
+                      f"{', '.join(kinds)}.", 7.5, aw - 12)
+    if folders:
+        data_lines += wrap("Split into part files: "
+                           + ", ".join(f"{kind}/" for kind in folders) + ".", 7.5, aw - 12)
+    data_bottom = fig.card(ax, top, aw, "input", "Data files (JSON)",
+                           mono=f"{DATA_DIR.parent.name}/{DATA_DIR.name}/", lines=data_lines)
+    loader_top = data_bottom + gap
+    fig.arrow((ax + aw / 2, data_bottom), (ax + aw / 2, loader_top))
+    loader_bottom = fig.card(
+        ax, loader_top, aw, "input", "Loader", right="loader.py",
+        lines=wrap("validate() checks every file before anything is written; load_all() "
+                   "then upserts, so a refill never duplicates.", 7.5, aw - 12))
+    cli_top = loader_bottom + gap
+    cli_bottom = fig.card(
+        ax, cli_top, aw, "input", "CLI / Python API", mono="python -m datacenter",
+        lines=wrap(f"{command_count} commands, listed in section 8; or DataCenter(root) "
+                   "from Python.", 7.5, aw - 12))
+
+    # The DataCenter class, with the embedder it calls.
+    rows = [
+        ("provision", f"create {count} files, apply schemas"),
+        ("writes", "upsert on natural keys"),
+        ("search", "rank by IDF-weighted cosine"),
+        ("jobs", "claim, run, record each run"),
+        ("audit", "log() after every write"),
+        ("backup", f"copy all {count} files + a manifest"),
+    ]
+    rows_top = top + 32.0
+    embed_lines = [
+        "words → BLAKE2b hash → bucket",
+        "bucket space: {space}",
+        "stored: sparse map, bucket → weight",
+        "weight 1 + log(count), unit length",
+        "query: terms weighted by BM25 IDF",
+        "score: cosine over shared buckets",
+    ]
+    space_text, space_markup = bucket_space()
+    embed_top = rows_top + 11.0 * (len(rows) - 1) + 12.0
+    embed_height = 12.5 + 10.0 + 9.4 * len(embed_lines) + 5.5
+    facade_bottom = embed_top + embed_height + 8.0
+    fig.box(bx, top, bw, facade_bottom - top, "facade")
+    fig.text(bx + 8, top + 14, "DataCenter", size=10, bold=True, fill=FIG_STYLES["facade"][2],
+             room=bw - 16 - text_width("datacenter/core.py", 7.5, mono=True) - 6)
+    fig.text(bx + bw - 8, top + 14, "datacenter/core.py", size=7.5, mono=True, fill=FIG_MUTED,
+             anchor="end")
+    fig.line((bx + 8, top + 20.5), (bx + bw - 8, top + 20.5), color=FIG_STYLES["facade"][1])
+    for index, (label, what) in enumerate(rows):
+        y = rows_top + 11.0 * index
+        purple = label == "audit"
+        fig.text(bx + 8, y, label, bold=True, room=44,
+                 fill=FIG_AUDIT if purple else FIG_STYLES["facade"][2])
+        fig.text(bx + 54, y, what, room=bw - 54 - 8, fill=FIG_AUDIT if purple else FIG_INK)
+    fig.card(bx + 8, embed_top, bw - 16, "embedder", "Local hashing embedder", dashed=True,
+             mono=f"{vectors.LOCAL_MODEL_NAME} · vectors.py",
+             lines=[line.format(space=space_text) for line in embed_lines],
+             markup={1: "bucket space: " + space_markup})
+
+    # Inputs call the class.
+    # An arrow leaves the middle of its box; when that is below the class's
+    # box, it turns up in the gap between the columns to meet it.
+    for source_top, source_bottom in ((loader_top, loader_bottom), (cli_top, cli_bottom)):
+        if source_top > facade_bottom - 12:
+            raise ValueError("figure: an input box no longer lines up with the DataCenter box")
+        y = (source_top + source_bottom) / 2
+        target = min(y, facade_bottom - 12)
+        if target == y:
+            fig.arrow((ax + aw, y), (bx, y))
+        else:
+            elbow = (ax + aw + bx) / 2
+            fig.arrow((ax + aw, y), (elbow, y), (elbow, target), (bx, target))
+
+    # The databases, one box each, on a bus from the class.
+    db_top = top + 30.0
+    y = db_top
+    centres = []
+    for spec in DATABASES:
+        style = "audit" if spec.key == "audit" else "database"
+        tables = wrap(" · ".join(spec.tables), 7.5, cw - 14 - 12)
+        bottom = fig.card(cx + 7, y, cw - 14, style, spec.title, right=spec.filename,
+                          lines=tables, title_size=8.0)
+        centres.append((y + bottom) / 2)
+        y = bottom + 4.0
+    group_bottom = y + 3.0
+    # Drawn under the database boxes: the group goes first in the SVG.
+    group = Figure()
+    group.box(cx, top, cw, group_bottom - top, "group", dashed=True, radius=6)
+    group.text(cx + 7, top + 11, f"{words(count).capitalize()} SQLite databases", size=8,
+               bold=True, fill=FIG_STYLES["group"][2], room=cw - 14)
+    group.text(cx + 7, top + 21, "one file each in the storage root", fill=FIG_MUTED,
+               room=cw - 14)
+    fig.items[:0] = group.items
+    joint = min(max((centres[0] + centres[-1]) / 2, top + 26), facade_bottom - 10)
+    fig.line((bx + bw, joint), (bus, joint))
+    fig.line((bus, min(joint, centres[0])), (bus, max(joint, centres[-1])))
+    fig.dot(bus, joint)
+    for centre in centres:
+        fig.arrow((bus, centre), (cx + 7, centre))
+
+    # Outputs.
+    out_top = max(facade_bottom, group_bottom, cli_bottom) + 26.0
+    fig.text(bx, out_top - 5, "OUTPUTS", size=7, bold=True, fill=FIG_MUTED)
+    results_bottom = fig.card(bx, out_top, bw, "output", "Search, status and events", lines=[
+        "search: top hits with their scores",
+        "status: health, size, rows per table",
+        "events: the most recent audit trail",
+        "verify: SQLite integrity check",
+    ])
+    fig.arrow((bx + bw / 2, facade_bottom), (bx + bw / 2, out_top))
+    backups_bottom = fig.card(cx, out_top, cw, "output", "Backups", lines=wrap(
+        f"A timestamped folder holding a copy of each of the {count} files and a "
+        "manifest.json.", 7.5, cw - 12))
+    fig.arrow((cx + cw / 2, group_bottom), (cx + cw / 2, out_top))
+    fig.text(cx + cw / 2 + 5, (group_bottom + out_top) / 2 + 2.5, "backup()", size=7, mono=True,
+             fill=FIG_MUTED)
+
+    # Legend, under the inputs.
+    fig.arrow((ax, out_top + 4), (ax + 20, out_top + 4))
+    fig.text(ax + 26, out_top + 6.5, "data flow", fill=FIG_MUTED, room=aw - 26)
+    fill, stroke, _ = FIG_STYLES["audit"]
+    fig.items.append(f'<rect x="{ax:.1f}" y="{out_top + 12:.1f}" width="20" height="8" rx="2" '
+                     f'fill="{fill}" stroke="{stroke}" stroke-width="0.8"/>')
+    fig.text(ax + 26, out_top + 19, "audit trail of every write", fill=FIG_AUDIT, room=aw - 26)
+
+    height = max(results_bottom, backups_bottom) + 2.0
+    return fig.svg(height, "Architecture: inputs, the DataCenter class, the "
+                   f"{words(count)} databases and the outputs")
+
+
+def section_architecture(command_count: int) -> str:
     return f"""
 <div class="keep">
 <h2>3. Architecture</h2>
@@ -228,14 +552,12 @@ owns the connections to all {esc(words(len(DATABASES)))} databases. Data files a
 in full before anything is written, then loaded through that class. Documents are embedded
 for search as they are stored, and every write is also recorded in the audit database.
 Backups copy all {esc(words(len(DATABASES)))} files together with a manifest.</p>
-<figure>
-  <img src="{esc(ARCHITECTURE_PNG.as_uri())}" alt="Architecture diagram">
+<figure class="arch">
+  {architecture_svg(command_count)}
   <figcaption>Figure 1. How data gets in, where it lives and what comes out. Inputs on the
-  left, the <code>DataCenter</code> class in the middle, the {esc(words(len(DATABASES)))}
-  database files in the dashed box, and search results, status and backups on the right.
-  Purple arrows are the audit trail. The embedder box is out of date: an embedding is now
-  stored as a sparse map of the hash buckets a text uses, not as a fixed-length
-  vector.</figcaption>
+  left; the <code>DataCenter</code> class in the middle, with the embedder it calls when a
+  document is stored or a query is run; the {esc(words(len(DATABASES)))} database files in the
+  dashed box; outputs below. Purple marks the audit trail.</figcaption>
 </figure>
 </div>
 """
@@ -256,9 +578,25 @@ def section_facility(gpus, power, incidents) -> str:
         [esc(status), esc(count)]
         for status, count in sorted(status_counts.items(), key=lambda kv: (-kv[1], kv[0]))
     ]
-    hosts = len({g["host"] for g in gpus})
-    racks = sorted({g["rack"] for g in gpus})
     total_vram = sum(vram.values())
+    # Only an installed card sits in a host and a rack. The others are kept on
+    # shelving, whose `host` field names a bench or cabinet, not a server.
+    installed = [g for g in gpus if g.get("status") == INSTALLED]
+    shelved = [g for g in gpus if g.get("status") != INSTALLED]
+    hosts = sorted({g["host"] for g in installed})
+    racks = sorted({g["rack"] for g in installed})
+    shelving = sorted({g["rack"] for g in shelved})
+    if set(shelving) & set(racks):
+        raise ValueError(f"GPUs that are not {INSTALLED} sit in working racks "
+                         f"{sorted(set(shelving) & set(racks))}; update the inventory text")
+    where = (f"{len(installed):,} installed in {plural(len(hosts), 'host')} "
+             f"across {plural(len(racks), 'rack')} ({join_and(racks)})")
+    if shelved:
+        by_status = Counter(g["status"] for g in shelved)
+        kinds = [f"{n:,} {SHELF_STATUS.get(status, status)}"
+                 for status, n in sorted(by_status.items(), key=lambda kv: (-kv[1], kv[0]))]
+        where += (f", and {len(shelved):,} on the {join_and(shelving)} shelving "
+                  f"({join_and(kinds)})")
 
     # Power and cooling
     dates = sorted(p["date"] for p in power)
@@ -297,9 +635,8 @@ def section_facility(gpus, power, incidents) -> str:
 <div class="keep">
 <h2>4. Facility snapshot</h2>
 <h3>GPU inventory</h3>
-<p>The <code>gpu_inventory</code> dataset lists {esc(plural(len(gpus), "GPU"))} in
-{esc(plural(hosts, "host"))} across {esc(plural(len(racks), "rack"))}
-({esc(join_and(racks))}), with {esc(f"{total_vram:,.0f}")} GB of GPU memory in total.</p>
+<p>The <code>gpu_inventory</code> dataset lists {esc(plural(len(gpus), "GPU"))} with
+{esc(f"{total_vram:,.0f}")} GB of GPU memory in total: {esc(where)}.</p>
 <div class="cols">
   <div>{table(["Model", "GPUs", "Memory (GB)"], model_rows, numeric={1, 2},
               footer=["Total", esc(len(gpus)), esc(f"{total_vram:,.0f}")])}</div>
@@ -391,7 +728,7 @@ def section_plans(plans: list[dict[str, Any]]) -> str:
         cells = [f"<code>{esc(plan['plan'])}</code>", esc(len(plan["lines"])), esc(plan["months"])]
         for name in tables:
             subtotal = plan["subtotals"].get(name)
-            cells.append("&mdash;" if subtotal is None else money(subtotal))
+            cells.append(DASH if subtotal is None else money(subtotal))
         cells += [f"<b>{money(plan['total_usd'])}</b>", money(plan["monthly_average_usd"])]
         rows.append(cells)
     columns = (["Plan", "Lines", "Months"] + [FEE_TABLE_LABELS.get(t, t) for t in tables]
@@ -423,28 +760,32 @@ budget, so they are not added together.</p>
 
 def section_government(gov: list[dict[str, Any]]) -> str:
     def summarise(key: str) -> tuple[list[list[str]], list[str]]:
-        groups: dict[str, dict[str, float]] = {}
+        # Each group keeps the amounts themselves, not running sums, so a group
+        # with no fee of a kind (a dash) stays distinct from one whose fees of
+        # that kind add up to $0.00, such as a registration that costs nothing.
+        groups: dict[str, dict[str, list[float]]] = {}
         order = first_seen([f[key] for f in gov])
         for fee in gov:
             period = str(fee.get("period", "")).strip().lower()
             if period not in TIMES_PER_YEAR:
                 raise ValueError(f"{fee['fee_code']}: unknown period {period!r}")
             amount = number(fee.get("amount_usd"), f"{fee['fee_code']} amount_usd")
-            group = groups.setdefault(fee[key], {"count": 0, "once": 0.0, "yearly": 0.0})
-            group["count"] += 1
+            group = groups.setdefault(fee[key], {"fees": [], "once": [], "yearly": []})
+            group["fees"].append(amount)
             if period == "one-time":
-                group["once"] += amount
+                group["once"].append(amount)
             else:
-                group["yearly"] += amount * TIMES_PER_YEAR[period]
+                group["yearly"].append(amount * TIMES_PER_YEAR[period])
         rows = []
         for name in order:
             g = groups[name]
             rows.append([esc(name.capitalize() if key == "category" else name),
-                         esc(int(g["count"])), money(g["once"]), money(g["yearly"]),
-                         money(g["once"] + g["yearly"])])
-        once = sum(g["once"] for g in groups.values())
-        yearly = sum(g["yearly"] for g in groups.values())
-        footer = ["Total", esc(len(gov)), money(once), money(yearly), money(once + yearly)]
+                         esc(len(g["fees"])), money_or_dash(g["once"]),
+                         money_or_dash(g["yearly"]), money(sum(g["once"]) + sum(g["yearly"]))])
+        once = [v for g in groups.values() for v in g["once"]]
+        yearly = [v for g in groups.values() for v in g["yearly"]]
+        footer = ["Total", esc(len(gov)), money_or_dash(once), money_or_dash(yearly),
+                  money(sum(once) + sum(yearly))]
         return rows, footer
 
     by_category, cat_footer = summarise("category")
@@ -474,6 +815,7 @@ year&rdquo; counts annual fees {esc(times_word(TIMES_PER_YEAR["annual"]))}, quar
 {esc(times_word(TIMES_PER_YEAR["quarterly"]))} and monthly fees
 {esc(times_word(TIMES_PER_YEAR["monthly"]))}; &ldquo;First year&rdquo; adds the one-time fees
 to that.</p>
+<p class="small muted">A dash means the category or jurisdiction has no fees of that kind.</p>
 <div class="keep">
 <h3>By category</h3>
 {table(["Category"] + columns[1:], by_category, numeric={1, 2, 3, 4}, widths=widths,
@@ -509,7 +851,7 @@ def cli_commands() -> list[list[str]]:
     return rows
 
 
-def section_running() -> str:
+def section_running(commands: list[list[str]]) -> str:
     portal_url = f"http://{DEFAULT_HOST}:{DEFAULT_PORT}"
     pages = join_and([label for _, label in NAV])
     quick_start = "\n".join([
@@ -519,7 +861,6 @@ def section_running() -> str:
         "python -m datacenter plans     # business plans with their totals",
         f"python -m datacenter portal    # read-only portal on {portal_url}",
     ])
-    commands = cli_commands()
     return f"""
 <div class="keep">
 <h2>8. How to run it</h2>
@@ -549,7 +890,7 @@ fixed limits:</p>
 </ul>
 </div>
 
-<div class="keep">
+<div class="lead-rows">
 <h3>Every command</h3>
 <p>Each line below follows <code>python -m datacenter</code>.</p>
 {table(["Usage", "What it does"], commands, widths=["50%", "50%"])}
@@ -581,17 +922,18 @@ def build() -> Path:
             if not rows:
                 raise ValueError(f"dataset {name} is empty")
 
+        commands = cli_commands()
         body = "".join([
             f"<style>{EXTRA_CSS}</style>",
             at_a_glance(services, gpus, docs, plans, gov),
             section_business(services),
             section_databases(status),
-            section_architecture(),
+            section_architecture(len(commands)),
             section_facility(gpus, power, incidents),
             section_knowledge_base(docs, status),
             section_plans(plans),
             section_government(gov),
-            section_running(),
+            section_running(commands),
         ])
 
     html_text = document(

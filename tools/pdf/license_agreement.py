@@ -561,9 +561,8 @@ def service_levels(services: list[dict[str, Any]]) -> Clause:
     tiers = table(["Fee Code", "Support service", "Billed per", "Service description"], rows,
                   widths=["13%", "33%", "14%", "40%"])
     return Clause("sla", "Service levels", [
-        Sub(p(f"Licensee's support level is set by the support services in its Order Form. The "
-              f"support services available, as stated in the {esc(SERVICE_TABLE.replace('_', ' '))} "
-              "table, are:") + tiers
+        Sub(p("Licensee's support level is set by the support services in its Order Form. The "
+              "support services available, each listed in Schedule 1, are:") + tiers
             + p("For each support service Licensee has ordered whose description states a "
                 "response time, Licensor shall meet that response time."),
             title="Support tiers", key="sla.tiers"),
@@ -857,7 +856,7 @@ def preamble(services: list[dict[str, Any]], policy: Policy) -> str:
         + '<div class="drafting"><h3>Completing this template</h3><ul>'
         "<li>Complete or strike out every highlighted [BRACKETED BLANK] and every blank line "
         "before signature. No blank has a default value.</li>"
-        f"<li>Schedule 1 lists the {len(services)} services in the service fee table on "
+        f"<li>Schedule 1 lists the {len(services)} services Licensor offered on "
         f"{ISSUED:%B %-d, %Y}; check it against the Fee Schedule named in the Order Form.</li>"
         "<li>The periods for logs, export, deletion, incident notice and audit-log delivery follow "
         f"Licensor's knowledge-base articles {articles}. Change them there or in an Order Form, "
@@ -888,8 +887,8 @@ def schedule(services: list[dict[str, Any]], cited: dict[str, list[str]]) -> str
         '<section class="schedule page-break">'
         "<h2>Schedule 1. Services and Fee Codes</h2>"
         + p(f"The {len(services)} services in {words(len(cats))} categories that an Order Form may "
-            f"order under this Agreement, read from the {esc(SERVICE_TABLE.replace('_', ' '))} table "
-            f"on {ISSUED:%B %-d, %Y}. Unit prices and minimum units are in the Fee Schedule. The last "
+            f"order under this Agreement, as Licensor offered them on {ISSUED:%B %-d, %Y}. Unit "
+            f"prices and minimum units are in the Fee Schedule. The last "
             f"column gives the clauses of this Agreement that name a Fee Code; {referenced} of the "
             f"{len(services)} are named in a clause.").replace("<p>", '<p class="intro">', 1)
         + table(["Fee Code", "Service", "Category", "Billing unit", "Clause"], rows,
@@ -928,6 +927,12 @@ def build() -> Path:
             + schedule(services, cited))
     if re.search(r"\bNone\b|\[\[", body):
         raise LicenseAgreementError("unfilled value or unresolved cross-reference in the agreement")
+    # A client cannot see the data center's own tables; the agreement points to
+    # the documents it defines, Schedule 1 and the Fee Schedule, instead.
+    visible = re.sub(r"<[^>]+>", " ", body)
+    if re.search(rf"\b{SERVICE_TABLE}\b|\bservice[ _]fees?\s+table\b", visible, flags=re.IGNORECASE):
+        raise LicenseAgreementError(f"the agreement names the internal {SERVICE_TABLE} table; "
+                                    "refer to Schedule 1 or the Fee Schedule")
     html_text = document(
         TITLE, body,
         eyebrow="Agreement template",

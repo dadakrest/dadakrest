@@ -12,7 +12,7 @@ template notice and a footer on every page).
 What the form takes from the data when it is built:
 
 * the positions in the role list (section 2), and the employment types offered
-  as tick boxes, from the employment_fees dataset;
+  as check boxes, from the employment_fees dataset;
 * the shift pattern and on-call rules quoted in section 7, from the knowledge
   base article on working hours, shifts and on-call. The build fails if the
   article no longer states them;
@@ -33,11 +33,14 @@ cross-reference in the text is resolved from those keys.
 
 from __future__ import annotations
 
+import calendar
+import contextlib
 import io
 import math
+import os
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -46,6 +49,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from reportlab.lib.colors import HexColor, white  # noqa: E402
 from reportlab.lib.pagesizes import letter  # noqa: E402
+from reportlab.lib.rl_accel import fp_str  # noqa: E402
 from reportlab.lib.styles import ParagraphStyle  # noqa: E402
 from reportlab.lib.units import inch  # noqa: E402
 from reportlab.pdfbase.pdfmetrics import stringWidth  # noqa: E402
@@ -75,6 +79,12 @@ ID_NOTICE = (
     "are not recorded on this form."
 )
 PEOPLE_OPS_HEADING = "For People Operations use only — after an offer"
+BUSINESS_NOTE_LEAD = "For the business issuing this form:"
+BUSINESS_NOTE = (
+    "the notice above is addressed to you, not to applicants. Once every [BRACKETED BLANK] is "
+    "completed and the form has been reviewed, remove this box before you give the form to "
+    "anyone applying."
+)
 
 #: Section order. A section's number is its position here, so every reference
 #: to a section in the text is written as SECTION[key].
@@ -94,7 +104,7 @@ SECTIONS = (
 SECTION = {key: index for index, key in enumerate(SECTIONS, start=1)}
 
 #: Display order for employment types; a type in the data that is not listed
-#: here still gets a tick box, after these.
+#: here still gets a check box, after these.
 TYPE_ORDER = ("full-time", "part-time", "contract")
 
 #: Sentences quoted from the on-call article in section 7. Each must match the
@@ -139,11 +149,30 @@ CONTROL_H = 18          # height of a one-line text field
 TABLE_ROW_H = 18        # height of a text field in a table row
 TABLE_ROW_GAP = 4
 NUM_W = 26              # width of the clause-number column
-CHECK = 10              # tick box size
+CHECK = 10              # check box and radio button size
 FIELD_FONT_SIZE = 9.5
 #: Whole points: viewers that redraw a field once it is filled in (pdfium, and
 #: others) round a fractional border width down, and a 0.75pt border vanishes.
 FIELD_BORDER_W = 1
+#: Line spacing PDF viewers use for FIELD_FONT_SIZE text in a multi-line field,
+#: and the room taken by the border and the viewer's inner padding.
+FIELD_LEADING = 11.5
+FIELD_INSET = 3
+#: Lines in the free-text adjustment field in the equal opportunity section:
+#: room for a short paragraph while the applicant's sections still end on the
+#: page before People Operations.
+ADJUSTMENT_LINES = 4
+
+
+def multiline_size(lines: int, width: float) -> tuple[float, int]:
+    """Height and character limit for a multi-line text field of `lines` lines.
+
+    The limit is what fits when every character is as wide as a lower-case
+    'e', which is wider than the average of English text with its spaces, so
+    the whole answer stays visible on screen and on a printed copy."""
+    height = lines * FIELD_LEADING + 2 * FIELD_INSET
+    per_line = int((width - 2 * FIELD_INSET) // stringWidth("e", FONT, FIELD_FONT_SIZE))
+    return height, lines * per_line
 
 BODY = ParagraphStyle("body", fontName=FONT, fontSize=9.5, leading=13, textColor=INK,
                       spaceAfter=5)
@@ -162,7 +191,7 @@ def issued_text() -> str:
 
 
 def number(label: str) -> str:
-    """A clause number in the accent colour, for use inside paragraph markup."""
+    """A clause number in the accent color, for use inside paragraph markup."""
     return f'<font name="{BOLD}" color="#0f5f68">{esc(label)}</font>'
 
 
@@ -291,6 +320,44 @@ def check_box(canv: Any, registry: Registry, name: str, tooltip: str, x: float, 
     )
 
 
+def circle_path(size: float, r: float, arcs: tuple[int, ...] = (0, 1, 2, 3),
+                rotated: bool = False) -> str:
+    """A circle of radius r centered in a size-by-size box, as PDF path operators.
+
+    Stands in for reportlab's AcroForm.circleArcStream, which scales the circle
+    by size/20 a second time: below 20pt a radio button's ring and dot come out
+    a fraction of their size in one corner of the button and are clipped. Same
+    arguments and output, without the extra scaling."""
+    k = 0.55231 * r  # control-point distance for a quarter circle
+    quarters = {
+        0: ((r, 0), (r, k, k, r, 0, r)),
+        1: ((0, r), (-k, r, -r, k, -r, 0)),
+        2: ((-r, 0), (-r, -k, -k, -r, 0, -r)),
+        3: ((0, -r), (k, -r, r, -k, r, 0)),
+    }
+    matrix = "0.7071 0.7071 -0.7071 0.7071" if rotated else "1 0 0 1"
+    ops = [f"{matrix} {fp_str(size / 2, size / 2)} cm"]
+    for arc in arcs:
+        start, curve = quarters[arc]
+        if len(ops) == 1:
+            ops.append(f"{fp_str(*start)} m")
+        ops.append(f"{fp_str(*curve)} c")
+    return "\n".join(ops)
+
+
+def radio_button(canv: Any, group: str, value: str, tooltip: str, x: float, y: float) -> None:
+    """One button of a radio group. Every button of a group shares the group's
+    name, so a viewer lets exactly one of them be on. The caller claims the
+    group name from the Registry once, before drawing the first button."""
+    canv.acroForm.circleArcStream = circle_path
+    canv.acroForm.radio(
+        name=group, value=value, selected=False, tooltip=tooltip,
+        x=x, y=y, size=CHECK, relative=True, buttonStyle="circle", shape="circle",
+        borderStyle="solid", borderWidth=FIELD_BORDER_W, borderColor=FIELD_BORDER,
+        fillColor=white, textColor=INK, fieldFlags="noToggleToOff radio", forceBorder=True,
+    )
+
+
 #: The "nothing chosen yet" entry at the top of a choice list. It is a space
 #: rather than an empty string because reportlab cannot draw a choice field
 #: whose value is empty, and a space leaves the box blank on a printed copy.
@@ -348,7 +415,7 @@ class Cover(Flowable):
 
 
 class SectionHeading(Flowable):
-    """'4  Experience' in the accent colour with an accent rule beneath."""
+    """'4  Experience' in the accent color with an accent rule beneath."""
 
     def __init__(self, key: str, title: str) -> None:
         super().__init__()
@@ -385,6 +452,7 @@ class Cell:
     checks: list[tuple[str, str]] = field(default_factory=list)
     height: float = CONTROL_H
     multiline: bool = False
+    maxlen: int = 200
 
 
 class FieldRow(Flowable):
@@ -420,21 +488,21 @@ class FieldRow(Flowable):
             tip = f"{cell.clause} {cell.label}"
             if cell.kind == "text":
                 text_field(canv, self.registry, cell.name, tip, x, y, width, cell.height,
-                           multiline=cell.multiline)
+                           multiline=cell.multiline, maxlen=cell.maxlen)
             elif cell.kind == "choice":
                 choice_field(canv, self.registry, cell.name, tip, cell.options, x, y, width,
                              cell.height)
             elif cell.kind == "checks":
                 cx = x
                 for name, text in cell.checks:
-                    check_box(canv, self.registry, name, f"{cell.label}: {text}", cx,
+                    check_box(canv, self.registry, name, f"{tip}: {text}", cx,
                               y + (cell.height - CHECK) / 2)
                     canv.setFillColor(INK)
                     canv.setFont(FONT, 9)
                     canv.drawString(cx + CHECK + 4, y + (cell.height - CHECK) / 2 + 2, text)
                     cx += CHECK + 4 + stringWidth(text, FONT, 9) + 16
                 if cx - 16 > x + width:
-                    raise ValueError(f"tick boxes for {cell.clause} do not fit their cell")
+                    raise ValueError(f"check boxes for {cell.clause} do not fit their cell")
             else:
                 raise ValueError(f"unknown cell kind {cell.kind!r}")
             x += width + self.GAP
@@ -488,7 +556,7 @@ class FieldTable(Flowable):
 
 
 class CheckList(Flowable):
-    """Tick boxes, each with a numbered label, in one or more columns.
+    """Check boxes, each with a numbered label, in one or more columns.
 
     Items run down the first column before the second, so numbers read in order.
     """
@@ -533,9 +601,13 @@ class CheckList(Flowable):
 
 
 class YesNo(Flowable):
-    """A numbered statement with Yes and No tick boxes on the right."""
+    """A numbered statement with a Yes / No choice on the right.
+
+    The two answers are one radio group, so an applicant can choose one of them
+    and never both. The group, not each answer, is the form field."""
 
     BOX_W = 104
+    ANSWERS = ("Yes", "No")
 
     def __init__(self, registry: Registry, clause: str, statement: str, name: str) -> None:
         super().__init__()
@@ -557,9 +629,10 @@ class YesNo(Flowable):
         canv.drawString(0, top - 9.5, self.clause)
         self.para.drawOn(canv, NUM_W, top - self.para.height)
         x = self.width - self.BOX_W + 14
-        for answer in ("Yes", "No"):
-            check_box(canv, self.registry, f"{self.name}_{answer.lower()}",
-                      f"{self.clause} {self.statement}: {answer}", x, top - CHECK - 1)
+        group = self.registry.claim(self.name)
+        tooltip = f"{self.clause} {self.statement} Choose Yes or No."
+        for answer in self.ANSWERS:
+            radio_button(canv, group, answer.lower(), tooltip, x, top - CHECK - 1)
             canv.setFillColor(INK)
             canv.setFont(FONT, 9.5)
             canv.drawString(x + CHECK + 4, top - 9.5, answer)
@@ -578,9 +651,17 @@ def boxed(content: list[Flowable], commands: list[tuple], *, pad: float = 9) -> 
 
 
 def template_notice() -> Table:
-    return boxed([Paragraph(esc(TEMPLATE_NOTICE), NOTICE)],
-                 [("BACKGROUND", (0, 0), (-1, -1), TINT),
-                  ("LINEBEFORE", (0, 0), (0, -1), 3, ACCENT)])
+    """The shared template notice, and a note that it is for the business.
+
+    The notice tells whoever signs to take legal advice first. On this form the
+    person who signs is the applicant, so the business is told to remove the
+    box once the form has been reviewed, rather than issue it to applicants."""
+    return boxed([
+        Paragraph(esc(TEMPLATE_NOTICE), NOTICE),
+        Spacer(1, 4),
+        Paragraph(f"<b>{esc(BUSINESS_NOTE_LEAD)}</b> {esc(BUSINESS_NOTE)}", NOTICE),
+    ], [("BACKGROUND", (0, 0), (-1, -1), TINT),
+        ("LINEBEFORE", (0, 0), (0, -1), 3, ACCENT)])
 
 
 def id_notice() -> Table:
@@ -652,7 +733,7 @@ def story(data: FormData, registry: Registry) -> list[Flowable]:
                   "one of them in the box. " + " ".join(groups), HINT),
         Spacer(1, 3),
         FieldRow(registry, [
-            Cell("checks", f"{p}.3", "Employment type (tick each you would accept)", 0.55,
+            Cell("checks", f"{p}.3", "Employment type (check each you would accept)", 0.55,
                  checks=[(f"employment_type_{slug(t)}", type_label(t))
                          for t in data.employment_types]),
             Cell("text", f"{p}.4", "Salary expectation (state the currency and period)", 0.45,
@@ -667,8 +748,8 @@ def story(data: FormData, registry: Registry) -> list[Flowable]:
         id_notice(),
         Spacer(1, 9),
         YesNo(registry, f"{e}.1",
-              "I am legally authorised to work in the country where this role is based.",
-              "eligibility_authorised_to_work"),
+              "I am legally authorized to work in the country where this role is based.",
+              "eligibility_authorized_to_work"),
         YesNo(registry, f"{e}.2", "I will require sponsorship.",
               "eligibility_requires_sponsorship"),
     ]))
@@ -737,8 +818,8 @@ def story(data: FormData, registry: Registry) -> list[Flowable]:
     k = s["acknowledgements"]
     flow.append(KeepTogether([
         SectionHeading("acknowledgements", "Acknowledgements"),
-        Paragraph(f"Tick each of the {len(data.policies)} employment policies you have read. Copies "
-                  "are available from [WHERE THE EMPLOYMENT POLICIES ARE PUBLISHED].", HINT),
+        Paragraph(f"Check each of the {len(data.policies)} employment policies you have read. "
+                  "Copies are at [WHERE THE POLICIES ARE PUBLISHED].", HINT),
         Spacer(1, 2),
         CheckList(registry, [
             (f"{k}.{i}", f"acknowledged_{slug(policy.title)}", esc(policy.title))
@@ -748,6 +829,7 @@ def story(data: FormData, registry: Registry) -> list[Flowable]:
 
     # 9 Equal opportunity
     q = s["equal_opportunity"]
+    adjustment_h, adjustment_max = multiline_size(ADJUSTMENT_LINES, CONTENT_W)
     flow.append(KeepTogether([
         SectionHeading("equal_opportunity", "Equal opportunity"),
         clause(f"{q}.1",
@@ -761,7 +843,8 @@ def story(data: FormData, registry: Registry) -> list[Flowable]:
         FieldRow(registry, [
             Cell("text", f"{q}.2",
                  "If you need an adjustment to take part in the recruitment process, describe it "
-                 "here (optional)", 1.0, "recruitment_adjustments", height=26, multiline=True),
+                 "here (optional)", 1.0, "recruitment_adjustments", height=adjustment_h,
+                 multiline=True, maxlen=adjustment_max),
         ]),
     ]))
 
@@ -795,8 +878,8 @@ def story(data: FormData, registry: Registry) -> list[Flowable]:
     panel = boxed([
         Paragraph("Complete this section only after an offer has been made. Record that each "
                   "check was done in person, not what was seen: do not write document numbers on "
-                  "this form or attach copies of documents to it. See the notice in section "
-                  f"{s['eligibility']}.", BODY),
+                  "this form or attach copies of documents to it (see section "
+                  f"{s['eligibility']}).", BODY),
         Spacer(1, 3),
         CheckList(registry, [
             (f"{o}.1", "people_ops_identity_verified_in_person", "Identity verified in person"),
@@ -841,6 +924,26 @@ def footer(total: int | None) -> Callable[[Any, Any], None]:
     return draw
 
 
+@contextlib.contextmanager
+def issue_date_stamp() -> Iterator[None]:
+    """Give the PDF's creation and modification dates as the issue date.
+
+    The form is built in reportlab's invariant mode so that an unchanged form
+    rebuilds to the same file, and that mode dates every PDF 1 January 2000
+    unless SOURCE_DATE_EPOCH (the reproducible-builds convention, which
+    reportlab reads) names another moment. Set it to the issue date while the
+    form is built, then put back whatever was there before."""
+    previous = os.environ.get("SOURCE_DATE_EPOCH")
+    os.environ["SOURCE_DATE_EPOCH"] = str(calendar.timegm(ISSUED.timetuple()))
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("SOURCE_DATE_EPOCH", None)
+        else:
+            os.environ["SOURCE_DATE_EPOCH"] = previous
+
+
 def render_form(data: FormData, total: int | None) -> tuple[bytes, int, list[str]]:
     buffer = io.BytesIO()
     registry = Registry()
@@ -853,7 +956,8 @@ def render_form(data: FormData, total: int | None) -> tuple[bytes, int, list[str
     frame = Frame(MARGIN_X, MARGIN_BOTTOM, CONTENT_W, PAGE_H - MARGIN_TOP - MARGIN_BOTTOM,
                   leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0, id="body")
     doc.addPageTemplates([PageTemplate(id="form", frames=[frame], onPage=footer(total))])
-    doc.build(story(data, registry))
+    with issue_date_stamp():
+        doc.build(story(data, registry))
     return buffer.getvalue(), doc.page, registry.names
 
 
