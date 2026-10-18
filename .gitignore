@@ -10,3 +10,6 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# PDF build intermediates (regenerated from tools/pdf/*.py)
+tools/pdf/build/
