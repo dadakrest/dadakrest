@@ -163,7 +163,10 @@
   const APP_DATA_WARN = 4 * 1024 * 1024;            // localStorage usually tops out near 5 MB
   const LOG_MAX = 300;
   const WALLET_MAX = 2000;
-  const IMPORT_MAX = 900 * 1024;                    // the server takes events up to 1 MB
+  const MAX_KIDS = 50;
+  const MAX_CARDS = 200;
+  const MAX_ACTS = 30;
+  const EVENT_MAX = 990 * 1000;                     // the server takes events up to 1 MB
   const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';   // no I, L, O, U: easy to read aloud
   const CODE_LEN = 25;                              // 125 random bits
   const AVATARS = ['🦁','🐯','🐼','🦊','🐸','🐵','🦄','🐙','🐢','🐬','🚀','⚽','🎨','🎸','🌟','🌈'];
@@ -215,7 +218,18 @@
   const fmtBytes = b => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : b < 1073741824 ? (b/1048576).toFixed(1) + ' MB' : (b/1073741824).toFixed(2) + ' GB';
 
   // Input cleaning: every change from another phone passes through these before it touches state.
-  const str = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
+  // Postgres refuses NUL characters and half emoji (lone surrogates), so strings never keep them.
+  const wellFormed = s => {
+    s = s.replace(/\0/g, '');
+    return s.toWellFormed ? s.toWellFormed() : s.replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '�');
+  };
+  const str = (v, max) => {
+    if (typeof v !== 'string') return '';
+    let s = v.trim();
+    if (s.length > max) { s = s.slice(0, max); if (/[\ud800-\udbff]$/.test(s)) s = s.slice(0, -1); }
+    return wellFormed(s);
+  };
+  const cleanStrings = v => JSON.parse(JSON.stringify(v, (k, x) => typeof x === 'string' ? wellFormed(x) : x));
   const int = (v, lo, hi) => {
     const n = typeof v === 'number' || (typeof v === 'string' && v.trim() !== '') ? Math.trunc(Number(v)) : NaN;
     return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : null;
@@ -267,9 +281,12 @@
   const hashPin = pin => { const pinSalt = hex(randomBytes(16)); return { pinSalt, pinHash: sha256(pinSalt + ':' + pin) }; };
 
   // ---------- Cleaning stored or synced data ----------
+  // These must give the same answer on every phone (no randomness), because synced
+  // changes pass through them during replay.
   function cleanKid(k) {
     if (!isObj(k)) return null;
-    const id = str(k.id, 40), name = str(k.name, 24), age = Number(k.age);
+    const id = str(k.id, 40), name = str(k.name, 24);
+    const age = typeof k.age === 'number' || typeof k.age === 'string' ? Number(k.age) : NaN;
     if (!id || !name || !Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) return null;
     return { id, name, age, avatar: str(k.avatar, 16) || '🌟', points: int(k.points, 0, 1e6) ?? 0 };
   }
@@ -296,15 +313,17 @@
       color: isColor(w.color) ? w.color : '#6c4cf5', code: str(w.code, 20), at: int(w.at, 0, 8.64e15) ?? 0, used: w.used === true,
     };
   }
-  function cleanLog(l) {
+  function cleanLog(l, i) {
     if (!isObj(l)) return null;
-    return { id: str(l.id, 60) || uid(), kidId: str(l.kidId, 40), text: str(l.text, 120), pts: int(l.pts, -1e6, 1e6) ?? 0, at: int(l.at, 0, 8.64e15) ?? 0 };
+    return { id: str(l.id, 60) || 'log' + i, kidId: str(l.kidId, 40), text: str(l.text, 120), pts: int(l.pts, -1e6, 1e6) ?? 0, at: int(l.at, 0, 8.64e15) ?? 0 };
   }
   function cleanAct(a) {
     if (!isObj(a)) return null;
     const label = str(a.label, 40), pts = int(a.pts, 1, 1000);
     return label && pts ? { label, pts } : null;
   }
+  // Past the cap, the oldest *used* cards go first; unused cards are never dropped.
+  const capWallet = w => w.length > WALLET_MAX ? w.filter((x, i) => i < WALLET_MAX || !x.used) : w;
   function cleanState(d) {
     const s = defaults();
     if (!isObj(d)) return s;
@@ -314,13 +333,14 @@
     if (typeof ds.pinHash === 'string' && /^[0-9a-f]{64}$/.test(ds.pinHash)) {
       s.settings.pinHash = ds.pinHash; s.settings.pinSalt = str(ds.pinSalt, 64);
     } else if (typeof ds.pin === 'string' && /^\d{4,6}$/.test(ds.pin)) {
-      Object.assign(s.settings, hashPin(ds.pin));     // backups from the first version kept the PIN as-is
+      // The first version kept the PIN as-is. A fixed salt keeps this the same on every phone.
+      s.settings.pinSalt = 'v1'; s.settings.pinHash = sha256('v1:' + ds.pin);
     }
-    s.kids = arr(d.kids).map(cleanKid).filter(Boolean).slice(0, 50);
-    s.cards = arr(d.cards).map(cleanCard).filter(Boolean).slice(0, 200);
-    s.wallet = arr(d.wallet).map(cleanWallet).filter(Boolean).slice(0, WALLET_MAX);
+    s.kids = arr(d.kids).map(cleanKid).filter(Boolean).slice(0, MAX_KIDS);
+    s.cards = arr(d.cards).map(cleanCard).filter(Boolean).slice(0, MAX_CARDS);
+    s.wallet = capWallet(arr(d.wallet).map(cleanWallet).filter(Boolean));
     s.log = arr(d.log).map(cleanLog).filter(Boolean).slice(0, LOG_MAX);
-    const acts = arr(d.peaceActs).map(cleanAct).filter(Boolean).slice(0, 30);
+    const acts = arr(d.peaceActs).map(cleanAct).filter(Boolean).slice(0, MAX_ACTS);
     if (acts.length) s.peaceActs = acts;
     return s;
   }
@@ -329,13 +349,22 @@
   // Every change is an event. Phones replay the family's events in the server's order,
   // so they all end up with the same state. Rules (like "enough points?") are checked
   // during replay, which is what stops two phones spending the same points twice.
-  function addLog(s, ev, kidId, text, p, n = 0) {
-    s.log.unshift({ id: ev.id + (n ? ':' + n : ''), kidId, text: str(text, 120), pts: p, at: int(ev.at, 0, 8.64e15) ?? 0 });
+  // onReject(ev, message) is told when a change from a phone could not go through.
+  function addLog(s, ev, kidId, text, p) {
+    s.log.unshift({ id: str(ev.id, 60), kidId, text: str(text, 120), pts: p, at: int(ev.at, 0, 8.64e15) ?? 0 });
     if (s.log.length > LOG_MAX) s.log.length = LOG_MAX;
   }
 
   function apply(s, ev, onReject) {
     if (!isObj(ev)) return s;
+    try {
+      return applyEvent(s, ev, onReject);
+    } catch {
+      return s;       // a malformed change is skipped the same way on every phone
+    }
+  }
+
+  function applyEvent(s, ev, onReject) {
     const kid = id => s.kids.find(k => k.id === id);
     switch (ev.type) {
       case 'settings': {
@@ -345,7 +374,7 @@
         break;
       }
       case 'acts': {
-        const acts = arr(ev.acts).map(cleanAct).filter(Boolean).slice(0, 30);
+        const acts = arr(ev.acts).map(cleanAct).filter(Boolean).slice(0, MAX_ACTS);
         if (acts.length) s.peaceActs = acts;
         break;
       }
@@ -356,11 +385,14 @@
         break;
       case 'kid.add': {
         const k = cleanKid({ ...(isObj(ev.kid) ? ev.kid : {}), points: 0 });
-        if (k && !kid(k.id) && s.kids.length < 50) s.kids.push(k);
+        if (!k || kid(k.id)) break;
+        if (s.kids.length >= MAX_KIDS) { onReject?.(ev, `${k.name} wasn't added: the family already has ${MAX_KIDS} kids.`); break; }
+        s.kids.push(k);
         break;
       }
       case 'kid.edit': {
-        const k = kid(ev.kidId), c = k && cleanKid({ ...k, name: ev.name, age: ev.age });
+        // Only the fields that were changed are sent, so two phones editing different fields both win.
+        const k = kid(ev.kidId), c = k && cleanKid({ ...k, name: ev.name ?? k.name, age: ev.age ?? k.age });
         if (c) Object.assign(k, c);
         break;
       }
@@ -370,7 +402,8 @@
         break;
       case 'points': {
         const k = kid(ev.kidId), n = int(ev.pts, -1e6, 1e6);
-        if (!k || !n) break;
+        if (!n) break;
+        if (!k) { onReject?.(ev, 'Some points were not given: that kid was removed on another phone.'); break; }
         const before = k.points;
         k.points = Math.min(1e6, Math.max(0, k.points + n));
         addLog(s, ev, k.id, ev.text, k.points - before);
@@ -378,7 +411,9 @@
       }
       case 'card.add': {
         const c = cleanCard(ev.card);
-        if (c && !s.cards.some(x => x.id === c.id) && s.cards.length < 200) s.cards.push(c);
+        if (!c || s.cards.some(x => x.id === c.id)) break;
+        if (s.cards.length >= MAX_CARDS) { onReject?.(ev, `"${c.title}" wasn't added: the shop already has ${MAX_CARDS} gift cards.`); break; }
+        s.cards.push(c);
         break;
       }
       case 'card.remove':
@@ -386,23 +421,29 @@
         break;
       case 'redeem': {
         const k = kid(ev.kidId), c = s.cards.find(x => x.id === ev.cardId), walletId = str(ev.walletId, 40);
-        if (!k || !c || !walletId || s.wallet.some(w => w.id === walletId)) break;
-        if (c.stock === 0 || k.points < c.cost || k.age < c.minAge || k.age > c.maxAge) {
-          addLog(s, ev, k.id, `${k.name} couldn't get "${c.title}"`, 0);
-          onReject?.(ev, `${k.name} couldn't get "${c.title}": the points or cards were already used on another phone.`);
+        if (!k || !walletId || s.wallet.some(w => w.id === walletId)) break;
+        const title = c ? c.title : (str(ev.title, 40) || 'a gift card');
+        let why = '';
+        if (!c) why = 'it was taken out of the shop on another phone';
+        else if (c.stock === 0) why = 'it sold out on another phone';
+        else if (k.points < c.cost) why = 'the points were already spent on another phone';
+        else if (k.age < c.minAge || k.age > c.maxAge) why = `it's for ages ${c.minAge}–${c.maxAge}`;
+        if (why) {
+          addLog(s, ev, k.id, `${k.name} couldn't get "${title}"`, 0);
+          onReject?.(ev, `${k.name} couldn't get "${title}": ${why}. No points were spent.`);
           break;
         }
         k.points -= c.cost;
         if (c.stock > 0) c.stock--;
         s.wallet.unshift({ id: walletId, kidId: k.id, cardId: c.id, title: c.title, emoji: c.emoji, color: c.color,
                            code: str(ev.code, 20), at: int(ev.at, 0, 8.64e15) ?? 0, used: false });
-        if (s.wallet.length > WALLET_MAX) s.wallet = s.wallet.filter((w, i) => i < WALLET_MAX || !w.used);
+        s.wallet = capWallet(s.wallet);
         addLog(s, ev, k.id, `${k.name} got "${c.title}"`, -c.cost);
         break;
       }
       case 'used': {
         const w = s.wallet.find(x => x.id === ev.walletId);
-        if (w) w.used = true;
+        if (w) { w.used = true; s.wallet = capWallet(s.wallet); }
         break;
       }
       case 'clear':
@@ -429,16 +470,24 @@
   // store.base    = state after every event the server has confirmed (up to store.sync.cursor)
   // store.pending = changes made on this phone that the server hasn't confirmed yet
   // state         = base + pending, which is what the screen shows
+  // The app may be open twice on one phone (installed app + browser tab), so before changing
+  // anything it re-reads storage if the other copy wrote to it (refreshFromDisk).
+  let lastRaw = null;
   let store = loadStore();
   let state = null;
   recompute();
+  if (lastRaw === null && readRaw(OLD_STORE_KEY) !== null) persist();     // finish moving first-version data
 
-  function loadStore() {
+  function readRaw(key = STORE_KEY) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  }
+  function loadStore(raw = readRaw()) {
+    lastRaw = raw;
     let st = null;
-    try { st = JSON.parse(localStorage.getItem(STORE_KEY)); } catch {}
+    try { st = JSON.parse(raw); } catch {}
     if (!isObj(st) || !isObj(st.base)) {
       let old = null;
-      try { old = JSON.parse(localStorage.getItem(OLD_STORE_KEY)); } catch {}
+      try { old = JSON.parse(readRaw(OLD_STORE_KEY)); } catch {}
       st = { base: old };
     }
     const out = {
@@ -446,16 +495,29 @@
       base: cleanState(st.base),
       pending: arr(st.pending).filter(e => isObj(e) && typeof e.id === 'string' && typeof e.type === 'string'),
       sync: isObj(st.sync) && typeof st.sync.code === 'string' && st.sync.code.length === CODE_LEN
-        ? { code: st.sync.code, cursor: int(st.sync.cursor, 0, Number.MAX_SAFE_INTEGER) ?? 0 } : null,
+        ? {
+            code: st.sync.code,
+            cursor: int(st.sync.cursor, 0, Number.MAX_SAFE_INTEGER) ?? 0,
+            pulled: st.sync.pulled === true,
+            ...(typeof st.sync.retire === 'string' && st.sync.retire.length === CODE_LEN ? { retire: st.sync.retire } : {}),
+          } : null,
     };
     if (!out.sync) { for (const e of out.pending) out.base = apply(out.base, e); out.pending = []; }
     return out;
+  }
+  function refreshFromDisk() {
+    const raw = readRaw();
+    if (raw === null || raw === lastRaw) return false;
+    store = loadStore(raw);
+    recompute();
+    return true;
   }
   function persist() {
     const json = JSON.stringify(store);
     if (json.length * 2 > STORAGE_CAP) { toast('Too much data. Save a backup and clear old history.'); return false; }
     try {
       localStorage.setItem(STORE_KEY, json);
+      lastRaw = json;
       localStorage.removeItem(OLD_STORE_KEY);
       return true;
     } catch { toast('Phone storage for this app is full. Clear history in Setup.'); return false; }
@@ -466,7 +528,8 @@
     state = s;
   }
   function commit(type, data = {}) {
-    const ev = { ...data, id: uuid(), type, at: Date.now(), by: store.device };
+    refreshFromDisk();
+    const ev = { ...cleanStrings(data), id: uuid(), type, at: Date.now(), by: store.device };
     if (store.sync) store.pending.push(ev);
     else store.base = apply(store.base, ev);
     persist();
@@ -484,6 +547,8 @@
     family_full: 'This family\'s sync storage is full.',
   };
   const friendly = e => e.offline ? 'No internet connection.' : (ERRORS[e.message] || 'The sync server had a problem. Trying again soon.');
+  // Size of an event as the server counts it (UTF-8 bytes of jsonb text, which adds a space after : and ,).
+  const serverSize = v => { const j = JSON.stringify(v); return new TextEncoder().encode(j).length + (j.match(/[:,]/g) || []).length; };
 
   async function rpc(fn, args) {
     const ctl = new AbortController();
@@ -501,78 +566,122 @@
       }
       let body = null;
       try { body = await res.json(); } catch {}
-      if (!res.ok) throw Object.assign(new Error(body?.message || `HTTP ${res.status}`), { status: res.status });
+      if (!res.ok) throw Object.assign(new Error(body?.message || `HTTP ${res.status}`), { status: res.status, code: body?.code });
       return body;
     } finally {
       clearTimeout(timer);
     }
   }
 
-  const refusedEvent = e => ['bad_event', 'bad_events', 'too_big'].includes(e.message);
+  // The server said no to the change itself (not a network or server hiccup), so resending won't help.
+  const refusedEvent = e => ['bad_event', 'bad_events', 'too_big'].includes(e.message)
+    || ['22P02', '22P05', '54000'].includes(e.code) || e.status === 413;
 
-  async function pushPending(link) {
+  async function pushPending(code) {
     const list = store.pending.slice();
-    const send = events => rpc('gc_push', { p_secret: link.code, p_device: store.device, p_events: events });
+    const send = events => rpc('gc_push', { p_secret: code, p_device: store.device, p_events: cleanStrings(events) });
     for (let i = 0; i < list.length;) {
       const batch = [];
       let size = 0;
       while (i < list.length && batch.length < 100) {
-        const n = JSON.stringify(list[i]).length;
-        if (batch.length && size + n > 800 * 1024) break;
+        const n = serverSize(list[i]);
+        if (batch.length && size + n > 800 * 1000) break;
         batch.push(list[i]); size += n; i++;
       }
       try {
         await send(batch);
       } catch (e) {
         if (!refusedEvent(e)) throw e;
-        // The server refused something in this batch: send them one by one and drop what it refuses.
+        // Something in this batch was refused: send them one by one and set aside what's refused.
         for (const ev of batch) {
           try { await send([ev]); }
           catch (e2) {
             if (!refusedEvent(e2)) throw e2;
-            if (store.sync !== link) return;
-            store.pending = store.pending.filter(p => p.id !== ev.id);
-            persist();
-            toast('One change was too big to sync and was undone.');
+            refreshFromDisk();
+            if (store.sync?.code !== code) return;
+            dropRefused(ev, code);
+            if (store.sync?.code !== code) return;
           }
         }
       }
-      if (store.sync !== link) return;
+      refreshFromDisk();
+      if (store.sync?.code !== code) return;
     }
   }
 
-  async function pullAll(link) {
+  function dropRefused(ev, code) {
+    if (ev.type === 'import' && store.sync.cursor === 0) {
+      // The family's very first upload: never lose it. Keep everything on this phone and turn sync off.
+      let base = cleanState(ev.state);
+      for (const p of store.pending) if (p.id !== ev.id) base = apply(base, p);
+      store.base = base; store.pending = []; store.sync = null;
+      persist(); recompute();
+      setSyncStatus('idle');
+      rpc('gc_delete_family', { p_secret: code }).catch(() => {});
+      toast('Too much data to start syncing. Clear history in Setup, then try again.');
+      return;
+    }
+    store.pending = store.pending.filter(p => p.id !== ev.id);
+    persist();
+    toast('One change could not be synced and was undone.');
+  }
+
+  function notifyRejected(ev, msg) {
+    if (ev.by === store.device) toast(msg);
+  }
+
+  async function pullAll(code) {
     for (let page = 0; page < 10000; page++) {
-      const r = await rpc('gc_pull', { p_secret: link.code, p_after: link.cursor, p_limit: 500 });
-      if (store.sync !== link) return;            // left or switched family meanwhile
+      const r = await rpc('gc_pull', { p_secret: code, p_after: store.sync.cursor, p_limit: 500 });
+      refreshFromDisk();
+      if (store.sync?.code !== code) return;            // left or switched family meanwhile
       const events = arr(r?.events);
-      const confirmed = new Set();
+      let moved = false;
       for (const e of events) {
-        if (!(e?.seq > link.cursor)) continue;
-        store.base = apply(store.base, e.body, (ev, msg) => { if (ev.by === store.device) toast(msg); });
-        link.cursor = e.seq;
-        if (typeof e.body?.id === 'string') confirmed.add(e.body.id);
+        if (!(e?.seq > store.sync.cursor)) continue;      // another copy of the app already applied it
+        // Each event moves base, cursor and pending together, so nothing is ever counted twice.
+        store.base = apply(store.base, e.body, notifyRejected);
+        store.sync.cursor = e.seq;
+        const id = e.body?.id;
+        if (typeof id === 'string') store.pending = store.pending.filter(p => p.id !== id);
+        moved = true;
       }
-      if (confirmed.size) store.pending = store.pending.filter(p => !confirmed.has(p.id));
-      if (events.length) persist();
-      if (!events.length || link.cursor >= (r?.last_seq || 0)) return;
+      if (moved) persist();
+      if (!events.length || store.sync.cursor >= (r?.last_seq || 0)) return;
     }
   }
 
   async function syncNow() {
-    const link = store.sync;
-    if (!link) return;
+    refreshFromDisk();
+    const code = store.sync?.code;
+    if (!code) return;
     if (sync.busy) { sync.again = true; return; }
     sync.busy = true;
     sync.lastTry = Date.now();
     const before = JSON.stringify(state);
     setSyncStatus('syncing');
     try {
-      if (store.pending.length) await pushPending(link);
-      await pullAll(link);
-      if (store.sync === link) setSyncStatus('ok');
+      if (store.pending.length) await pushPending(code);
+      if (store.sync?.code === code) await pullAll(code);
+      if (store.sync?.code === code) {
+        if (!store.sync.pulled) { store.sync.pulled = true; persist(); }
+        setSyncStatus('ok');
+      }
+      // After moving to a new family code, delete the old one once the new one holds everything.
+      const old = store.sync?.code === code && store.sync.cursor > 0 && store.sync.retire;
+      if (old) {
+        try {
+          await rpc('gc_delete_family', { p_secret: old });
+          refreshFromDisk();
+          if (store.sync?.retire === old) { delete store.sync.retire; persist(); }
+        } catch {}    // tried again on the next sync
+      }
     } catch (e) {
-      if (store.sync === link) setSyncStatus(e.offline ? 'offline' : 'error', friendly(e));
+      if (store.sync?.code === code) {
+        setSyncStatus(e.offline ? 'offline' : 'error', e.message === 'family_not_found'
+          ? 'This family\'s code was changed or deleted. Ask a parent for the new code, then Stop syncing and join again.'
+          : friendly(e));
+      }
     } finally {
       sync.busy = false;
       recompute();
@@ -621,6 +730,7 @@
   let renderWaiting = false;
   let renderRetry = 0;
   let pointerDown = false;
+  let lastInput = 0;
 
   const kidById = id => state.kids.find(k => k.id === id);
   const cardById = id => state.cards.find(c => c.id === id);
@@ -677,16 +787,46 @@
     commit('pin', hashPin(p1));
     return true;
   }
+  // After 5 wrong PINs in a row, wait 30 seconds (remembered across reloads).
+  const PIN_WAIT_KEY = STORE_KEY + '.pinWait';
+  let wrongPins = 0;
+  async function checkPin(title) {
+    const until = Number(readRaw(PIN_WAIT_KEY)) || 0;
+    if (Date.now() < until) { toast(`Too many wrong PINs. Try again in ${Math.ceil((until - Date.now()) / 1000)} seconds.`); return false; }
+    const p = await askPin(title);
+    if (p === null) return false;
+    if (sha256(state.settings.pinSalt + ':' + p) === state.settings.pinHash) { wrongPins = 0; return true; }
+    if (++wrongPins >= 5) {
+      wrongPins = 0;
+      try { localStorage.setItem(PIN_WAIT_KEY, String(Date.now() + 30000)); } catch {}
+      toast('Too many wrong PINs. Wait 30 seconds.');
+    } else toast('Wrong PIN');
+    return false;
+  }
+  // A phone that just joined doesn't have the family's PIN until its first sync finishes;
+  // offering "create a PIN" then would replace the family's PIN on every phone.
+  function pinNotReady() {
+    if (state.settings.pinHash || !store.sync || store.sync.pulled) return false;
+    toast('Getting your family\'s data first. Try again in a moment.');
+    scheduleSync(0);
+    return true;
+  }
   async function unlockParent() {
     if (parentUnlocked) return true;
+    if (pinNotReady()) return false;
     if (!state.settings.pinHash) {
       if (!(await newPin())) return false;
       parentUnlocked = true; toast('Parent PIN saved'); return true;
     }
-    const p = await askPin('Parent PIN');
-    if (p !== null && sha256(state.settings.pinSalt + ':' + p) === state.settings.pinHash) { parentUnlocked = true; return true; }
-    if (p !== null) toast('Wrong PIN');
+    if (await checkPin('Parent PIN')) { parentUnlocked = true; return true; }
     return false;
+  }
+  // For one approval (like a Peace Board award): checks the PIN without switching on parent mode.
+  async function approvePin() {
+    if (parentUnlocked) return true;
+    if (pinNotReady()) return false;
+    if (!state.settings.pinHash) return newPin();
+    return checkPin('Parent PIN to approve');
   }
 
   // ---------- Views ----------
@@ -730,6 +870,7 @@
       <p class="muted">Changes show up on the other phones within about 10 seconds while the app is open. Changes made offline are kept and sent when the internet is back.</p>
       ${code}
       <button class="ghost" style="width:100%;margin-top:10px" data-act="syncNow">Sync now</button>
+      ${parentUnlocked && showCode ? `<button class="danger" style="width:100%;margin-top:8px" data-act="newFamilyCode">Code got out? Make a new family code</button>` : ''}
     </div>`;
   }
 
@@ -803,7 +944,7 @@
           <select id="peaceKid">${opts(0)}</select>
           <label>What happened?</label>
           <div id="peaceActs">${state.peaceActs.map((a, i) => `
-            <button class="ghost" style="width:100%;margin-bottom:6px;text-align:left" data-act="peace" data-i="${i}">
+            <button class="ghost" style="width:100%;margin-bottom:6px;text-align:left" data-act="peace" data-i="${i}" data-label="${esc(a.label)}" data-pts="${a.pts}">
               <span class="spread"><span>${esc(a.label)}</span><b>+${a.pts}</b></span>
             </button>`).join('')}
           </div>
@@ -946,11 +1087,13 @@
   }
 
   // keepInputs: a background sync redraws the screen without wiping what someone is typing
-  // and without swapping a button out from under a finger.
+  // and without swapping a button out from under a finger. A field that has sat idle for
+  // a few seconds doesn't hold the screen back; it gets its text, focus and caret back.
   function render(keepInputs = false) {
     const view = $('#view');
     const active = document.activeElement;
-    if (keepInputs && (pointerDown || (active && view.contains(active) && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)))) {
+    const typing = active && view.contains(active) && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) && Date.now() - lastInput < 8000;
+    if (keepInputs && (pointerDown || typing)) {
       renderWaiting = true;
       applyTheme(); updateBadge();
       clearTimeout(renderRetry);
@@ -973,8 +1116,12 @@
     root.querySelectorAll('input[id], textarea[id]').forEach(el => { if (el.type !== 'file' && el.value !== el.defaultValue) values[el.id] = el.value; });
     root.querySelectorAll('select[id]').forEach(el => { if (el.selectedOptions[0] && !el.selectedOptions[0].defaultSelected) values[el.id] = el.value; });
     root.querySelectorAll('.emoji-pick[id]').forEach(p => { picks[p.id] = p.querySelector('.sel')?.dataset.v; });
-    return { values, picks, scroll: window.scrollY };
+    const a = document.activeElement;
+    const focus = a && root.contains(a) && a.id ? { id: a.id, start: selStart(a), end: selEnd(a) } : null;
+    return { values, picks, focus, scroll: window.scrollY };
   }
+  const selStart = el => { try { return el.selectionStart; } catch { return null; } };
+  const selEnd = el => { try { return el.selectionEnd; } catch { return null; } };
   function restoreInputs(root, saved) {
     for (const [id, v] of Object.entries(saved.values)) {
       const el = root.querySelector('#' + CSS.escape(id));
@@ -983,6 +1130,11 @@
     }
     for (const [id, v] of Object.entries(saved.picks)) {
       root.querySelectorAll(`#${CSS.escape(id)} button`).forEach(b => b.classList.toggle('sel', b.dataset.v === v));
+    }
+    const f = saved.focus && root.querySelector('#' + CSS.escape(saved.focus.id));
+    if (f) {
+      f.focus({ preventScroll: true });
+      if (saved.focus.start !== null) { try { f.setSelectionRange(saved.focus.start, saved.focus.end); } catch {} }
     }
     window.scrollTo(0, saved.scroll);
   }
@@ -999,7 +1151,7 @@
       const c = cardById(el.dataset.id), k = kidById(shopKid);
       if (!c || !k || k.points < c.cost || c.stock === 0) return;
       if (!confirm(`Spend ${c.cost} points on "${c.title}" for ${k.name}?`)) return;
-      const ev = commit('redeem', { walletId: uid(), kidId: k.id, cardId: c.id, code: giftCode() });
+      const ev = commit('redeem', { walletId: uid(), kidId: k.id, cardId: c.id, title: c.title, code: giftCode() });
       if (state.wallet.some(w => w.id === ev.walletId)) toast(`🎉 ${c.title} added to ${k.name}'s wallet`);
       else toast(`Couldn't get ${c.title}`);
       render();
@@ -1007,9 +1159,14 @@
 
     async peace(el) {
       const a = state.peaceActs[+el.dataset.i];
+      // The list may have changed on another phone since this button was drawn.
+      if (!a || a.label !== el.dataset.label || String(a.pts) !== el.dataset.pts) {
+        toast('The Peace Board just changed on another phone. Check it and tap again.');
+        return render();
+      }
       const kidId = $('#peaceKid').value;
-      if (!a || !kidById(kidId)) return;
-      if (!(await unlockParent())) return;
+      if (!kidById(kidId)) return;
+      if (!(await approvePin())) return;
       const k = kidById(kidId);
       if (!k) return;
       commit('points', { kidId: k.id, pts: a.pts, text: `${k.name}: ${a.label}` });
@@ -1018,7 +1175,7 @@
     async makePeace() {
       const aId = $('#peaceA').value, bId = $('#peaceB').value;
       if (!aId || aId === bId) { toast('Pick two different kids'); return; }
-      if (!(await unlockParent())) return;
+      if (!(await approvePin())) return;
       const a = kidById(aId), b = kidById(bId);
       if (!a || !b) return;
       commit('points', { kidId: a.id, pts: 10, text: `${a.name} made peace with ${b.name}` });
@@ -1027,9 +1184,10 @@
     },
 
     addKid() {
-      const name = $('#kName').value.trim();
+      const name = str($('#kName').value, 24);
       const age = Number($('#kAge').value);
       const avatar = $('#kAvatar .sel')?.dataset.v || '🌟';
+      if (state.kids.length >= MAX_KIDS) return toast(`Up to ${MAX_KIDS} kids`);
       if (!name) return toast('Type a name');
       if (!Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) return toast(`Age must be ${MIN_AGE}–${MAX_AGE}`);
       commit('kid.add', { kid: { id: uid(), name, age, avatar } });
@@ -1038,15 +1196,19 @@
     editKid(el) {
       const k = kidById(el.dataset.id);
       if (!k) return;
-      const name = prompt('Name (leave empty to remove this kid)', k.name); if (name === null) return;
-      if (!name.trim()) {
+      const raw = prompt('Name (leave empty to remove this kid)', k.name); if (raw === null) return;
+      const name = str(raw, 24);
+      if (!name) {
         if (confirm(`Remove ${k.name} and their wallet?`)) commit('kid.remove', { kidId: k.id });
         return render();
       }
       const ageStr = prompt(`Age (${MIN_AGE}–${MAX_AGE})`, k.age); if (ageStr === null) return;
       const age = Number(ageStr);
       if (!Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) return toast(`Age must be ${MIN_AGE}–${MAX_AGE}`);
-      commit('kid.edit', { kidId: k.id, name: name.trim().slice(0, 24), age });
+      const changes = {};
+      if (name !== k.name) changes.name = name;
+      if (age !== k.age) changes.age = age;
+      if (Object.keys(changes).length) commit('kid.edit', { kidId: k.id, ...changes });
       render();
     },
     adjust(el) {
@@ -1059,15 +1221,16 @@
       render();
     },
     addCard() {
-      const title = $('#cTitle').value.trim();
+      const title = str($('#cTitle').value, 40);
       const cost = int($('#cCost').value, 0, 1e6);
       const stock = int($('#cStock').value, 0, 10000) || 0;
       let minAge = int($('#cMin').value, MIN_AGE, MAX_AGE) ?? MIN_AGE, maxAge = int($('#cMax').value, MIN_AGE, MAX_AGE) ?? MAX_AGE;
+      if (state.cards.length >= MAX_CARDS) return toast(`Up to ${MAX_CARDS} gift cards`);
       if (!title) return toast('Name the gift card');
       if (!cost) return toast('Cost must be at least 1');
       if (minAge > maxAge) [minAge, maxAge] = [maxAge, minAge];
       commit('card.add', { card: {
-        id: uid(), title, cost, note: $('#cNote').value.trim(),
+        id: uid(), title, cost, note: str($('#cNote').value, 80),
         emoji: $('#cEmoji .sel')?.dataset.v || '🎁', color: $('#cColor').value,
         stock: stock > 0 ? stock : -1, minAge, maxAge,
       } });
@@ -1085,29 +1248,46 @@
 
     async saveSettings() {
       if (!(await unlockParent())) return;
-      const next = {
-        appTitle: $('#sTitle').value.trim() || 'Family Gift Cards',
-        familyName: $('#sFamily').value.trim() || 'Our Family',
-        tagline: $('#sTag').value.trim(),
-        pointsName: $('#sPts').value.trim() || 'Peace Points',
-        accent: $('#sColor').value,
+      // Only fields edited on this screen are sent. A field still showing an older value
+      // (another phone changed it meanwhile) must not undo that phone's change.
+      const edited = (sel, fallback) => {
+        const el = $(sel);
+        if (el.value === el.defaultValue) return undefined;
+        return fallback === null ? el.value : (el.value.trim() || fallback);
       };
-      const changed = Object.fromEntries(Object.entries(next).filter(([k, v]) => state.settings[k] !== v));
+      const next = {
+        appTitle: edited('#sTitle', 'Family Gift Cards'),
+        familyName: edited('#sFamily', 'Our Family'),
+        tagline: edited('#sTag', ''),
+        pointsName: edited('#sPts', 'Peace Points'),
+        accent: edited('#sColor', null),
+      };
+      const changed = Object.fromEntries(Object.entries(next).filter(([k, v]) => v !== undefined && state.settings[k] !== v));
       if (Object.keys(changed).length) commit('settings', { settings: changed });
-      const acts = $('#sActs').value.split('\n').map(line => {
-        const [label, p] = line.split('|').map(x => x && x.trim());
-        return cleanAct({ label, pts: int(p, 1, 1000) });
-      }).filter(Boolean).slice(0, 30);
-      if (acts.length && JSON.stringify(acts) !== JSON.stringify(state.peaceActs)) commit('acts', { acts });
-      toast('Saved'); render();
+      const ta = $('#sActs');
+      let skipped = 0;
+      if (ta.value !== ta.defaultValue) {
+        const lines = ta.value.split('\n').filter(l => l.trim());
+        const acts = lines.map(line => {
+          const [label, p] = line.split('|').map(x => x && x.trim());
+          return cleanAct({ label, pts: int(p, 1, 1000) });
+        }).filter(Boolean).slice(0, MAX_ACTS);
+        skipped = lines.length - acts.length;
+        if (acts.length && JSON.stringify(acts) !== JSON.stringify(state.peaceActs)) commit('acts', { acts });
+      }
+      toast(skipped ? `Saved. ${skipped} Peace Board line${skipped === 1 ? ' was' : 's were'} skipped (use "text | points", up to ${MAX_ACTS} lines).` : 'Saved');
+      render();
     },
     async changePin() {
       if (!(await unlockParent())) return;
       if (await newPin()) toast('New PIN saved');
     },
 
-    export() {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    async export() {
+      if (!(await unlockParent())) return;
+      const out = clone(state);
+      delete out.settings.pinHash; delete out.settings.pinSalt;     // backups never carry the PIN
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `family-gift-cards-${new Date().toISOString().slice(0, 10)}.json`;
@@ -1127,7 +1307,7 @@
           if (!isObj(d) || !Array.isArray(d.kids) || !isObj(d.settings)) throw 0;
         } catch { return toast('That is not a Family Gift Cards backup'); }
         const next = cleanState(d);
-        if (store.sync && JSON.stringify(next).length > IMPORT_MAX) return toast('That backup is too big to sync. Clear its history first.');
+        if (store.sync && serverSize({ type: 'import', state: next }) > EVENT_MAX) return toast('That backup is too big to sync. Clear its history first.');
         if (!confirm(store.sync ? 'Replace everything on ALL synced phones with the backup?' : 'Replace everything on this phone with the backup?')) return;
         commit('import', { state: next });
         parentUnlocked = false; showCode = false; toast('Backup loaded'); render();
@@ -1147,6 +1327,7 @@
         commit('reset');
       } else {
         if (!confirm('Erase ALL kids, cards, points and settings on this phone?')) return;
+        refreshFromDisk();
         store.base = defaults(); store.pending = [];
         persist(); recompute();
         parentUnlocked = false;
@@ -1158,16 +1339,19 @@
     async startFamily() {
       if (store.sync) return;
       if (!(await unlockParent())) return;
-      const seed = clone(store.base);
-      if (JSON.stringify(seed).length > IMPORT_MAX) return toast('Too much history to sync. Clear history first.');
+      const seedEvent = () => ({ id: uuid(), type: 'import', at: Date.now(), by: store.device, state: clone(store.base) });
+      if (serverSize(seedEvent()) > EVENT_MAX) return toast('Too much history to sync. Clear history first.');
       const code = randomCode(CODE_LEN);
       setSyncStatus('syncing');
       try { await rpc('gc_create_family', { p_secret: code }); }
       catch (e) { setSyncStatus('idle'); return toast(friendly(e)); }
+      refreshFromDisk();
       if (store.sync) return;
-      // The family starts from this phone's data: one "import" change with everything in it.
-      store.sync = { code, cursor: 0 };
-      store.pending = [{ id: uuid(), type: 'import', at: Date.now(), by: store.device, state: seed }];
+      // The family starts from this phone's data, taken now so nothing changed meanwhile is lost.
+      const seed = seedEvent();
+      if (serverSize(seed) > EVENT_MAX) { setSyncStatus('idle'); return toast('Too much history to sync. Clear history first.'); }
+      store.sync = { code, cursor: 0, pulled: false };
+      store.pending = [seed];
       store.base = defaults();
       persist(); recompute();
       showCode = true;
@@ -1179,16 +1363,21 @@
       const code = normalizeCode(rawCode ?? $('#joinCode')?.value);
       if (code.length !== CODE_LEN) return toast('A family code has 25 letters and numbers.');
       if (store.sync?.code === code) return toast('This phone is already in that family.');
-      if (state.settings.pinHash && !(await unlockParent())) return;
-      const hasData = state.kids.length || state.cards.length;
-      const unsent = store.sync && store.pending.length;
-      const warn = hasData || store.sync
-        ? `Join this family? The kids, cards and points on THIS phone will be replaced by the family's${unsent ? ` (${unsent} unsynced change${unsent === 1 ? '' : 's'} will be lost)` : ''}.`
-        : 'Join this family and sync this phone with it?';
-      if (!confirm(warn)) return;
-      try { await rpc('gc_pull', { p_secret: code, p_after: 0, p_limit: 1 }); }
+      let first;
+      try { first = await rpc('gc_pull', { p_secret: code, p_after: 0, p_limit: 1 }); }
       catch (e) { return toast(friendly(e)); }
-      store.sync = { code, cursor: 0 };
+      const seedState = arr(first?.events)[0]?.body?.state;
+      const target = str(isObj(seedState) && isObj(seedState.settings) ? seedState.settings.familyName : '', 60);
+      if (state.settings.pinHash && !(await unlockParent())) return;
+      refreshFromDisk();
+      const unsent = store.sync ? store.pending.length : 0;
+      const lines = [target ? `Join "${target}"?` : 'Join this family?'];
+      if (store.sync) lines.push(`This phone is synced with "${state.settings.familyName}" now and will leave it. You'll need the new family's parent PIN afterwards.`);
+      if (store.sync || state.kids.length || state.cards.length) lines.push('The kids, cards and points on THIS phone will be replaced by the family\'s.');
+      if (unsent) lines.push(`${unsent} change${unsent === 1 ? '' : 's'} not synced yet will be lost.`);
+      if (!confirm(lines.join('\n\n'))) return;
+      refreshFromDisk();
+      store.sync = { code, cursor: 0, pulled: false };
       store.base = defaults();
       store.pending = [];
       parentUnlocked = false; showCode = false; walletKid = null;
@@ -1196,7 +1385,31 @@
       tab = 'home';
       render();
       await syncNow();
-      if (store.sync?.code === code && sync.status === 'ok') toast('Joined! This phone is synced with your family.');
+      if (store.sync?.code === code && store.sync.pulled) toast('Joined! This phone is synced with your family.');
+    },
+    async newFamilyCode() {
+      if (!store.sync) return;
+      if (!(await unlockParent())) return;
+      if (!confirm('Make a new family code? The old code stops working and its data is deleted from the server. Every other phone will need to join again with the new code.')) return;
+      await syncNow();
+      refreshFromDisk();
+      if (!store.sync || store.pending.length || sync.status !== 'ok') return toast('This phone needs to finish syncing first. Check the internet and try again.');
+      const oldCode = store.sync.code;
+      const code = randomCode(CODE_LEN);
+      try { await rpc('gc_create_family', { p_secret: code }); }
+      catch (e) { return toast(friendly(e)); }
+      refreshFromDisk();
+      if (store.sync?.code !== oldCode) return;
+      const seed = { id: uuid(), type: 'import', at: Date.now(), by: store.device, state: clone(state) };
+      if (serverSize(seed) > EVENT_MAX) return toast('Too much history. Clear history first.');
+      store.sync = { code, cursor: 0, pulled: false, retire: oldCode };
+      store.pending = [seed];
+      store.base = defaults();
+      persist(); recompute();
+      showCode = true;
+      render();
+      await syncNow();
+      toast('New family code made. Join your other phones again with it.');
     },
     async revealCode() {
       if (!(await unlockParent())) return;
@@ -1217,8 +1430,10 @@
     syncNow: () => syncNow(),
     async leaveFamily() {
       if (!(await unlockParent())) return;
+      refreshFromDisk();
       const unsent = store.pending.length;
       if (!confirm(`Stop syncing this phone? It keeps its own copy, but changes won't reach the other phones anymore${unsent ? ` (${unsent} change${unsent === 1 ? '' : 's'} not sent yet)` : ''}.`)) return;
+      refreshFromDisk();
       store.base = clone(state);
       store.pending = [];
       store.sync = null;
@@ -1248,17 +1463,24 @@
   for (const type of ['pointerup', 'pointercancel']) {
     document.addEventListener(type, () => { setTimeout(() => { pointerDown = false; }, 0); }, true);
   }
+  for (const type of ['input', 'keydown', 'pointerdown', 'change']) {
+    document.addEventListener(type, () => { lastInput = Date.now(); }, true);
+  }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
     if (hiddenAt && Date.now() - hiddenAt > RELOCK_AFTER && parentUnlocked) {
-      parentUnlocked = false; showCode = false; render();
+      // lock right away, but keep anything typed into forms that are still on screen
+      const kept = saveInputs($('#view'));
+      parentUnlocked = false; showCode = false;
+      render();
+      restoreInputs($('#view'), kept);
     }
     scheduleSync(0);
   });
   window.addEventListener('online', () => scheduleSync(0));
   window.addEventListener('storage', e => {
-    // the app is open in another tab on this phone
-    if (e.key === STORE_KEY) { store = loadStore(); recompute(); render(true); }
+    // the app is also open in another tab or window on this phone
+    if (e.key === STORE_KEY && refreshFromDisk()) render(true);
   });
   setInterval(() => {
     if (!store.sync || document.visibilityState !== 'visible') return;
@@ -1278,13 +1500,16 @@
   render();
   if (store.sync) syncNow();
 
-  // Opened from a "join our family" link
-  const join = location.hash.match(/join=([0-9A-Za-z-]+)/);
-  if (join) {
+  // Opened from a "join our family" link (also when the app was already open)
+  function joinFromLink() {
+    const join = location.hash.match(/join=([0-9A-Za-z-]+)/);
+    if (!join) return;
     history.replaceState(null, '', location.pathname + location.search);
-    tab = 'settings'; render();
+    tab = 'settings'; walletKid = null; render();
     setTimeout(() => actions.joinFamily(null, join[1]), 300);
   }
+  joinFromLink();
+  window.addEventListener('hashchange', joinFromLink);
 })();
 </script>
 </body>

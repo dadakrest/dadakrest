@@ -49,12 +49,31 @@ begin
   if exists (select 1 from public.gc_families where secret_hash = v_hash) then
     return jsonb_build_object('ok', true);
   end if;
-  -- The app serves one household; the cap stops strangers filling the database.
-  if (select count(*) from public.gc_families) >= 20 then
+  -- Families that were created but never used free their slot after an hour.
+  delete from public.gc_families
+   where last_seq = 0 and created_at < now() - interval '1 hour';
+  -- The app serves one household; the cap keeps strangers from filling the database.
+  if (select count(*) from public.gc_families) >= 10 then
     raise exception 'server_full';
   end if;
 
   insert into public.gc_families (secret_hash) values (v_hash);
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- Delete a family and all of its events (used when a family moves to a new code).
+create or replace function public.gc_delete_family(p_secret text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_secret is null or p_secret !~ '^[0-9A-Z]{20,64}$' then
+    raise exception 'bad_code';
+  end if;
+  delete from public.gc_families where secret_hash = sha256(convert_to(p_secret, 'UTF8'));
   return jsonb_build_object('ok', true);
 end;
 $$;
@@ -108,10 +127,11 @@ begin
        or jsonb_typeof(v_ev -> 'type') is distinct from 'string' then
       raise exception 'bad_event';
     end if;
-    v_size := octet_length(v_ev::text);
-    if v_size > 1000000 then
+    if octet_length(v_ev::text) > 1000000 then
       raise exception 'too_big';
     end if;
+    -- Charge what the row really costs on disk: body, device id, row header and indexes.
+    v_size := greatest(octet_length(v_ev::text), pg_column_size(v_ev)) + octet_length(p_device) + 256;
     v_id := (v_ev ->> 'id')::uuid;
     continue when exists (
       select 1 from public.gc_events where family_id = v_fam.id and event_id = v_id
@@ -179,8 +199,10 @@ end;
 $$;
 
 revoke all on function public.gc_create_family(text) from public;
+revoke all on function public.gc_delete_family(text) from public;
 revoke all on function public.gc_push(text, text, jsonb) from public;
 revoke all on function public.gc_pull(text, bigint, integer) from public;
 grant execute on function public.gc_create_family(text) to anon, authenticated;
+grant execute on function public.gc_delete_family(text) to anon, authenticated;
 grant execute on function public.gc_push(text, text, jsonb) to anon, authenticated;
 grant execute on function public.gc_pull(text, bigint, integer) to anon, authenticated;
