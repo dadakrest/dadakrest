@@ -92,6 +92,10 @@ PREFIX_PLACEHOLDERS = {"/documents/": "id", "/datasets/": "name", "/plans/": "na
 #: The worked search example. The long query is the one docs/DATA_CENTER.md
 #: uses to explain IDF; its first word on its own is the comparison.
 EXAMPLE_QUERY = "network segmentation for clusters"
+EXAMPLE_LIMIT = 3
+
+#: A table with at most this many rows is never split across pages.
+KEEP_ROWS = 12
 
 NUMBER_WORDS = ("zero", "one", "two", "three", "four", "five", "six", "seven",
                 "eight", "nine", "ten", "eleven", "twelve")
@@ -107,10 +111,14 @@ table:not(.page) > tfoot { display: table-row-group; }
 .glance .stat { flex: 1 1 0; min-width: 0; padding: 6pt 7pt; }
 .glance .stat span { display: block; line-height: 1.3; }
 p code, li code { white-space: nowrap; }
+/* Reference tables are scanned, not read: tighter rows than the shared style. */
+table:not(.page) td { padding: 2.4pt 6pt; line-height: 1.32; }
+table:not(.page) th { padding: 3pt 6pt; line-height: 1.25; white-space: nowrap; }
 td code { font-size: 8.5pt; }
+.models td code { font-size: 8pt; }
 td .sub { display: block; color: var(--muted); font-size: 8.5pt; }
 h3 .count, .tname .count { font-weight: 400; color: var(--muted); font-size: 9pt; }
-.lede { margin: 0 0 4pt; }
+.lede { margin: 0 0 4pt; break-after: avoid; }
 .tname { font-weight: 700; font-size: 9.5pt; margin: 10pt 0 0; break-after: avoid; }
 .tname code { font-size: 9.5pt; }
 .after { font-size: 8.5pt; color: var(--muted); margin: -6pt 0 10pt; }
@@ -123,12 +131,15 @@ ul.fields li { break-inside: avoid; margin: 0 0 1.5pt; }
 ul.fields code { font-size: 8.5pt; }
 ul.fields .type { color: var(--muted); }
 .dataset p { font-size: 9.5pt; margin-bottom: 4pt; }
-.arg { margin: 0 0 2.5pt; }
+.arg { margin: 0 0 2pt; }
 .arg:last-child { margin-bottom: 0; }
 .arg code { white-space: nowrap; }
 .note { font-size: 8.5pt; color: var(--muted); margin: -4pt 0 10pt; }
-ol.toc { columns: 2; column-gap: 24pt; margin: 0 0 6pt; padding-left: 16pt; font-size: 9.5pt; }
+ul.toc { columns: 3; column-gap: 18pt; margin: 0 0 4pt; padding: 0; list-style: none;
+         font-size: 9.5pt; }
+ul.toc li { margin: 0 0 1pt; }
 .grid.glance { margin-bottom: 8pt; }
+h3.sub { font-size: 10pt; margin: 8pt 0 2pt; }
 """
 
 
@@ -139,8 +150,22 @@ def words(n: int) -> str:
     return NUMBER_WORDS[n] if 0 <= n < len(NUMBER_WORDS) else f"{n:,}"
 
 
+ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
+            "ninth", "tenth")
+
+
+def ordinal(n: int) -> str:
+    return ORDINALS[n - 1] if 1 <= n <= len(ORDINALS) else f"number {n:,}"
+
+
 def plural(n: int, one: str, many: str | None = None) -> str:
+    """A count with its noun, in digits: for headings, captions and tables."""
     return f"{n:,} {one if n == 1 else (many or one + 's')}"
+
+
+def counted(n: int, one: str, many: str | None = None) -> str:
+    """A count with its noun as prose writes it: small numbers as words."""
+    return f"{words(n)} {one if n == 1 else (many or one + 's')}"
 
 
 def join_and(items: list[str], word: str = "and") -> str:
@@ -148,6 +173,11 @@ def join_and(items: list[str], word: str = "and") -> str:
     if len(items) <= 1:
         return "".join(items)
     return ", ".join(items[:-1]) + f" {word} " + items[-1]
+
+
+def cap(text: str) -> str:
+    """Upper-case the first letter only, leaving names inside untouched."""
+    return text[:1].upper() + text[1:]
 
 
 def code(value: Any) -> str:
@@ -269,8 +299,9 @@ def at_a_glance(dbs, models, datasets, commands, routes) -> str:
 
 
 def contents(titles: list[str]) -> str:
+    """The section list. The titles carry their own numbers, so no list markers."""
     items = "".join(f"<li>{esc(t)}</li>" for t in titles)
-    return f'<ol class="toc">{items}</ol>'
+    return f'<ul class="toc">{items}</ul>'
 
 
 def section_models(models: list[dict[str, Any]], model_rows: int, version_rows: int,
@@ -284,57 +315,65 @@ def section_models(models: list[dict[str, Any]], model_rows: int, version_rows: 
     active_names = {m["name"] for m in active}
     no_active = sorted(n for n in names if n not in active_names)
     beside = sum(1 for m in inactive if m["name"] in active_names)
-    multi = sorted(n for n, c in Counter(m["name"] for m in models).items() if c > 1)
     tasks = task_order([m["task"] for m in models])
     with_dims = task_order([m["task"] for m in models if m.get("dimensions") is not None])
 
-    # Summary by task and by provider.
-    def summarise(key: str, order: list[str], label) -> tuple[list[list[str]], list[str]]:
-        rows = []
-        for value in order:
-            group = [m for m in models if m[key] == value]
-            rows.append([esc(label(value)), esc(len({m["name"] for m in group})), esc(len(group)),
-                         esc(sum(1 for m in group if is_active(m)))])
-        return rows, ["Total", esc(len(names)), esc(len(models)), esc(len(active))]
+    # Summary by task, then by provider.
+    def summarise(key: str, value: str, label: str) -> list[str]:
+        group = [m for m in models if m[key] == value]
+        return [esc(label), esc(len({m["name"] for m in group})), esc(len(group)),
+                esc(sum(1 for m in group if is_active(m)))]
 
     by_provider = Counter(m["provider"] for m in models)
     provider_order = sorted(by_provider, key=lambda p: (-by_provider[p], p.lower()))
-    task_rows, task_foot = summarise("task", tasks, task_label)
-    prov_rows, prov_foot = summarise("provider", provider_order, str)
+    task_rows = [summarise("task", t, task_label(t)) for t in tasks]
+    totals = ["Total", esc(len(names)), esc(len(models)), esc(len(active))]
+    prov_rows = [summarise("provider", p, p) for p in provider_order]
+    half = (len(prov_rows) + 1) // 2
+    summary_columns = ["Models", "Versions", "Active"]
+    summary_widths = ["46%", "18%", "18%", "18%"]
 
-    status_note = (f"{esc(len(active))} of the {esc(len(models))} versions are active.")
+    status_note = f"{esc(len(active))} of the {esc(len(models))} versions are active."
     if inactive:
         if beside == len(inactive):
-            status_note += (f" The other {esc(plural(len(inactive), 'version'))} "
-                            f"{'is' if len(inactive) == 1 else 'are'} kept beside an active "
-                            f"version of the same model: {esc(plural(len(multi), 'model'))} "
-                            f"{'has' if len(multi) == 1 else 'have'} more than one version.")
+            status_note += (f" The other {esc(words(len(inactive)))} "
+                            f"{'is' if len(inactive) == 1 else 'are'} inactive, each kept beside "
+                            f"an active version of the same model.")
         else:
-            status_note += f" {esc(plural(len(inactive), 'version'))} are inactive."
+            status_note += (f" {esc(cap(counted(len(inactive), 'version')))} "
+                            f"{'is' if len(inactive) == 1 else 'are'} inactive.")
     if no_active:
-        status_note += (f" {esc(plural(len(no_active), 'model'))} {'has' if len(no_active) == 1 else 'have'}"
-                        f" no active version: {join_and([code(n) for n in no_active])}.")
-
-    dims_note = ""
-    if with_dims:
-        dims_note = (f" Dimensions, the length of the vector a model returns, are recorded for "
-                     f"{esc(join_and([task_label(t).lower() for t in with_dims]))} models only.")
+        status_note += (f" {esc(cap(counted(len(no_active), 'model')))} "
+                        f"{'has' if len(no_active) == 1 else 'have'} no active version: "
+                        f"{join_and([code(n) for n in no_active])}.")
 
     parts = [f"""
 <h2>{esc(title)}</h2>
 <p>The <code>models</code> database registers the AI models the data center can call or host.
-Its <code>models</code> table has one row per model name, with the provider and the task the
-model does; <code>model_versions</code> has one row per version, and marks which versions are
-active. The registry holds {esc(plural(len(names), "model"))} from
-{esc(plural(len(provider_order), "provider"))}, in {esc(plural(len(models), "version"))}
-across {esc(words(len(tasks)))} tasks. {status_note}{dims_note}</p>
-<div class="cols keep">
-  <div>{table(["Task", "Models", "Versions", "Active"], task_rows, numeric={1, 2, 3},
-              widths=["46%", "18%", "18%", "18%"], footer=task_foot)}</div>
-  <div>{table(["Provider", "Models", "Versions", "Active"], prov_rows, numeric={1, 2, 3},
-              widths=["46%", "18%", "18%", "18%"], footer=prov_foot)}</div>
+Its <code>models</code> table has one row per model name, with its provider and task;
+<code>model_versions</code> has one row per version and marks which are active. The registry
+holds {esc(plural(len(names), "model"))} from {esc(plural(len(provider_order), "provider"))}, in
+{esc(plural(len(models), "version"))} across {esc(counted(len(tasks), "task"))}.
+{status_note}</p>
+<div class="keep">
+<h3 class="sub">By task</h3>
+{table(["Task"] + summary_columns, task_rows, numeric={1, 2, 3}, widths=summary_widths,
+       footer=totals)}
 </div>
 """]
+    # Counted per provider after the per-task lists, which name the provider of
+    # every model; the totals are the same as the task table's.
+    by_provider_html = f"""
+<div class="keep">
+<h3>By provider <span class="count">&middot; most versions first; totals as by task</span></h3>
+<div class="cols">
+  <div>{table(["Provider"] + summary_columns, prov_rows[:half], numeric={1, 2, 3},
+              widths=summary_widths)}</div>
+  <div>{table(["Provider"] + summary_columns, prov_rows[half:], numeric={1, 2, 3},
+              widths=summary_widths)}</div>
+</div>
+</div>
+"""
 
     local = vectors.LOCAL_MODEL_NAME
     for task in tasks:
@@ -355,8 +394,8 @@ across {esc(words(len(tasks)))} tasks. {status_note}{dims_note}</p>
             row.append("yes" if is_active(m) else "no")
             rows.append(row)
         columns = ["Model", "Provider", "Version"] + (["Dimensions"] if show_dims else []) + ["Active"]
-        numeric = {3, 4} if show_dims else {3}
-        widths = (["43%", "19%", "20%", "11%", "7%"] if show_dims else ["48%", "21%", "23%", "8%"])
+        numeric = {3} if show_dims else set()
+        widths = (["44%", "22%", "13%", "13%", "8%"] if show_dims else ["47%", "22%", "23%", "8%"])
         group_names = {m["name"] for m in group}
         group_active = sum(1 for m in group if is_active(m))
         counts = (f"{plural(len(group_names), 'model')}, {plural(len(group), 'version')}, "
@@ -373,14 +412,25 @@ across {esc(words(len(tasks)))} tasks. {status_note}{dims_note}</p>
                     f"<code>embeddings</code> table records the bucket space they were hashed "
                     f"into, {space_text}, and each vector stores only the buckets its text "
                     f"uses.</p>")
+        dims_text = ""
+        if show_dims:
+            others = [task_label(t).lower() for t in with_dims if t != task]
+            dims_text = (" Dimensions is the length of the vector a model returns; the registry "
+                         "records it for " + (f"{esc(join_and([task_label(task).lower()] + others))} "
+                                              "models" if others else "these models")
+                         + " only.")
+        # A short list is kept whole; a long one may run on, with its header
+        # repeated, rather than leave most of a page empty.
+        keep = " keep" if len(rows) <= KEEP_ROWS else ""
         parts.append(f"""
-<div class="keep">
+<div class="models{keep}">
 <h3>{esc(task_label(task))} <span class="count">&middot; {esc(counts)}</span></h3>
-<p class="lede">{esc(TASK_NOTES.get(task, ""))}</p>
+<p class="lede">{esc(TASK_NOTES.get(task, ""))}{dims_text}</p>
 {table(columns, rows, numeric=numeric, widths=widths)}
 {note}
 </div>
 """)
+    parts.append(by_provider_html)
     return "".join(parts)
 
 
@@ -431,6 +481,24 @@ def constraint_line(info: dict[str, Any]) -> str:
     return f'<p class="after">{" ".join(parts)}</p>' if parts else ""
 
 
+def cross_file_links(dbs: list[dict[str, Any]]) -> list[tuple[str, str, str]]:
+    """Columns that point into another database file: `x_id` with no foreign key,
+    where a table named `xs` lives in a different database. SQLite cannot
+    enforce those, so the document says who does."""
+    home = {t["name"]: d["spec"].key for d in dbs for t in d["tables"]}
+    links = []
+    for d in dbs:
+        for t in d["tables"]:
+            for c in t["columns"]:
+                name = c["name"]
+                if not name.endswith("_id") or name in t["references"]:
+                    continue
+                target = name[:-3] + "s"
+                if target in home and home[target] != d["spec"].key:
+                    links.append((t["name"], name, target))
+    return links
+
+
 def section_databases(dbs: list[dict[str, Any]], pending: list[str], title: str) -> str:
     table_total = sum(len(d["tables"]) for d in dbs)
     column_total = sum(len(t["columns"]) for d in dbs for t in d["tables"])
@@ -442,6 +510,12 @@ def section_databases(dbs: list[dict[str, Any]], pending: list[str], title: str)
                   f"loading queues {'has' if len(pending) == 1 else 'have'} run")
     else:
         timing = ""
+    links = cross_file_links(dbs)
+    links_text = ""
+    if links:
+        named = join_and([f"{code(f'{t}.{c}')} to {code(target)}" for t, c, target in links])
+        links_text = (f"A foreign key cannot reach into another file, so the link from {named} "
+                      f"is kept by the <code>DataCenter</code> class rather than by SQLite.")
     parts = [f"""
 <h2>{esc(title)}</h2>
 <p>Each database is a separate SQLite file under the storage root. The columns below are read
@@ -451,7 +525,8 @@ than what the source code intends: {esc(plural(table_total, "table"))} with
 bundled data files are loaded{timing}; together the tables hold {esc(f"{row_total:,}")} rows.</p>
 <p>"Not null" is SQLite's own flag. An <code>INTEGER PRIMARY KEY</code> column is SQLite's row id:
 it reports as nullable, but SQLite assigns the next id when none is given. "References" names
-the column a foreign key points at, with what happens to this row when that one is deleted.</p>
+the column a foreign key points at, with what happens to this row when that one is deleted.
+{links_text}</p>
 """]
     for index, d in enumerate(dbs, start=1):
         spec = d["spec"]
@@ -466,7 +541,7 @@ the column a foreign key points at, with what happens to this row when that one 
             block = f"""
 <p class="tname">{code(info['name'])} <span class="count">&middot; {esc(plural(info['rows'], 'row'))}{esc(extra)}</span></p>
 {table(["Column", "Type", "Not null", "Default", "Key", "References"], column_rows(info),
-       widths=["23%", "11%", "9%", "20%", "14%", "23%"])}
+       widths=["22%", "11%", "10%", "19%", "14%", "24%"])}
 {constraint_line(info)}"""
             # The database heading travels with its first table.
             parts.append(f'<div class="keep">{head if position == 0 else ""}{block}</div>')
@@ -483,6 +558,8 @@ def section_datasets(center: DataCenter, datasets: list[dict[str, Any]], record_
     type_text = join_and([f"{n:,} {t}" for t, n in sorted(types.items(), key=lambda kv: (-kv[1], kv[0]))])
 
     summary = [[code(d["name"]), esc(f"{int(d['records']):,}"), esc(len(d["schema"]))] for d in datasets]
+    half = (len(summary) + 1) // 2
+    summary_widths = ["60%", "20%", "20%"]
 
     blocks = []
     complete = True
@@ -528,12 +605,14 @@ def section_datasets(center: DataCenter, datasets: list[dict[str, Any]], record_
 <h2>{esc(title)}</h2>
 <p>The <code>datasets</code> database groups structured records into named datasets. Each
 record is stored as one JSON object, and each dataset keeps a schema naming its fields and their
-types. There are {esc(plural(len(datasets), "dataset"))} holding
+types. There are {esc(counted(len(datasets), "dataset"))} holding
 {esc(plural(total, "record"))}, with {esc(plural(field_total, "field"))} between them:
 {esc(type_text)}. {coverage}</p>
-<div class="keep">
-{table(["Dataset", "Records", "Fields"], summary, numeric={1, 2}, widths=["60%", "20%", "20%"],
-       footer=["Total", esc(f"{total:,}"), esc(f"{field_total:,}")])}
+<div class="cols keep">
+  <div>{table(["Dataset", "Records", "Fields"], summary[:half], numeric={1, 2},
+              widths=summary_widths)}</div>
+  <div>{table(["Dataset", "Records", "Fields"], summary[half:], numeric={1, 2},
+              widths=summary_widths)}</div>
 </div>
 {''.join(blocks)}
 """
@@ -552,7 +631,8 @@ def subcommands(parser: argparse.ArgumentParser) -> list[tuple[str, str, argpars
     return found
 
 
-def describe_argument(action: argparse.Action) -> str:
+def describe_argument(action: argparse.Action) -> tuple[str, str]:
+    """An argument as (how it is typed, what the parser says about it)."""
     if action.option_strings:
         flag = max(action.option_strings, key=len)
         token = flag if action.nargs == 0 else f"{flag} {action.metavar or action.dest.upper()}"
@@ -578,7 +658,7 @@ def describe_argument(action: argparse.Action) -> str:
                    and default != argparse.SUPPRESS)
     if has_default and "default" not in help_text.lower():
         notes.append(f"Default {code(portable(default))}.")
-    return f'<div class="arg">{code(token)} {" ".join(notes)}</div>'
+    return code(token), " ".join(notes)
 
 
 def global_options(parser: argparse.ArgumentParser) -> list[list[str]]:
@@ -586,14 +666,20 @@ def global_options(parser: argparse.ArgumentParser) -> list[list[str]]:
     for action in parser._actions:
         if isinstance(action, (argparse._SubParsersAction, argparse._HelpAction)):
             continue
-        rows.append([describe_argument(action)])
+        token, notes = describe_argument(action)
+        rows.append([token, notes])
     return rows
 
 
 def command_rows(parser: argparse.ArgumentParser) -> list[list[str]]:
     rows = []
     for name, help_text, sub in subcommands(parser):
-        args = [describe_argument(a) for a in sub._actions if not isinstance(a, argparse._HelpAction)]
+        args = []
+        for action in sub._actions:
+            if isinstance(action, argparse._HelpAction):
+                continue
+            token, notes = describe_argument(action)
+            args.append(f'<div class="arg">{token}{"&ensp;" + notes if notes else ""}</div>')
         rows.append([code(name), esc(sentence(help_text)), "".join(args) or "&mdash;"])
     return rows
 
@@ -662,33 +748,36 @@ def section_tools(center: DataCenter, title: str) -> tuple[str, int, int]:
                            code(view.__name__), shows])
 
     portal_url = f"http://{portal.DEFAULT_HOST}:{portal.DEFAULT_PORT}"
+    in_menu = ("all of them" if len(nav) == len(portal.ROUTES)
+               else f"{words(len(nav))} of them")
     html_text = f"""
 <h2>{esc(title)}</h2>
-<p>Everything in the data center is reached through one program, run from the repository root as
+<p>Two tools operate the data center: the command line, which can read and write, and the web
+portal, which only reads. Both work on the same storage root.</p>
+<h3>The command line</h3>
+<p>The command line is one program, run from the repository root as
 <code>python -m datacenter &lt;command&gt;</code>.{script_note} It has
 {esc(plural(len(commands), "command"))}, listed below with the help text and arguments the parser
 itself declares. Every command also takes <code>-h</code> for its own help.</p>
 <div class="keep">
 <h3>Options before the command</h3>
-{table(["Option"], options)}
+{table(["Option", "What it does"], options, widths=["24%", "76%"])}
 <p class="note">The <code>SDDU13_ROOT</code> environment variable, when set, replaces
 <code>./storage</code> as the default root.</p>
 </div>
 <h3>Commands</h3>
 {table(["Command", "What it does", "Arguments and options"], commands,
        widths=["17%", "31%", "52%"])}
-<div class="keep">
 <h3>The portal</h3>
 <p><code>python -m datacenter portal</code> serves the data center as web pages on
 <code>{esc(portal_url)}</code>. It answers GET requests only and has no write path: changes go
 through the command line or the Python API, where the audit trail records them. It has no
-authentication, so it binds <code>{esc(portal.DEFAULT_HOST)}</code> and refuses any other
+authentication, so it binds <code>{esc(portal.DEFAULT_HOST)}</code> and refuses a non-local
 <code>--host</code> unless <code>--allow-remote</code> is also passed. It serves
-{esc(plural(len(portal.ROUTES), "fixed route"))}, {esc(words(len(nav)))} of them in its menu, and
-{esc(plural(len(portal.PREFIXES), "route"))} that take a name or id after the slash:</p>
+{esc(counted(len(portal.ROUTES), "fixed route"))}, {esc(in_menu)} in its menu, and
+{esc(words(len(portal.PREFIXES)))} more that take a name or id after the slash:</p>
 {table(["Path", "Menu", "Handler", "What it shows"], route_rows,
        widths=["20%", "11%", "19%", "50%"])}
-</div>
 """
     return html_text, len(commands), len(declared)
 
@@ -699,14 +788,16 @@ def section_search(center: DataCenter, indexed: int, documents: int, title: str)
     stopwords = len(vectors.STOPWORDS)
     hyphen_example = "on-call"
     hyphen_tokens = vectors.tokenize(hyphen_example)
+    hyphen_stop = [p for p in hyphen_example.split("-") if p in vectors.STOPWORDS]
+    stop_example = f" such as {code(hyphen_stop[0])}" if hyphen_stop else ""
     floor = DataCenter.min_score
     floor_text = ("There is no minimum score by default" if floor == 0
                   else f"The default minimum score is {floor:g}")
     parser = cli.build_parser()
     limit = next((a.default for name, _help, sub in subcommands(parser) if name == "search"
                   for a in sub._actions if a.dest == "limit"), None)
-    limit_text = (f" The <code>search</code> command shows the top {esc(limit)} unless given "
-                  f"<code>--limit</code>." if limit is not None else "")
+    limit_text = (f" The <code>search</code> command shows the top {esc(words(int(limit)))} "
+                  f"unless given <code>--limit</code>." if limit is not None else "")
     space = f"{BUCKET_SPACE:,}" + (" (2<sup>63</sup> &minus; 1)" if BUCKET_SPACE == 2**63 - 1 else "")
     coverage = (f"one for each of the {esc(f'{documents:,}')} stored documents"
                 if indexed == documents else
@@ -724,9 +815,9 @@ def section_search(center: DataCenter, indexed: int, documents: int, title: str)
         bucket = next(iter(vectors.embed(term)))
         df = sum(1 for vector in stored if bucket in vector)
         term_rows.append([code(term), esc(f"{df:,}"), esc(f"{vectors.idf(len(stored), df):.3f}")])
-    full = center.search(EXAMPLE_QUERY, limit=3)
+    full = center.search(EXAMPLE_QUERY, limit=EXAMPLE_LIMIT)
     first_word = terms[0]
-    single = center.search(first_word, limit=3)
+    single = center.search(first_word, limit=EXAMPLE_LIMIT)
     if not full or not single:
         raise ValueError("the worked search example returned no results")
     result_rows = [[esc(i), esc(hit["title"]), esc(f"{hit['score']:.4f}")]
@@ -735,7 +826,10 @@ def section_search(center: DataCenter, indexed: int, documents: int, title: str)
                         if hit["document_id"] == full[0]["document_id"]), None)
     if single[0]["document_id"] != full[0]["document_id"]:
         shift = (f"On its own, <code>{esc(first_word)}</code> ranks &ldquo;{esc(single[0]['title'])}&rdquo; "
-                 f"first" + (f" and this document {esc(words(single_rank))}" if single_rank else "")
+                 f"first" + (f" and &ldquo;{esc(full[0]['title'])}&rdquo; {esc(ordinal(single_rank))}"
+                             if single_rank else
+                             f", and &ldquo;{esc(full[0]['title'])}&rdquo; is not in its top "
+                             f"{words(EXAMPLE_LIMIT)}")
                  + ". The rarer terms are what move it to the top.")
     else:
         shift = (f"On its own, <code>{esc(first_word)}</code> already ranks this document "
@@ -748,9 +842,10 @@ def section_search(center: DataCenter, indexed: int, documents: int, title: str)
 <p>Search runs on a built-in embedder, <code>{esc(vectors.LOCAL_MODEL_NAME)}</code> in
 <code>datacenter/vectors.py</code>, so it needs no model service and nothing installed. When a
 document is stored, its title and body are case-folded, NFKC-normalised and split into Unicode
-word tokens; any character that is not a letter or digit separates tokens, so
-<code>{esc(hyphen_example)}</code> becomes {join_and([code(t) for t in hyphen_tokens]) or "nothing"},
-and {esc(f"{stopwords:,}")} stopwords are dropped. Each remaining token is hashed with BLAKE2b
+word tokens. Any character that is not a letter or digit separates tokens, and
+{esc(f"{stopwords:,}")} stopwords{stop_example} are dropped, so <code>{esc(hyphen_example)}</code>
+is indexed as {join_and([code(t) for t in hyphen_tokens]) or "nothing"}. Each remaining token is
+hashed with BLAKE2b
 into one of {space} buckets, its count is damped to 1 + log(count), and the result is scaled to
 unit length. The embedding is a sparse, hashed bag of words: a map from bucket to weight that
 holds only the buckets the text uses, so the huge bucket space costs nothing and two different
@@ -790,7 +885,7 @@ def build() -> Path:
         "AI model registry",
         f"The {words(len(DATABASES))} databases in detail",
         "Datasets",
-        "Tools: the command line and the portal",
+        "Tools",
         "Search",
     ]
     numbered = [f"{i}. {t}" for i, t in enumerate(titles, start=1)]
