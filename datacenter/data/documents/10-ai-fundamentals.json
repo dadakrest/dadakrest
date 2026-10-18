@@ -1,0 +1,262 @@
+[
+  {
+    "external_id": "kb-fund-01",
+    "title": "What an embedding is",
+    "body": "An embedding is a list of numbers that stands in for a piece of content: a sentence, a paragraph, a support ticket, a product photo. The numbers come from a model that was trained so that content with similar meaning ends up with similar numbers. Two paragraphs about firewall rules will sit close together; a paragraph about firewall rules and one about holiday pay will sit far apart.\n\nWhy this matters for us: once text is turned into numbers, a computer can compare meaning instead of matching exact words. A search for \"password reset\" can find a document titled \"Restoring account access\" even though the two share no words. That is the whole trick behind semantic search, recommendation, clustering, and the retrieval step in retrieval-augmented generation.\n\nA few practical points:\n\n- An embedding has a fixed length, called its dimension. Common sizes run from a few hundred to a few thousand values. Larger is not automatically better; it costs more storage and more compute per comparison.\n- Embeddings from different models are not comparable. If you switch embedding models, you must re-embed every document, or searches will silently return junk.\n- Embeddings capture meaning, not truth. A confidently wrong paragraph embeds just as cleanly as a correct one.\n- Chunk size matters. Embedding a whole forty-page manual as one vector smears its meaning into mush. Split it into passages of a few hundred words first.\n\nIn our data center, every document body is embedded when it is added, and the vector is stored alongside the record so search can compare a query against it. If you only remember one thing: an embedding is a coordinate in a meaning space, and closeness in that space is what we search on.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "fundamentals",
+      "embeddings",
+      "search"
+    ]
+  },
+  {
+    "external_id": "kb-fund-02",
+    "title": "Tokens and context windows",
+    "body": "Language models do not read characters or whole words. They read tokens, which are chunks of text produced by a tokenizer. A token is often a common word, a word fragment, a piece of punctuation, or a run of whitespace. In English prose, a rough rule of thumb is that one token is about three quarters of a word, so a thousand words is roughly 1,300 tokens. Code, non-English text, and long numbers usually tokenize less efficiently and use more tokens per word.\n\nThe context window is the maximum number of tokens a model can consider in one request. It covers everything: the system instructions, the conversation so far, any documents you paste in, and the answer the model produces. When you hit the limit, something has to go, and it is usually the oldest part of the conversation.\n\nWhy you should care:\n\n- Cost. Most hosted models bill per token, with input and output priced separately. Pasting a sixty-page contract into every request is expensive and slow.\n- Quality. Models tend to pay less attention to material buried in the middle of a very long prompt. Shorter, relevant context often beats a longer dump.\n- Latency. Time to first token grows with input length, because the whole prompt has to be processed before generation starts.\n\nPractical habits: measure token counts rather than guessing, reserve a budget for the answer so it is not cut off, and use retrieval to bring in only the passages that matter instead of entire documents. A long context window is a convenience, not a substitute for choosing what to send.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "fundamentals",
+      "tokens",
+      "cost"
+    ]
+  },
+  {
+    "external_id": "kb-fund-03",
+    "title": "Transformers in plain language",
+    "body": "A transformer is the model architecture behind nearly every modern language model. You do not need the mathematics to work with one, but a mental picture helps when explaining behaviour to clients.\n\nStart with the input: text is split into tokens, and each token is turned into a vector. The model then runs those vectors through a stack of identical layers. Each layer does two things. First, an attention step lets every token look at every other token in the input and decide which ones are relevant to it. The word \"it\" in \"the server crashed because it overheated\" learns to attend strongly to \"server\". Second, a small feed-forward network updates each token's vector based on what attention gathered. Stack a few dozen of these layers and the vectors at the top carry a rich picture of what the whole passage means.\n\nFor a chat model, the final step is prediction: given everything so far, produce a probability for each possible next token, pick one, append it, and repeat. That loop is why generation is sequential and why output length drives latency.\n\nThree consequences worth remembering:\n\n- Attention compares every token with every other, so cost grows quickly as prompts get longer.\n- The model has no memory between requests. Everything it knows about your conversation is in the prompt you send.\n- Generation is sampling, not lookup. The same prompt can produce different answers unless you pin the sampling settings.\n\nIf a client asks what the model is doing, the honest short answer is: it is repeatedly guessing the most plausible next piece of text, using attention to keep track of what matters in the input.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "fundamentals",
+      "models",
+      "architecture"
+    ]
+  },
+  {
+    "external_id": "kb-fund-04",
+    "title": "Retrieval-augmented generation",
+    "body": "Retrieval-augmented generation, or RAG, is the pattern of looking up relevant material first and then handing it to a language model along with the user's question. Instead of hoping the model memorised your policies during training, you fetch the actual policy text and ask the model to answer from it.\n\nThe pipeline has four stages:\n\n1. Ingest. Split source documents into passages, embed each passage, and store the vectors with the text and metadata such as owner, date, and tags.\n2. Retrieve. Embed the incoming question, find the passages whose vectors are closest, and optionally filter by metadata or re-rank with a second model.\n3. Assemble. Build a prompt containing the instructions, the retrieved passages with their sources, and the question.\n4. Generate. Call the model and return the answer, ideally with citations pointing back to the passages used.\n\nRAG suits small businesses because it works with any model, keeps private data out of training, and updates instantly: change the document, re-embed it, and the next answer reflects the change. It is also the cheapest way to reduce hallucination on questions about your own material.\n\nWhere it goes wrong:\n\n- Poor chunking. Passages that cut a table in half or separate a heading from its body retrieve badly.\n- Stale indexes. If ingestion is not tied to document updates, answers quietly drift out of date.\n- Retrieval misses. If the right passage is not in the top results, the model will improvise. Log what was retrieved so you can see this happening.\n- Over-stuffing. Sending twenty passages when three are relevant raises cost and lowers accuracy.\n\nEvaluate RAG in two halves: did retrieval find the right passages, and did generation use them faithfully.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "fundamentals",
+      "rag",
+      "search"
+    ]
+  },
+  {
+    "external_id": "kb-fund-05",
+    "title": "Fine-tuning versus prompting",
+    "body": "Clients often ask whether they need a custom model. Nearly always the first answer is no. There are three ways to shape a model's behaviour, and they should be tried in order.\n\nPrompting. Write clear instructions, give a few worked examples, and specify the output format. This costs nothing beyond tokens, changes take effect immediately, and it is reversible. Most business tasks, including classification, extraction, drafting, and summarisation, are solved well here.\n\nRetrieval. When the model needs facts it was not trained on, such as your price list or your runbooks, fetch the facts and include them in the prompt. This is retrieval-augmented generation, and it handles the complaint that the model does not know your material without touching the model.\n\nFine-tuning. Continue training the model on your own examples so the behaviour becomes built in. This is appropriate when you need a very consistent style or format across millions of calls, when the prompt has grown so long that it dominates cost, or when a smaller fine-tuned model can replace a larger general one for a narrow task.\n\nTrade-offs to state plainly:\n\n- Fine-tuning needs hundreds to thousands of clean, representative examples. Bad examples teach bad habits.\n- It does not reliably add knowledge. Teaching a model your product catalogue by fine-tuning is unreliable and goes stale the moment prices change; retrieval is the right tool for facts.\n- Every fine-tuned model is another artifact to version, evaluate, secure, and eventually retire.\n- Hosted providers may not allow fine-tuning of their newest models, so you may end up on an older base.\n\nRule of thumb: prompt first, retrieve second, fine-tune when you can prove the first two fall short.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "fundamentals",
+      "fine-tuning",
+      "prompting"
+    ]
+  },
+  {
+    "external_id": "kb-fund-06",
+    "title": "Evaluation basics",
+    "body": "An AI feature without an evaluation is a demo. Before we ship anything that generates or classifies text for a client, we need a repeatable way to say whether it is getting better or worse.\n\nStart with a test set. Collect 50 to 200 real inputs, drawn from what users actually send, and write down the expected result for each. For classification that is a label; for extraction it is the structured fields; for open-ended generation it is a short rubric describing what a good answer must contain. Keep this set out of any prompt examples or fine-tuning data, or you will be grading the model on its own homework.\n\nPick metrics that match the task:\n\n- Classification: accuracy is fine when classes are balanced; otherwise report precision and recall per class.\n- Extraction: exact match per field, plus the share of records where every field is right.\n- Retrieval: whether the correct passage appeared in the top three or top five results.\n- Generation: a rubric score, either from a human reviewer or from a second model acting as a judge, checked against a sample of human scores so you know the judge can be trusted.\n\nThen run the whole set every time something changes: a prompt edit, a model upgrade, a new chunking strategy. Store the results with the date and the configuration so regressions are visible.\n\nTwo habits pay for themselves. First, read the failures, not just the score; a 92 percent that fails on the ten most important customers is worse than an 88 percent that fails on edge cases. Second, add every production mistake that gets reported to the test set, so the same error cannot come back unnoticed.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "fundamentals",
+      "evaluation",
+      "quality"
+    ]
+  },
+  {
+    "external_id": "kb-fund-07",
+    "title": "Hallucination and how to reduce it",
+    "body": "A hallucination is a fluent, confident statement from a model that is simply not true: an invented citation, a policy clause that does not exist, a phone number that belongs to nobody. It happens because the model is predicting plausible text, not checking facts. When the prompt does not contain the answer, the most plausible continuation is often a made-up one.\n\nYou cannot eliminate hallucination, but you can push it down a long way with engineering rather than hope.\n\n- Ground the model. Put the relevant source material in the prompt through retrieval and instruct the model to answer only from it. Ask it to say that the answer is not in the provided documents when the material does not cover the question.\n- Require citations. Have the model quote or reference the passage it used. Then verify in code that the cited passage actually exists and contains the claim.\n- Constrain the output. For anything structured, such as dates, amounts, or identifiers, ask for a fixed format and validate it. Reject and retry rather than pass through a malformed value.\n- Lower the temperature. For factual tasks, sampling settings near zero reduce creative drift.\n- Keep humans in the loop where the stakes are high. Contract terms, medical or legal wording, and anything sent to a customer under our name should be reviewed.\n- Measure it. Add unsupported claims as a failure category in your evaluation rubric and track the rate over time.\n\nThe most common cause we see in client systems is not the model at all: it is retrieval returning nothing useful, so the model fills the gap. Log the retrieved passages alongside each answer, and most hallucination investigations turn into retrieval investigations.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "fundamentals",
+      "hallucination",
+      "quality"
+    ]
+  },
+  {
+    "external_id": "kb-fund-08",
+    "title": "Vector search and cosine similarity",
+    "body": "Vector search is how we turn a request like \"find documents that mean roughly this\" into something a computer can do. Every stored document has an embedding, a fixed-length list of numbers. A query is embedded the same way. Search then means finding the stored vectors that are closest to the query vector.\n\nCloseness needs a definition. The one we use, and the one most embedding models are designed around, is cosine similarity. It measures the angle between two vectors rather than the distance between their tips. Two vectors pointing in the same direction score 1.0; unrelated ones score near 0; opposite ones approach -1. Because it ignores length, a long detailed passage and a short summary of the same topic can still score as similar.\n\nComputing it is simple: take the dot product of the two vectors and divide by the product of their lengths. If vectors are normalised to length 1 when stored, the division disappears and cosine similarity is just a dot product, which is fast.\n\nPractical notes for our deployments:\n\n- Exact search compares the query against every vector. For tens of thousands of documents on a single machine this is fast enough and always correct, and it is what our data center does.\n- Approximate nearest-neighbour indexes trade a little accuracy for speed and matter once you reach millions of vectors.\n- Combine vector search with metadata filters. Similar to this, but only documents owned by one client and tagged security, is the query people actually want.\n- Hybrid search, mixing keyword matching with vector similarity, often beats either alone, especially for product codes and proper names that embeddings handle poorly.\n\nA similarity score is relative, not absolute. A top result at 0.62 may be excellent or useless depending on the model and the corpus, so set thresholds from your own test queries.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "fundamentals",
+      "search",
+      "embeddings"
+    ]
+  },
+  {
+    "external_id": "kb-fund-09",
+    "title": "Quantization",
+    "body": "Quantization is the practice of storing and computing a model's numbers with less precision. A model's weights are normally trained as 16-bit or 32-bit floating-point values. Quantizing them to 8-bit integers halves the memory footprint compared with 16-bit, and 4-bit quantization halves it again. That is the difference between a model that needs a data-center card and one that runs on a workstation.\n\nWhy it works: most weights do not need six decimal places of precision to do their job. Rounding them to a coarser grid changes the output slightly, and for many tasks the change is too small to notice.\n\nWhy it is not free:\n\n- Quality loss is real but uneven. Reasoning-heavy and multilingual tasks tend to degrade earlier than simple classification. Always re-run your evaluation set on the quantized model rather than assuming.\n- Aggressive schemes, such as 3-bit or lower, can produce a model that looks fine on casual prompts and fails on hard ones.\n- Different quantization formats need different runtime support. Check that the serving stack you plan to use actually accelerates the format you chose.\n\nWhere we use it:\n\n- Running open-weights models on the shared inference host, where memory is the binding constraint.\n- Cutting the cost of embedding models, which tolerate quantization well because their output is compared by angle, not read literally.\n- Client pilots on modest hardware, so a proof of concept can run before anyone buys a GPU.\n\nIf a quantized model passes the same evaluation as the full-precision one within your tolerance, prefer it: it is cheaper to run, quicker to load, and easier to fit alongside other workloads. If it does not pass, note the gap in the model's record so nobody has to rediscover it later.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "fundamentals",
+      "quantization",
+      "hardware"
+    ]
+  },
+  {
+    "external_id": "kb-fund-10",
+    "title": "Inference versus training",
+    "body": "Training and inference are the two halves of a model's life, and they have very different shapes.\n\nTraining is when a model learns. Data is fed through it, the output is compared with the expected result, and the internal weights are nudged to reduce the error. Repeat this billions of times and you have a trained model. It is enormously expensive: large language models are trained on thousands of accelerators over weeks or months, on datasets measured in trillions of tokens. Very few organisations train foundation models from scratch, and we are not one of them.\n\nFine-tuning is a small dose of training applied to an existing model with your own data. It is far cheaper than training from scratch but still a training workload: it needs backpropagation, a lot of memory for gradients and optimiser state, and careful evaluation afterwards.\n\nInference is when a trained model is used. You send it input, it produces output, and nothing inside it changes. This is what every chat interface, search feature, and classification job is doing. Inference is where almost all of our work and almost all of a client's ongoing cost sits.\n\nWhy the distinction matters:\n\n- Hardware. Training needs high-memory accelerators with fast interconnects. Inference can run on much smaller cards, or on CPUs for small models, and scales by adding cheap replicas.\n- Cost model. Training is a one-off cost; inference is an operating cost that grows with usage. Budget them separately.\n- Risk. A model does not learn from conversations during inference. If a client worries that their data will teach the model, explain that this only happens if someone deliberately runs a training job on it.\n\nWhen a client says they want to train an AI on their documents, they nearly always mean retrieval over those documents at inference time, not training.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "fundamentals",
+      "training",
+      "inference"
+    ]
+  },
+  {
+    "external_id": "kb-fund-11",
+    "title": "GPUs versus CPUs for AI",
+    "body": "A CPU is a small number of very capable cores, each good at running one complicated instruction stream fast. A GPU is thousands of simple cores that all do the same operation on different data at once. Neural networks are mostly large matrix multiplications, which is exactly the kind of work that thousands of simple cores do well. That is the whole reason GPUs dominate AI.\n\nWhat the difference means for our workloads:\n\n- Training and fine-tuning: GPU, always. A fine-tune that takes two hours on one data-center card would take days on a CPU, if it fit in memory at all.\n- Large language model inference: GPU for anything with real traffic. Memory bandwidth, not raw arithmetic, is usually the limit, which is why GPU memory size and speed come up in every sizing conversation.\n- Small models: CPU is often fine. Embedding models, classifiers, and quantized models under a few billion parameters can serve modest request rates on a normal server, and that avoids buying or renting a card.\n- Everything around the model: tokenisation, retrieval over a vector store of moderate size, request handling, and logging run happily on CPU.\n\nSizing questions to ask before recommending hardware:\n\n1. What is the largest model that must run, and at what precision? That sets the memory floor.\n2. What request rate and latency target? That sets how many replicas or how much batching you need.\n3. Is the workload continuous or bursty? Bursty workloads often make more sense on rented capacity than on owned hardware.\n\nA GPU sitting idle is a cost with no return. For a small business the right answer is often a shared inference host with one or two cards, plus CPU-only services for everything that does not need them.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "fundamentals",
+      "hardware",
+      "gpu"
+    ]
+  },
+  {
+    "external_id": "kb-fund-12",
+    "title": "Batch versus real-time inference",
+    "body": "Every inference workload is either serving a person who is waiting or processing a pile of items that nobody is waiting for. Decide which one you are building before you decide anything else, because the two are engineered differently.\n\nReal-time inference answers a request while a user watches. A chat assistant, a search box, and a form that classifies a ticket on submit are all real-time. What matters is latency: time to first token for streaming responses, total time for structured ones. You keep the model loaded and warm, keep replicas available for peak load, and accept that some capacity sits idle at quiet times.\n\nBatch inference processes many items together with no one waiting on any single result. Nightly re-embedding of updated documents, classifying last month's support tickets, and generating product descriptions for a catalogue are batch jobs. What matters is throughput and cost per item, not latency. You can pack requests together so the GPU is fully used, run at off-peak hours, and use larger, slower, cheaper models.\n\nRules of thumb:\n\n- If the result is not needed within a few seconds, make it a batch job. It will be cheaper and more reliable.\n- Give batch jobs a queue, a retry policy, and a way to resume from the last completed item. Our jobs database exists for exactly this.\n- Do not let batch traffic share a real-time endpoint without limits; one large backfill can push user latency through the roof.\n- Several hosted providers offer discounted batch pricing with a delayed turnaround. Use it for anything that can wait.\n\nMany features are a mix: batch-embed the corpus overnight, then answer questions in real time against the result. Splitting them this way is usually the best of both.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "fundamentals",
+      "inference",
+      "operations"
+    ]
+  },
+  {
+    "external_id": "kb-fund-13",
+    "title": "Prompt engineering basics",
+    "body": "A prompt is a specification. Treat it like one: write it clearly, keep it under version control, and test it. Most disappointing model output comes from a vague prompt rather than a weak model.\n\nThe parts of a working prompt:\n\n- Role and task. One or two sentences stating what the model is doing and for whom. For example: you classify inbound support emails for a managed IT provider.\n- Instructions. Concrete rules, in order of importance. Say what to do rather than only what not to do.\n- Context. The material the model needs, such as retrieved passages, the customer record, or the previous message. Label each piece so the model can refer to it.\n- Examples. Two to five worked examples of input and ideal output. Examples teach format and tone more reliably than description.\n- Output format. State it exactly. If code will parse the answer, ask for JSON with named fields and nothing else.\n- The input. Put the thing to be processed last, clearly delimited.\n\nHabits that help:\n\n- Ask for reasoning before the final answer on hard tasks, then read only the final field in code.\n- Tell the model what to do when it cannot comply: return a specific value, do not guess.\n- Keep the system prompt stable and put per-request material in the user turn; it makes caching and debugging easier.\n- Change one thing at a time and re-run the evaluation set. Prompt edits that feel better often score worse.\n\nWhat not to do: stack contradictory instructions, threaten or flatter the model, or paste an entire policy manual when three paragraphs answer the question. If the prompt has grown past a couple of pages, it is time to split the task or move facts into retrieval.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "fundamentals",
+      "prompting",
+      "practice"
+    ]
+  },
+  {
+    "external_id": "kb-fund-14",
+    "title": "Agents and tool use",
+    "body": "An agent is a model wrapped in a loop. Instead of answering once, it is given a goal and a set of tools, decides which tool to call, reads the result, and continues until the goal is met or it gives up. Tools are ordinary functions you expose: search the knowledge base, look up a customer, create a ticket, run a query.\n\nTool use itself is a narrow, well-supported feature. You describe each tool with a name, a plain-language description, and a schema for its arguments. The model replies with a structured request to call one, your code runs it and returns the result, and the model carries on. The model never executes anything; your code does, which is where the control lives.\n\nWhere agents earn their keep: multi-step tasks with clear success criteria, such as finding the open invoices for a client and drafting a reminder for each, where the individual steps are reliable.\n\nWhere they cause trouble:\n\n- Loops that never terminate. Always set a maximum number of steps and a budget.\n- Tools that can do damage. Anything that sends, deletes, pays, or changes access should require confirmation or run in a mode that only proposes actions.\n- Instructions hidden in data. A retrieved document or a web page can contain text that tries to steer the agent. Treat everything a tool returns as data, never as instructions, and keep sensitive tools out of reach of untrusted content.\n- Silent failure. Log every tool call with its arguments and result so a bad outcome can be traced.\n\nStart with a single tool and a two-step loop. A modest agent that always finishes beats an ambitious one that occasionally wanders off.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "fundamentals",
+      "agents",
+      "tools"
+    ]
+  },
+  {
+    "external_id": "kb-fund-15",
+    "title": "Model cards",
+    "body": "A model card is a short structured document that travels with a model and says what it is, what it was built for, how it was evaluated, and where it should not be used. The idea comes from academic work on responsible reporting, and most serious model releases now ship one. We also write a card for every model we deploy for a client, whether we trained it or not.\n\nWhat a good card contains:\n\n- Identity: name, version, provider, release date, and the licence or terms of use.\n- Intended use: the tasks and users it was designed for, and explicit out-of-scope uses.\n- Training data: what kinds of data went in, at what scale, with what cut-off date. Vendors are often vague here; note what they do and do not disclose.\n- Evaluation: which benchmarks or internal tests were run, the scores, and the conditions. If we ran our own evaluation set, the card links to the results and the date.\n- Limitations and risks: known failure modes, languages or domains where quality drops, and any bias findings.\n- Operational details: context window, supported input types, quantization used, hardware it is served on, and expected latency.\n\nWhy we bother: when a client asks which model answers their customers, the card is the answer. When a model is upgraded, the difference between two cards is the change log. When something goes wrong, the card tells the investigator what was known at deployment time.\n\nKeep cards in the same repository as the deployment configuration and update them when the model, the prompt, or the evaluation results change. A card that describes a version nobody runs any more is worse than none.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "fundamentals",
+      "documentation",
+      "governance"
+    ]
+  },
+  {
+    "external_id": "kb-fund-16",
+    "title": "Open-weights versus API models",
+    "body": "Models arrive in two forms. An API model is hosted by its provider; you send requests over the network and pay per token. An open-weights model is a file you download and run on hardware you control. Both have a place, and the choice is a business decision as much as a technical one.\n\nAPI models:\n\n- Fastest to start. No hardware, no serving stack, no capacity planning.\n- Generally the strongest quality available at any moment, because providers keep their best models hosted.\n- Usage-based cost that is small at low volume and can become large at high volume.\n- Data leaves your network. Read the provider's data-handling terms and match them to the client's obligations.\n- Dependency on someone else's uptime, rate limits, pricing, and deprecation schedule.\n\nOpen-weights models:\n\n- Data stays on premises, which some clients require outright.\n- Predictable cost once the hardware exists; heavy, steady workloads often come out cheaper.\n- Full control over versions. Nobody retires the model under you.\n- You own the operational burden: GPUs, serving software, monitoring, security patches, and upgrades.\n- Licences vary. Some permit any commercial use; others restrict it. Check before deploying.\n\nHow we decide:\n\n1. If the data cannot leave the client's environment, open-weights is the only option.\n2. If volume is low or bursty, an API is usually cheaper and better.\n3. If a smaller open model passes the client's evaluation set, prefer it for steady high-volume work.\n4. Design the integration so the model is swappable. Keep prompts, evaluation, and logging independent of the provider so the decision can be revisited.\n\nMany of our deployments use both: an open model for routine, high-volume, private work, and an API model for the hard cases.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "fundamentals",
+      "models",
+      "procurement"
+    ]
+  },
+  {
+    "external_id": "kb-fund-17",
+    "title": "Latency, throughput, and cost trade-offs",
+    "body": "Every inference deployment is a balancing act between three numbers, and improving one usually costs you another.\n\nLatency is how long one request takes. For streaming chat, split it into time to first token, which users feel most, and tokens per second after that. Throughput is how many requests or tokens the system handles per second in total. Cost is what you pay per request, per thousand tokens, or per hour of hardware.\n\nThe core tension: a GPU is most efficient when it processes many requests at once, because batching spreads the fixed cost of reading the weights across all of them. Batching raises throughput and lowers cost per token, but each request waits for the batch, so latency rises. Serving one request at a time gives the best latency and the worst cost.\n\nLevers you can pull:\n\n- Model size. A smaller model is faster and cheaper per token. Use the smallest one that passes the evaluation set.\n- Quantization. Lower precision means faster loading and more requests per card, at some quality risk.\n- Prompt length. Shorter prompts cut both latency and cost. Trim retrieved context to what is needed.\n- Output length. Ask for concise answers; generation time scales with tokens produced.\n- Caching. Repeated system prompts and repeated questions can be cached at the provider or in our own layer.\n- Replicas. More instances raise throughput and protect latency under load, at direct hardware cost.\n\nHow to set targets: agree with the client on a latency budget for the user-facing path, then find the cheapest configuration that meets it at expected peak load, with headroom. Measure at the 95th percentile, not the average; averages hide the slow requests that generate complaints. Revisit the numbers whenever the model, the prompt, or the traffic changes.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "fundamentals",
+      "performance",
+      "cost"
+    ]
+  },
+  {
+    "external_id": "kb-fund-18",
+    "title": "Data labelling",
+    "body": "Labelled data is the raw material for evaluation and fine-tuning: real inputs paired with the correct outputs. It is unglamorous, and the quality of everything downstream depends on it.\n\nGetting labels right:\n\n- Write labelling guidelines before anyone labels. Define each category with two positive examples and two near-miss negatives. Ambiguity in the guidelines becomes noise in the labels.\n- Start small. Have two people independently label the same fifty items, compare, and fix the guidelines wherever they disagreed. Repeat until agreement is high, then scale up.\n- Sample from real traffic. Labels on made-up examples teach the model about the examples you imagined, not the ones users send.\n- Record who labelled what and when. Disagreements need to be traceable.\n- Protect personal data. Strip or mask names, account numbers, and contact details before items reach a labeller unless the task specifically requires them.\n\nUsing models to help: a capable model can pre-label items so humans only correct rather than start from blank. This is a large speed-up for classification and extraction. It is not a substitute for human review, because the model's mistakes are exactly the ones you are trying to catch.\n\nSizing: for evaluation, a few hundred well-chosen items is enough to see meaningful differences between prompts and models. For fine-tuning, plan for at least several hundred to a few thousand examples covering the full range of inputs, with more weight on the difficult and important cases.\n\nKeep the labelled set under version control with a note on how it was built. Every production error that reaches us should be labelled and added, so the set grows towards the problems that actually matter.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "fundamentals",
+      "data",
+      "labelling"
+    ]
+  },
+  {
+    "external_id": "kb-fund-19",
+    "title": "Synthetic data",
+    "body": "Synthetic data is data generated by a program or a model rather than collected from real activity. In AI work it usually means asking a strong model to produce example inputs, outputs, or both, according to a specification.\n\nWhere it genuinely helps:\n\n- Bootstrapping. A new client has no history of support tickets yet but wants a classifier on day one. Generating a few hundred realistic tickets across the expected categories gives you something to test and iterate on.\n- Coverage. Real data is lopsided; the rare but important cases, such as a billing dispute that is also a security report, may appear once a year. Synthesising more of them balances the set.\n- Privacy. When the real data is sensitive, a synthetic stand-in with the same shape lets you develop and demonstrate without exposing anyone.\n- Adversarial testing. Generating prompts that try to break the system, such as injection attempts or ambiguous requests, is a legitimate and valuable use.\n\nWhere it misleads:\n\n- It reflects the generating model's idea of the world, not your users'. Real tickets are terse, misspelled, and oddly formatted; synthetic ones are tidy. A system that only passes on synthetic data may fail on the first real message.\n- Training a model heavily on another model's output tends to narrow its behaviour and copy the source model's blind spots.\n- Volume is deceptive. Ten thousand generated examples can contain fewer distinct situations than two hundred real ones.\n\nOur practice: use synthetic data to get started and to fill known gaps, label its origin in the dataset, keep a real-data evaluation set as the final judge, and replace synthetic items with real ones as they become available. Never report a result on synthetic data as if it were a result on production traffic.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "fundamentals",
+      "data",
+      "synthetic"
+    ]
+  },
+  {
+    "external_id": "kb-fund-20",
+    "title": "AI glossary",
+    "body": "Short definitions for terms that come up in client conversations and tickets. The other articles in this section have the detail.\n\n- Accelerator: a chip built for the parallel arithmetic neural networks need, usually a GPU.\n- Agent: a model run in a loop with tools, taking several steps to complete a goal.\n- Batch inference: processing many items together with nobody waiting on any single result.\n- Context window: the maximum tokens a model can take in one request, including its own output.\n- Embedding: a fixed-length list of numbers representing the meaning of content.\n- Evaluation set: real inputs with known correct outputs, used to score changes.\n- Fine-tuning: further training of an existing model on your own examples.\n- Foundation model: a large general model from a provider, the starting point for everything else.\n- Grounding: giving the model source material to answer from rather than its training.\n- Hallucination: fluent output that is untrue or unsupported by the provided material.\n- Inference: using a trained model to produce output; nothing inside the model changes.\n- Latency: time for one request; for streaming, time to first token matters most.\n- Open-weights model: a model whose weights are published so you can run it on your own hardware.\n- Prompt: the full text sent to the model, including instructions, context, and the user's input.\n- Quantization: storing model weights at lower precision to save memory and time.\n- RAG: retrieval-augmented generation; look up relevant passages, then generate from them.\n- Temperature: a sampling setting; lower values give more predictable output.\n- Throughput: total requests or tokens a system handles per second.\n- Token: the unit of text a model reads and writes, roughly three quarters of an English word.\n- Vector search: finding stored embeddings closest to a query embedding, usually by cosine similarity.\n\nAdd missing terms here rather than defining them in a ticket.",
+    "source": "kb/fundamentals",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "fundamentals",
+      "glossary",
+      "reference"
+    ]
+  }
+]

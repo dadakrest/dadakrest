@@ -1,0 +1,312 @@
+[
+  {
+    "name": "business_plans",
+    "description": "Costed business plans. Each line connects to a row in government_fees, service_fees or employment_fees through fee_code; `datacenter.plans` resolves and totals them.",
+    "schema": {
+      "plan": "string",
+      "line": "string",
+      "fee_code": "string",
+      "quantity": "number",
+      "months": "integer",
+      "notes": "string"
+    },
+    "records": [
+      {
+        "plan": "starter-colocation",
+        "line": "Full cabinet",
+        "fee_code": "SVC-021",
+        "quantity": 1,
+        "months": 12,
+        "notes": "Includes 5 kW drawn power."
+      },
+      {
+        "plan": "starter-colocation",
+        "line": "Power above allowance",
+        "fee_code": "SVC-022",
+        "quantity": 3,
+        "months": 12,
+        "notes": "3 kW over the included 5 kW."
+      },
+      {
+        "plan": "starter-colocation",
+        "line": "Private cross-connect",
+        "fee_code": "SVC-020",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "starter-colocation",
+        "line": "Managed support",
+        "fee_code": "SVC-024",
+        "quantity": 1,
+        "months": 12,
+        "notes": "Business hours."
+      },
+      {
+        "plan": "starter-colocation",
+        "line": "Egress bandwidth",
+        "fee_code": "SVC-019",
+        "quantity": 24,
+        "months": 1,
+        "notes": "About 2 TB a month over the year."
+      },
+      {
+        "plan": "starter-colocation",
+        "line": "Onboarding",
+        "fee_code": "SVC-027",
+        "quantity": 1,
+        "months": 1,
+        "notes": "One-off at the start."
+      },
+      {
+        "plan": "managed-inference",
+        "line": "Input tokens",
+        "fee_code": "SVC-008",
+        "quantity": 600,
+        "months": 1,
+        "notes": "600 million tokens across the year."
+      },
+      {
+        "plan": "managed-inference",
+        "line": "Output tokens",
+        "fee_code": "SVC-009",
+        "quantity": 150,
+        "months": 1,
+        "notes": "150 million tokens across the year."
+      },
+      {
+        "plan": "managed-inference",
+        "line": "Embeddings",
+        "fee_code": "SVC-010",
+        "quantity": 400,
+        "months": 1,
+        "notes": "Corpus indexing and refreshes."
+      },
+      {
+        "plan": "managed-inference",
+        "line": "Hot storage",
+        "fee_code": "SVC-014",
+        "quantity": 2,
+        "months": 12,
+        "notes": "2 TB of active corpus."
+      },
+      {
+        "plan": "managed-inference",
+        "line": "Warm storage",
+        "fee_code": "SVC-015",
+        "quantity": 8,
+        "months": 12,
+        "notes": "Older datasets."
+      },
+      {
+        "plan": "managed-inference",
+        "line": "Managed support",
+        "fee_code": "SVC-025",
+        "quantity": 1,
+        "months": 12,
+        "notes": "24/7, 1-hour response."
+      },
+      {
+        "plan": "managed-inference",
+        "line": "Onboarding",
+        "fee_code": "SVC-027",
+        "quantity": 1,
+        "months": 1,
+        "notes": ""
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Zoning compliance",
+        "fee_code": "GOV-005",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Building permit",
+        "fee_code": "GOV-006",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Electrical permit",
+        "fee_code": "GOV-007",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Mechanical permit",
+        "fee_code": "GOV-008",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Fire suppression review",
+        "fee_code": "GOV-009",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Utility interconnection study",
+        "fee_code": "GOV-016",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Generator air permit",
+        "fee_code": "GOV-011",
+        "quantity": 1,
+        "months": 12,
+        "notes": "Annual, one occurrence in year one."
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Demand charge administration",
+        "fee_code": "GOV-017",
+        "quantity": 1,
+        "months": 12,
+        "notes": "Monthly."
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Technicians",
+        "fee_code": "EMP-002",
+        "quantity": 2,
+        "months": 12,
+        "notes": "Two hires, agency fee each."
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Network engineer",
+        "fee_code": "EMP-004",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "gpu-cluster-launch",
+        "line": "Site reliability engineer",
+        "fee_code": "EMP-009",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Entity registration",
+        "fee_code": "GOV-001",
+        "quantity": 1,
+        "months": 12,
+        "notes": "One-off at formation."
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Annual report",
+        "fee_code": "GOV-002",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Registered agent",
+        "fee_code": "GOV-003",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Operating licence",
+        "fee_code": "GOV-004",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Fire safety inspection",
+        "fee_code": "GOV-010",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Data protection registrar",
+        "fee_code": "GOV-019",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Sales tax filings",
+        "fee_code": "GOV-021",
+        "quantity": 1,
+        "months": 12,
+        "notes": "Quarterly, four returns."
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Property tax administration",
+        "fee_code": "GOV-022",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Stormwater permit",
+        "fee_code": "GOV-013",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Operations lead",
+        "fee_code": "EMP-001",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Security analyst",
+        "fee_code": "EMP-005",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Account manager",
+        "fee_code": "EMP-010",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      },
+      {
+        "plan": "year-one-operating",
+        "line": "Finance and billing officer",
+        "fee_code": "EMP-011",
+        "quantity": 1,
+        "months": 12,
+        "notes": ""
+      }
+    ]
+  }
+]

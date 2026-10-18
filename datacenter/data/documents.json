@@ -1,0 +1,48 @@
+[
+  {
+    "external_id": "runbook-network-hardening",
+    "title": "Network hardening checklist",
+    "body": "Segment the office network, disable unused switch ports, enforce WPA3 on wireless, and rotate router admin credentials every quarter. Review firewall rules monthly and log all denied traffic.",
+    "source": "internal/runbooks",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "security",
+      "networking"
+    ]
+  },
+  {
+    "external_id": "process-client-onboarding",
+    "title": "Client onboarding process",
+    "body": "Collect the signed service agreement, create the client record, assign an account manager, and schedule the kickoff call within five business days of signature.",
+    "source": "internal/process",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "operations"
+    ]
+  },
+  {
+    "external_id": "finance-2026-q1-invoices",
+    "title": "Quarterly invoice summary",
+    "body": "Invoices issued this quarter cover managed support hours, hardware procurement, and the security audit engagement. Payment terms are net thirty from the invoice date.",
+    "source": "finance/2026-q1",
+    "mime_type": "text/plain",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "finance"
+    ]
+  },
+  {
+    "external_id": "runbook-incident-contacts",
+    "title": "Incident response contacts",
+    "body": "During an incident, page the on-call security analyst first, then notify the operations lead. Escalate to the client account manager once the scope of affected systems is confirmed.",
+    "source": "internal/runbooks",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "security",
+      "operations"
+    ]
+  }
+]

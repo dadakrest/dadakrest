@@ -1,0 +1,102 @@
+[
+  {
+    "name": "Northgate Logistics",
+    "industry": "Logistics",
+    "website": "https://northgate.example"
+  },
+  {
+    "name": "Harbor Security",
+    "industry": "Cybersecurity services",
+    "website": "https://harborsec.example"
+  },
+  {
+    "name": "Larkspur Hollow Family Clinic",
+    "industry": "Healthcare",
+    "website": "https://larkspurhollow.example"
+  },
+  {
+    "name": "Bluefinch Dental Studio",
+    "industry": "Healthcare",
+    "website": "https://bluefinchdental.example"
+  },
+  {
+    "name": "Okafor & Lindqvist LLP",
+    "industry": "Legal services",
+    "website": "https://okafor-lindqvist.example"
+  },
+  {
+    "name": "Tessaro & Whitcombe Immigration Law",
+    "industry": "Legal services",
+    "website": "https://tessarowhitcombe.example"
+  },
+  {
+    "name": "Bramblewood Day School",
+    "industry": "Education",
+    "website": "https://bramblewood.example"
+  },
+  {
+    "name": "Fennimore Ridge Community College",
+    "industry": "Education",
+    "website": "https://fennimoreridge.example"
+  },
+  {
+    "name": "Saffron Lane Pantry",
+    "industry": "E-commerce",
+    "website": "https://saffronlane.example"
+  },
+  {
+    "name": "Kestrel & Fern Outfitters",
+    "industry": "E-commerce",
+    "website": "https://kestrelfern.example"
+  },
+  {
+    "name": "Ashgrove Compute Supply",
+    "industry": "GPU hardware reseller",
+    "website": "https://ashgrovecompute.example"
+  },
+  {
+    "name": "Stonebriar Colocation",
+    "industry": "Colocation and data center services",
+    "website": "https://stonebriarcolo.example"
+  },
+  {
+    "name": "Coldwater Mechanical & Power",
+    "industry": "Power and cooling contracting",
+    "website": "https://coldwatermech.example"
+  },
+  {
+    "name": "Pinewire Fiber",
+    "industry": "Internet service provider",
+    "website": "https://pinewire.example"
+  },
+  {
+    "name": "Marigold Annotation Works",
+    "industry": "Data labelling",
+    "website": "https://marigoldannotation.example"
+  },
+  {
+    "name": "Halvorsen Reasoning Lab",
+    "industry": "AI research",
+    "website": "https://halvorsenlab.example"
+  },
+  {
+    "name": "Tidemark Institute for Machine Learning",
+    "industry": "AI research",
+    "website": "https://tidemark-ml.example"
+  },
+  {
+    "name": "Ellery & Oduya Insurance Brokers",
+    "industry": "Insurance brokerage",
+    "website": "https://elleryoduya.example"
+  },
+  {
+    "name": "Halloran Mbatha Accounting",
+    "industry": "Accounting",
+    "website": "https://halloranmbatha.example"
+  },
+  {
+    "name": "Corvid Talent Search",
+    "industry": "Recruitment",
+    "website": "https://corvidtalent.example"
+  }
+]

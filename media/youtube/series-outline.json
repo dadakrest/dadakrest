@@ -1,0 +1,592 @@
+{
+  "playlist_title": "From ENIAC to AI: The History of the Data Center, 1945 to Today",
+  "playlist_description": "How did a room full of vacuum tubes in Philadelphia turn into gigawatt campuses full of AI chips? This series tells the history of the data center from 1945 to today in 87 episodes of about 45 minutes each, grouped into eight seasons.\n\nEach episode takes one narrow subject and goes deep: a machine, a building, a company, a standard or an idea, and why it mattered for the rooms where the world's computing happens. The series follows the money, the power, the heat and the people, from ENIAC's operators replacing tubes to the electricians and engineers who build AI data centers now.\n\nSeason 1, The Room-Sized Machines (episodes 1-11): ENIAC, the stored-program computer, UNIVAC, LEO, Whirlwind and core memory, IBM's first computers, tape and the first hard disk, and SAGE.\nSeason 2, The Mainframe Era (episodes 12-22): transistors, bank automation, SABRE, System/360, the raised-floor computer room, time-sharing, the CDC 6600, service bureaus, IMS, the first virtual machines and ARPANET.\nSeason 3, Minis, PCs, Networks and Client-Server (episodes 23-33): minicomputers, precision cooling, Ethernet, Cray, relational databases, water-cooled mainframes, the PC and the server closet, NSFNET, the Connection Machine, RAID and disaster recovery.\nSeason 4, The Dot-Com Build-Out (episodes 34-44): the web, exchange points, carrier hotels, colocation, the 19-inch rack, commodity clusters, Akamai, Y2K, reliability tiers, the bust and September 11.\nSeason 5, The Cloud (episodes 45-55): virtualization, Google's distributed software, AWS, warehouse-scale design, airflow, PUE, free cooling, Open Compute, new network fabrics, Kubernetes and cloud outages.\nSeason 6, The GPU Turn (episodes 56-66): CUDA, GPU supercomputers, the cat paper, AlexNet, the TPU, the first AI servers, InfiniBand, crypto mining, scaling laws, the first AI supercomputer for hire and the accelerator gold rush.\nSeason 7, The AI Data Center (episodes 67-77): ChatGPT and the GPU shortage, training clusters, AI networking, megawatt racks, liquid cooling, the grid, nuclear power, water, chips and export controls, gigawatt campuses and the neoclouds.\nSeason 8, The Business, the Economics and the Future (episodes 78-87): Data Center Alley, what a megawatt costs, financing, training versus inference, regulation, standards and security, the workforce, a two-part practical guide to starting an AI data center services business today, and the open questions ahead.\n\nA note on accuracy: this is a history series, so every date, name, figure and first is checked against published sources. Where reputable sources disagree, for example on the day ENIAC was unveiled or what it cost, we say so instead of picking one. We do not invent quotations, statistics or anecdotes, and for recent events we rely on official announcements and reputable reporting, never on guesses about companies' unannounced plans. The business episodes are general education, not legal, tax or financial advice.\n\nProduced by Software da Database User 13, an AI data center services business.",
+  "seasons": [
+    {
+      "number": 1,
+      "title": "The Room-Sized Machines",
+      "years": "1943-1963",
+      "summary": "The first electronic computers were rooms as much as machines, and the people who built them had to invent power, cooling and maintenance as they went. This season runs from ENIAC's secret construction to SAGE, the air-defense system whose windowless blockhouses were among the first buildings designed around computers.",
+      "episodes": [
+        {
+          "number": 1,
+          "title": "ENIAC: The Computer That Was a Room",
+          "years": "1943-1946",
+          "premise": "Under a US Army contract signed on June 5, 1943, a Moore School team at the University of Pennsylvania built ENIAC in secret, under the code name 'Project PX', to compute artillery firing tables. This episode follows the build and the public unveiling, which most sources date to the evening of February 14, 1946 with a formal dedication the next day, though some give February 15 for the announcement itself. Even the price is disputed, with figures of about $400,000 and about $487,000 both in print, and the episode explains where each comes from. It matters because ENIAC was the first time a computer and the room around it had to be designed together."
+        },
+        {
+          "number": 2,
+          "title": "Tubes, Heat and Downtime: ENIAC at Aberdeen",
+          "years": "1947-1955",
+          "premise": "After its move to Aberdeen Proving Ground in Maryland, ENIAC was switched on again on July 29, 1947 and ran until late on the night of October 2, 1955, doing work that included wind tunnel, weather and nuclear weapons calculations. This episode is about operations rather than invention: replacing vacuum tubes, managing heat and power, and the people who kept the machine useful. One account says it was typically shut down about a third of the time for tube replacement and servicing, a figure the episode weighs against other records. It is the first story of uptime, the measure that would come to define the data center industry."
+        },
+        {
+          "number": 3,
+          "title": "The Stored Program: From First Draft to Manchester and Cambridge",
+          "years": "1945-1949",
+          "premise": "In June 1945 John von Neumann's First Draft of a Report on the EDVAC described a computer that kept its program in memory, an idea that changed what a machine room had to contain. The episode follows the race to build one: the Manchester 'Baby' ran its first program on June 21, 1948 and Cambridge's EDSAC ran its first on May 6, 1949, while EDVAC itself was not delivered until August 1949. Which machine counts as 'first' depends on the definition, and the episode lays out each claim rather than crowning a winner."
+        },
+        {
+          "number": 4,
+          "title": "Mercury, Phosphor and Spinning Drums: The Hunt for Memory",
+          "years": "1946-1953",
+          "premise": "Early computers were limited less by arithmetic than by memory, and engineers tried mercury delay lines, Williams cathode-ray tubes and magnetic drums, each with its own failures and quirks. This episode explains how each technology worked, what it demanded of the people and rooms around it, and why none of them lasted. It stops where the next big answer begins; magnetic core memory belongs to the Whirlwind episode."
+        },
+        {
+          "number": 5,
+          "title": "UNIVAC I: A Computer for the Census",
+          "years": "1946-1954",
+          "premise": "J. Presper Eckert and John Mauchly left the Moore School to build a commercial computer, and the US Census Bureau accepted the first UNIVAC I on March 31, 1951, although one account says the machine stayed in Philadelphia for sales demonstrations for many months afterward. The episode covers the first commercial installations, the November 4, 1952 CBS broadcast in which a UNIVAC forecast Eisenhower's victory, and General Electric's 1954 payroll application at Appliance Park in Louisville, Kentucky. Sources disagree even on the size of the vote sample behind the election forecast, a small example of how computing legends harden."
+        },
+        {
+          "number": 6,
+          "title": "LEO: The Tea-Shop Company That Built a Business Computer",
+          "years": "1947-1954",
+          "premise": "Lyons, the British tea-shop and catering company, built its own computer, LEO I, modelled on Cambridge's EDSAC, and pointed it at the routine paperwork of a business. Its first job was Bakery Valuations, which costed the ingredients in bread and cakes; sources date the first successful run anywhere from September to late November 1951, and by December 1953 LEO was trusted with the regular payroll. The episode shows how a company with no electronics background ran computing as part of its office, an early model of the in-house data processing department."
+        },
+        {
+          "number": 7,
+          "title": "Whirlwind: Real Time and the Birth of Core Memory",
+          "years": "1944-1953",
+          "premise": "Whirlwind began at MIT in 1944 as a Navy flight-simulator project and, under Jay Forrester, became a fast digital computer designed to respond in real time; the simulator itself was never built. Its tube-based memory was costly and unreliable, so from 1949 Forrester's team developed magnetic core storage, which by most accounts was in service by 1953. This episode owns the core memory story, the technology that made computer memory dependable until semiconductors replaced it in the 1970s, and explains why real-time computing demanded a new engineering discipline."
+        },
+        {
+          "number": 8,
+          "title": "IBM's 701 and the Rented Machine Room",
+          "years": "1952-1956",
+          "premise": "IBM's first commercial scientific computer, the 701 or 'Defense Calculator', was unveiled in 1952, with sources giving April for shareholders and May 21 for the public, and 19 were built. IBM rented rather than sold them, and the monthly rents quoted in different sources run from about $8,100 to $16,000, a spread the episode untangles. The rental model shaped how customers planned rooms, staff and budgets around a machine they did not own, and it set the business pattern of the mainframe era."
+        },
+        {
+          "number": 9,
+          "title": "Tape and the First Hard Disk: From UNISERVO to RAMAC",
+          "years": "1951-1957",
+          "premise": "Magnetic tape arrived with UNIVAC's UNISERVO drive and IBM's 726 and turned the computer room into a library of reels. In September 1956 IBM announced the 350 disk unit for its 305 RAMAC system (sources give the 4th, 13th or 14th), which held five million characters on fifty 24-inch disks. The episode explains why random access mattered so much to business data processing, and how stored data, not just calculation, became a reason for the room to exist."
+        },
+        {
+          "number": 10,
+          "title": "SAGE: The Air-Defense Network That Wired a Continent",
+          "years": "1950-1963",
+          "premise": "SAGE, the Semi-Automatic Ground Environment, linked radar sites and direction centers across North America over dedicated AT&T phone lines, and it was the first user of AT&T's first commercial modem, the 110-bit-per-second Bell 101. The first SAGE center went into regular operation on July 1, 1958 at McGuire Air Force Base in New Jersey, and the network grew into the early 1960s. This episode covers SAGE as a networked system, how its engineering fed commercial projects such as American Airlines' SABRE, and why historians count it as groundwork for later computer networks; the buildings themselves are the next episode."
+        },
+        {
+          "number": 11,
+          "title": "Inside the Blockhouse: Power, Cooling and the Duplex Computer",
+          "years": "1956-1984",
+          "premise": "Each SAGE direction center housed an IBM AN/FSQ-7 computer that weighed about 250 tons, drew up to 3 megawatts and, by most counts, used about 49,000 vacuum tubes. This episode treats the SAGE building as an early purpose-built data center: a windowless concrete blockhouse organized around power, air handling and a duplex design in which one computer worked while its twin stood by. Tube counts differ between sources, as do dates for the last shutdown (1983 or 1984), and the episode notes where the record is thin."
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "The Mainframe Era",
+      "years": "1955-1975",
+      "summary": "Transistors, compatible product lines and real-time systems turned computing into an industry, and the computer room became a standard corporate facility with raised floors, air conditioning and professional operators. The season covers mainframes, time-sharing, the first supercomputers, the first virtual machines and the network that became the internet.",
+      "episodes": [
+        {
+          "number": 12,
+          "title": "The Transistor Moves In",
+          "years": "1955-1962",
+          "premise": "Transistors replaced vacuum tubes in machines such as MIT's TX-0 of 1956 and IBM's 7090 of 1959, cutting heat, power use and failures and changing what a computer room had to supply. The episode follows the switch through IBM's ambitious 7030 Stretch, delivered in 1961, which missed its own performance goals yet seeded ideas used for years afterward. It shows how one component change rippled into floor space, air conditioning and maintenance staffing."
+        },
+        {
+          "number": 13,
+          "title": "ERMA: Teaching a Computer to Read Checks",
+          "years": "1950-1970",
+          "premise": "In 1950 Bank of America asked the Stanford Research Institute to study whether electronics could handle its growing flood of checks, and the result was ERMA, built for production by General Electric and first delivered in 1959. ERMA read account numbers printed in magnetic ink, the MICR method still used on checks today, and it served as the bank's accounting and check-handling system until 1970. Sources disagree on how many systems were installed and when, and the episode follows the machines into the back-office buildings that housed them."
+        },
+        {
+          "number": 14,
+          "title": "SABRE: The Airline Reservation Machine",
+          "years": "1953-1965",
+          "premise": "The usual origin story begins with two men named Smith, an IBM salesman and American Airlines' president, talking on a 1953 flight about a better way to book seats. Sources date the formal development partnership to 1957 or 1959; an experimental system ran on two IBM 7090s in Briarcliff Manor, New York from 1960, and SABRE was fully operational in 1964, linking about 1,500 terminals in 65 cities by phone line. The episode explains how SAGE technology became a commercial real-time system, and why an always-on reservation computer forced new thinking about redundancy."
+        },
+        {
+          "number": 15,
+          "title": "System/360: One Architecture to Replace Them All",
+          "years": "1961-1967",
+          "premise": "On April 7, 1964 IBM announced System/360, a family of compatible computers that replaced its five incompatible product lines; IBM's own history calls it a $5 billion, bet-the-business gamble. Compatibility meant customers could move to a bigger machine without rewriting their software, which made the data center a long-term, growable investment rather than a one-off purchase. The episode covers the engineering, the cost, the delays and the 8-bit byte the family helped make standard."
+        },
+        {
+          "number": 16,
+          "title": "The Glass House: Raised Floors and the Computer Room",
+          "years": "1960-1980",
+          "premise": "Mainframe rooms came to be built on raised access floors, with cables and chilled air running underneath and the machines displayed behind glass. This episode reconstructs what a mainframe site plan demanded: floor loading, under-floor air, power distribution, humidity control and fire protection, and why the 'glass house' became the symbol of centralized corporate computing. Exactly when raised floors became standard is poorly documented; one flooring maker dates their arrival in large mainframe rooms to the early 1960s, and the episode checks that against surviving site-planning manuals."
+        },
+        {
+          "number": 17,
+          "title": "Time-Sharing and the Dream of the Computer Utility",
+          "years": "1961-1971",
+          "premise": "MIT demonstrated its Compatible Time-Sharing System in November 1961, and Dartmouth's time-sharing system, the home of BASIC, came online on May 1, 1964. Time-sharing let many people use one computer at once from remote terminals, and Multics, developed by MIT, General Electric and Bell Labs, promised computing sold like electricity or water. The episode traces how the 'computer utility' idea rose and stalled, and why it resurfaced decades later as cloud computing."
+        },
+        {
+          "number": 18,
+          "title": "Seymour Cray and the CDC 6600",
+          "years": "1960-1969",
+          "premise": "Control Data's 6600, introduced in 1963 and first delivered to Lawrence Livermore in September 1964 by the Computer History Museum's account (other sources say 1965), is generally considered the first successful supercomputer. It ran about three times faster than IBM's Stretch, packed its parts into dense 'cordwood' modules and was cooled by circulating Freon, a first according to the museum. The episode follows Cray's small team in Chippewa Falls, Wisconsin, and shows how density and heat removal became the defining problem of high-performance machines."
+        },
+        {
+          "number": 19,
+          "title": "Renting Someone Else's Computer: ADP, EDS and the Service Bureau",
+          "years": "1949-1984",
+          "premise": "Long before the cloud, companies paid others to run their computing. Automatic Payrolls, founded in 1949 and later renamed Automatic Data Processing (sources give 1957, 1958 or 1961 for the change), grew from manual payroll into computer services, and Ross Perot incorporated Electronic Data Systems on June 27, 1962 to run clients' data processing under what became known as facilities management. The episode explains the economics of outsourcing, ending with General Motors' purchase of EDS in 1984, and how service bureaus taught businesses to treat computing as a service."
+        },
+        {
+          "number": 20,
+          "title": "IMS: The Database That Went to the Moon",
+          "years": "1965-1970",
+          "premise": "In 1965 IBM partnered with North American Aviation, soon to become North American Rockwell, to manage the huge bill of materials for the Apollo spacecraft, and the software became IMS. By IBM's account the first 'READY' message appeared on a terminal at Rockwell's Downey, California site on August 14, 1968, and the product was renamed IMS/360 in 1969. The episode explains hierarchical databases and why big organizations began building their computer rooms around shared data; it ends with Edgar Codd's relational model of June 1970, whose commercial story belongs to Season 3."
+        },
+        {
+          "number": 21,
+          "title": "The First Virtual Machines: CP-40 to VM/370",
+          "years": "1964-1972",
+          "premise": "At IBM's Cambridge Scientific Center, researchers began CP-40 in 1964 on a specially modified System/360 Model 40, giving each user what looked like a private computer, and it entered production use in early 1967. CP-67 followed for the System/360 Model 67, and on August 2, 1972 IBM announced VM/370. This episode tells the origin story of virtualization, the idea that three decades later would underpin the cloud."
+        },
+        {
+          "number": 22,
+          "title": "ARPANET: The First Packets",
+          "years": "1966-1975",
+          "premise": "BBN delivered the first Interface Message Processor, built on a Honeywell DDP-516, to Leonard Kleinrock's lab at UCLA on August 30, 1969, and on October 29 the first login attempt to a computer at SRI crashed after a couple of letters, with accounts differing on exactly where. The episode explains packet switching, the IMPs as ancestors of today's routers, and the host computer rooms that became the network's first nodes. Historians still debate whether that UCLA-SRI exchange was truly first, since BBN may have tested packets earlier, and the episode presents both views."
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "Minis, PCs, Networks and Client-Server",
+      "years": "1959-1995",
+      "summary": "Computing spread out of the glass house into laboratories, offices and closets, while networks began to tie it back together. The season follows minicomputers, PCs, Ethernet, relational databases, supercomputer cooling, RAID and the birth of disaster recovery, ending as the commercial internet arrives.",
+      "episodes": [
+        {
+          "number": 23,
+          "title": "The Minicomputer Leaves the Glass House",
+          "years": "1959-1977",
+          "premise": "Digital Equipment Corporation's PDP-1 of 1959 sold for about $120,000, but its PDP-8, introduced on March 22, 1965 at $18,000 or $18,500 depending on the source, became the first commercially successful minicomputer and sold more than 50,000 units over its life. Minicomputers put computing into laboratories, factories and departments that would never have had a raised-floor room. The episode explains how decentralization began and what it meant for the central data processing department."
+        },
+        {
+          "number": 24,
+          "title": "Liebert and the Computer Room Air Conditioner",
+          "years": "1946-1987",
+          "premise": "Ralph Liebert, whose refrigeration business dated back to 1946, formed Liebert Corporation in Columbus, Ohio in 1965 as what sources describe as the first maker of computer room air conditioning units. This episode explains why computers needed 'precision' cooling that held temperature and humidity steady, unlike the comfort cooling used in offices, and how a specialist industry grew up around the computer room's mechanical and electrical plant, including backup power. It ends with Emerson Electric's purchase of Liebert in 1987."
+        },
+        {
+          "number": 25,
+          "title": "Ethernet: A Memo at Xerox PARC",
+          "years": "1973-1985",
+          "premise": "On May 22, 1973 Bob Metcalfe at Xerox PARC circulated a memo describing a broadcast network to connect the lab's Alto computers within a building, and by the IEEE history's account the system first worked that November. Digital, Intel and Xerox published a 10-megabit Ethernet specification in 1980, and an IEEE 802.3 standard followed in 1983, formally designated 802.3-1985. The episode follows Ethernet from one building to the standard that would eventually wire every data center, including Metcalfe's founding of 3Com in 1979."
+        },
+        {
+          "number": 26,
+          "title": "Cray Research: Freon, Fluorinert and the Fastest Machines",
+          "years": "1972-1990",
+          "premise": "Seymour Cray left Control Data and founded Cray Research in 1972; its Freon-cooled Cray-1, first delivered to Los Alamos in 1976, was the world's fastest computer until 1982, and about 80 were sold. The Cray-2 of 1985 went further, immersing its circuit boards in Fluorinert, an inert liquid, in what is often described as the first use of liquid immersion cooling in a supercomputer. Picking up where the CDC 6600 episode ends, this one owns the supercomputer cooling story, the direct ancestor of today's immersion and liquid-cooled racks."
+        },
+        {
+          "number": 27,
+          "title": "SQL Goes to Market: System R, Oracle and DB2",
+          "years": "1973-1983",
+          "premise": "IBM began System R at its San Jose research lab in 1974 to put Codd's relational model into practice, and it became the first implementation of SQL. A company founded in 1977 as Software Development Laboratories, by then called Relational Software, released Oracle V2 in 1979, often called the first commercially available SQL database, while IBM shipped SQL/DS in 1982 and DB2 in 1983, so the 'first' title is contested. The episode explains why relational databases became the standard workload of the business data center and the foundation of software still running today."
+        },
+        {
+          "number": 28,
+          "title": "Water in the Mainframe: IBM's Thermal Conduction Module",
+          "years": "1980-1995",
+          "premise": "IBM announced the 3081 on November 12, 1980, built around Thermal Conduction Modules: ceramic modules holding up to 118 chips, each chip pressed by a piston against a helium-filled cap topped by a water-cooled cold plate. One account puts the 3081's power draw at 23 kilowatts against 68 for the 3033 it succeeded, and the TCM approach went through three generations of IBM's largest systems over more than fifteen years. The episode explains why mainframe rooms needed chilled-water plumbing, and why liquid cooling then largely disappeared from commercial computer rooms until the AI era."
+        },
+        {
+          "number": 29,
+          "title": "The PC Revolt and the Server Closet",
+          "years": "1981-1995",
+          "premise": "IBM's Personal Computer, announced on August 12, 1981, put computing on desks, and networks soon followed: Novell's first NetWare product in 1983 let computers share files from a dedicated server. The episode follows how file servers, then database and application servers, multiplied in closets and back rooms under the name client-server, often outside the control of the central IT department. It explains the sprawl that later pushed companies to consolidate servers into proper data centers and, eventually, to virtualize them."
+        },
+        {
+          "number": 30,
+          "title": "From ARPANET to NSFNET: Building the Internet Backbone",
+          "years": "1983-1995",
+          "premise": "On January 1, 1983 ARPANET switched to TCP/IP, and the National Science Foundation's NSFNET backbone followed, starting at 56 kilobits per second (sources date its start to 1985 or 1986), upgrading to T1 lines in July 1988 and to T3 by the end of 1991. NSFNET was decommissioned on April 30, 1995 as commercial providers took over. The episode follows the backbone's routers and network operations centers and explains how the academic internet handed off to the commercial one."
+        },
+        {
+          "number": 31,
+          "title": "The Connection Machine and Massively Parallel Computing",
+          "years": "1983-1994",
+          "premise": "Danny Hillis's Thinking Machines Corporation, founded in Cambridge, Massachusetts in 1983 (one museum entry says 1982), built the Connection Machine around many simple processors working at once. The CM-1 was first marketed in 1985, later models including the CM-5 followed, and the company declared bankruptcy in 1994 (one source says 1993). The episode explains the bet on massive parallelism, why it failed commercially at the time, and why the same idea returned in the GPU clusters of AI."
+        },
+        {
+          "number": 32,
+          "title": "RAID: Arrays of Inexpensive Disks",
+          "years": "1987-1995",
+          "premise": "In June 1988 David Patterson, Garth Gibson and Randy Katz of UC Berkeley presented 'A Case for Redundant Arrays of Inexpensive Disks' at the ACM SIGMOD conference, arguing that many small personal-computer disks could beat a single large, expensive disk on performance, reliability and power. The paper defined five RAID levels, and an industry board formed in 1992 later changed 'inexpensive' to 'independent' in the acronym. This episode shows how commodity parts plus redundancy became a data center design philosophy, a theme that runs through Google and the cloud."
+        },
+        {
+          "number": 33,
+          "title": "The Hot Site: Disaster Recovery Becomes an Industry",
+          "years": "1978-1993",
+          "premise": "One account credits Sun Information Systems, SunGard's predecessor, with the first commercial 'hot site' in 1978: a ready-to-run computer room a customer could move into after a disaster. According to SunGard's company history, the Comptroller of the Currency began requiring national banks to have testable backup plans in 1983, and recovery firms such as SunGard and Comdisco grew; the 1992 Chicago flood alone triggered 18 simultaneous hot-site recoveries for Comdisco. The episode explains how the second data center became standard practice."
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "title": "The Dot-Com Build-Out",
+      "years": "1989-2005",
+      "summary": "The web created sudden demand for places to put servers and connect networks, and a new industry of exchange points, carrier hotels and colocation answered it. The season covers the boom, the reliability standards it produced, the bust that followed and the lessons of September 11.",
+      "episodes": [
+        {
+          "number": 34,
+          "title": "The Web Leaves CERN",
+          "years": "1989-1995",
+          "premise": "Tim Berners-Lee wrote his first proposal for the World Wide Web at CERN in March 1989, had the first web server running on a NeXT computer by the end of 1990, and on April 30, 1993 CERN put the web software in the public domain. The episode follows the jump from one server in Geneva to NCSA Mosaic in 1993 and Netscape's stock market debut in August 1995, and asks what the first web servers looked like and where they lived. It sets up the season's question: where would the web's machines go once millions of people wanted them?"
+        },
+        {
+          "number": 35,
+          "title": "MAE-East: Where Networks Met",
+          "years": "1992-1998",
+          "premise": "In 1992 Metropolitan Fiber Systems and UUNET set up MAE-East, often described as the first internet exchange point, where networks including AlterNet, PSINet and Sprint's ICM swapped traffic in the Washington, DC area; by one account a central site ended up in an office building parking garage in Vienna, Virginia. The National Science Foundation later named it one of the four original Network Access Points. This episode explains peering and exchange points and why physical meeting places became valuable internet real estate; the wider story of Northern Virginia belongs to the final season."
+        },
+        {
+          "number": 36,
+          "title": "Carrier Hotels: Old Buildings, New Crossroads",
+          "years": "1928-2005",
+          "premise": "Buildings such as 60 Hudson Street in Manhattan, built from 1928 to 1930 as Western Union's headquarters, and One Wilshire in Los Angeles, a 1966 office tower, became 'carrier hotels' where dozens of networks connect. At 60 Hudson the pneumatic tubes that once carried telegrams were later filled with copper and then fiber, and the building now hosts more than 100 carriers. The episode explains why interconnection clusters in a few dense buildings and how telecom competition turned office towers into critical infrastructure, noting that some popular accounts of One Wilshire's conversion are poorly sourced."
+        },
+        {
+          "number": 37,
+          "title": "Exodus and Equinix: Selling Space, Power and Neutrality",
+          "years": "1994-2000",
+          "premise": "Exodus Communications, founded in 1994 by most accounts, went public in 1998 and reached a peak market value of about $32 billion in 2000 by hosting web companies' servers. Equinix was founded on June 22, 1998 by Jay Adelson and Al Avery, two former Digital Equipment Corporation facilities managers, around the idea of a neutral place for networks to interconnect, and it opened its first data center in Ashburn, Virginia on July 27, 1999. This episode covers the rise of colocation and the business of renting power, space and cross-connects; the collapse belongs to a later episode."
+        },
+        {
+          "number": 38,
+          "title": "From Relay Rack to Pizza Box: The 19-Inch Standard",
+          "years": "1922-2005",
+          "premise": "The 19-inch rack started in telephony: AT&T set panels on 19-inch spacing in heights of 1.75 inches around 1922, and the EIA codified the format as EIA-310 in 1965, while popular stories tracing it to railroad relays are unconfirmed. In the dot-com era servers shrank to one rack unit, the 'pizza box', and blade servers followed, with RLX shipping early blades in 2000 or 2001 depending on the source. The episode shows how a phone-company dimension came to govern data center density, cabling and cost."
+        },
+        {
+          "number": 39,
+          "title": "Commodity Clusters: From Beowulf to Google's Corkboard Racks",
+          "years": "1994-2003",
+          "premise": "In 1994 Thomas Sterling and Donald Becker, working with NASA's Goddard center, built Beowulf from 16 ordinary PCs linked by Ethernet, showing that cheap machines could do supercomputer work. Google took the idea into production: its 1999 'corkboard' racks, built by King Star Computer, laid bare motherboards four to a shelf, and a 2003 IEEE Micro paper, 'Web Search for a Planet', explained the philosophy of getting reliability from software running across many cheap computers. This episode owns the commodity-cluster idea that defined web-scale computing."
+        },
+        {
+          "number": 40,
+          "title": "Akamai and the Edge",
+          "years": "1995-2001",
+          "premise": "Akamai grew out of a 1995 challenge from Tim Berners-Lee to MIT researchers about web congestion; mathematician Tom Leighton and Danny Lewin, who joined him at MIT in 1996, developed algorithms to copy and route content across many distributed servers, and the company incorporated in 1998. Instead of one big data center, Akamai placed servers inside other companies' networks, close to users. The episode explains content delivery and edge computing, and remembers that Lewin was killed aboard American Airlines Flight 11 on September 11, 2001."
+        },
+        {
+          "number": 41,
+          "title": "Y2K: The Great Remediation",
+          "years": "1995-2000",
+          "premise": "Two-digit years in old code forced a vast, coordinated repair effort, carried out largely inside corporate and government data centers. Cost estimates vary widely: Gartner's range of $300 billion to $600 billion worldwide, IDC's figure of about $297 billion, and media estimates of roughly $100 billion for the United States alone, and the episode explains why no official total exists. It also examines the lasting argument over whether the quiet New Year of 2000 proved the work succeeded or the danger was overstated."
+        },
+        {
+          "number": 42,
+          "title": "Tiers and Uptime: Measuring Reliability",
+          "years": "1987-2005",
+          "premise": "Kenneth Brill founded the Uptime Institute (sources give 1993 or 1987) and promoted a four-level Tier classification that let data center owners explain to their managements what reliability they were paying for. The episode explains redundancy terms such as N+1 and concurrent maintainability, and how TIA-942, published in April 2005, added a standards-body framework for data center infrastructure. It also untangles a murky early history, since accounts of when each Tier was first defined rest on thin sources."
+        },
+        {
+          "number": 43,
+          "title": "The Bust: Exodus, Global Crossing and the Fiber Glut",
+          "years": "2000-2004",
+          "premise": "When the dot-com bubble burst, Exodus filed for Chapter 11 on September 26, 2001, Global Crossing followed in January 2002 with about $12.4 billion in debt, and a 2001 Merrill Lynch estimate held that only 2.6 percent of the new fiber capacity was in use, though parts of the industry disputed that there was a glut at all. The episode follows the fire sales, including how GI Partners bought 21 data centers through bankruptcy auctions and from distressed owners at 20 to 40 percent below replacement cost and took them public as Digital Realty in 2004. It shows how overbuilt infrastructure became the cheap foundation of the next boom."
+        },
+        {
+          "number": 44,
+          "title": "September 11 and the Second Site",
+          "years": "2001-2005",
+          "premise": "The attacks of September 11, 2001 badly damaged Verizon's central office at 140 West Street, disrupting about 200,000 voice lines, and tested every business continuity plan in lower Manhattan; the New York Stock Exchange reopened on September 17. In 2003 financial regulators issued the Interagency Paper on Sound Practices, which pushed critical firms toward backup sites far enough apart not to share a regional disaster. The episode looks at what failed, what held, and how the lessons reshaped where and how data centers were built."
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "title": "The Cloud",
+      "years": "1998-2017",
+      "summary": "Virtualization, distributed software and renting computers by the hour turned the data center into a utility, and the largest operators began designing buildings, servers and networks from scratch. This season covers the cloud's software and its physical side: efficiency metrics, free cooling, open hardware and new network designs.",
+      "episodes": [
+        {
+          "number": 45,
+          "title": "VMware and the x86 Hypervisor",
+          "years": "1998-2007",
+          "premise": "VMware, founded in 1998 by Diane Greene, Mendel Rosenblum and three colleagues, shipped VMware Workstation in May 1999, entered the server market in 2001 with the bare-metal ESX Server, and in 2003 added vMotion, which moved a running virtual machine from one server to another. Virtualization let companies consolidate the sprawl of underused servers left by the client-server era. The episode connects the idea back to IBM's CP-40 and forward to the cloud, where renting virtual machines became the default."
+        },
+        {
+          "number": 46,
+          "title": "GFS, MapReduce and Bigtable: Software for a Warehouse",
+          "years": "2003-2008",
+          "premise": "Between 2003 and 2006 Google published papers on the Google File System, MapReduce and Bigtable, describing how to store and process data across thousands of unreliable commodity machines. Open-source projects such as Hadoop and a wave of NoSQL databases built on those designs, spreading Google's approach far beyond Google. The episode explains how software turned a building full of servers into one computer, and how that changed what data centers were built to hold."
+        },
+        {
+          "number": 47,
+          "title": "Amazon Web Services: S3 and EC2",
+          "years": "2002-2010",
+          "premise": "Amazon launched S3 on March 14, 2006 (one history gives March 19) and turned on the first beta instance of EC2 on August 25, 2006, initially for existing AWS customers only. Renting storage and servers by the hour turned data center capacity into a utility product, delivering the 'computer utility' promised in the time-sharing era. The episode covers the services, the pricing and what the cloud meant for anyone who had been planning to build their own server room."
+        },
+        {
+          "number": 48,
+          "title": "Warehouse-Scale: The Dalles and the Container Hall",
+          "years": "2005-2009",
+          "premise": "Google says it opened The Dalles, Oregon in 2006 as its first owned and operated data center, and for years it revealed little about how its facilities worked. At its first Data Center Efficiency Summit on April 1, 2009 Google showed a facility built in 2005 around shipping containers holding up to 1,160 servers each, while Sun had unveiled its Project Blackbox container in October 2006 and Microsoft had announced in 2008 that its Chicago-area site would be filled with containers. The episode covers the secrecy, the modular experiments and the moment the giants began to share."
+        },
+        {
+          "number": 49,
+          "title": "Hot Aisle, Cold Aisle and the Thermal Envelope",
+          "years": "1992-2012",
+          "premise": "The hot-aisle/cold-aisle layout, usually credited to Robert Sullivan at IBM in 1992 (other accounts say 1993 or the mid-1990s), lined racks up so that cool intake air and hot exhaust stopped mixing. In 2004 ASHRAE's TC 9.9 committee published the first Thermal Guidelines for Data Processing Environments, and the 2008 edition widened the recommended range, raising the upper limit from 25°C to 27°C. The episode explains airflow management and why letting servers run warmer was the key that unlocked free cooling."
+        },
+        {
+          "number": 50,
+          "title": "Counting the Waste: PUE and the 2007 EPA Report",
+          "years": "2006-2014",
+          "premise": "In August 2007 the EPA told Congress that US servers and data centers had used about 1.5 percent of the country's electricity in 2006, 60 or 61 billion kilowatt-hours depending on the summary, and that better efficiency could save billions of dollars a year. The same year The Green Grid proposed Power Usage Effectiveness, the ratio of total facility power to IT power, and survey figures put the industry average at about 2.5 in 2007. The episode explains PUE, its uses and abuses, and why, by Uptime Institute's surveys, the average improved quickly and then stalled in the high 1.5s for years."
+        },
+        {
+          "number": 51,
+          "title": "Fresh Air, Seawater and the Chicken Coop",
+          "years": "2009-2013",
+          "premise": "Wider temperature limits let operators cool with the climate itself: Yahoo's Lockport, New York 'Computing Coop' opened in September 2010 cooled almost entirely by outside air, Google's Hamina, Finland site in a former paper mill drew seawater from the Gulf of Finland from 2011, and Facebook opened Luleå, Sweden, near the Arctic Circle, in June 2013. Each reported very low PUEs, which the episode treats as company-reported figures. This episode owns site selection for free cooling; the hardware Facebook built for its buildings belongs to the next episode."
+        },
+        {
+          "number": 52,
+          "title": "Open Compute: Giving Away the Data Center",
+          "years": "2009-2016",
+          "premise": "On April 7, 2011 Facebook launched the Open Compute Project alongside its new Prineville, Oregon data center, publishing designs for servers, power supplies, racks and battery cabinets and reporting a PUE of 1.07 for the building. Open-sourcing hardware challenged traditional server vendors and created a shared design commons for large operators. The episode explains what Open Compute changed and who joined, leaving the open AI server designs it later carried to Season 6."
+        },
+        {
+          "number": 53,
+          "title": "Rebuilding the Network: Clos Fabrics and Software Control",
+          "years": "2008-2016",
+          "premise": "Traffic inside hyperscale buildings flowed mostly between servers, and old tree-shaped networks could not keep up. Google's 2015 'Jupiter Rising' paper described a decade of multi-stage Clos networks built from commodity switch chips under centralized control, with capacity growing about 100-fold to more than a petabit per second of bisection bandwidth, and Facebook unveiled its building-wide data center fabric in November 2014. The episode also covers the 2008 OpenFlow paper and the software-defined networking movement it helped launch."
+        },
+        {
+          "number": 54,
+          "title": "From Borg to Kubernetes: Containers Take Over",
+          "years": "2003-2016",
+          "premise": "Inside Google, a cluster manager called Borg had used Linux containers since the mid-2000s, though it was described publicly only in a 2015 paper. Docker was introduced in a five-minute talk at PyCon in March 2013, and Google open-sourced Kubernetes in June 2014, released version 1.0 on July 21, 2015 and helped found the Cloud Native Computing Foundation. The episode explains how containers and orchestration changed the way software was packed onto data center machines, tools later used to schedule AI jobs as well."
+        },
+        {
+          "number": 55,
+          "title": "When the Cloud Falls: Outages and Chaos Engineering",
+          "years": "2011-2017",
+          "premise": "On April 21, 2011 a failure of Amazon's EBS storage in the US-East region took down many websites, while Netflix, which had built tools such as Chaos Monkey that deliberately killed its own servers, stayed largely up. On February 28, 2017 a mistyped command during debugging knocked Amazon S3 offline in the same Northern Virginia region. The episode examines how cloud outages happen, how availability zones and regions are meant to contain them, and how chaos engineering became a discipline."
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "title": "The GPU Turn",
+      "years": "2006-2022",
+      "summary": "Graphics chips, first built for games, turned out to suit the math behind deep learning, and over about fifteen years they moved from research labs into purpose-built AI servers. The season covers the hardware, interconnects and ideas that turned neural networks into a data center workload.",
+      "episodes": [
+        {
+          "number": 56,
+          "title": "CUDA: The Graphics Chip Learns General Math",
+          "years": "2006-2009",
+          "premise": "Nvidia launched the GeForce 8800 on November 8, 2006 together with CUDA, a way to program its graphics processors for general computation, and a first public beta of the CUDA software kit appeared in February 2007. The episode explains why GPUs, built for games with many simple parallel units, suited scientific math, and how researchers began to experiment with them. It sets the stage for every later episode in this season."
+        },
+        {
+          "number": 57,
+          "title": "Accelerators Top the TOP500",
+          "years": "2008-2013",
+          "premise": "In 2008 Roadrunner at Los Alamos became the first system to pass a petaflop on the TOP500 benchmark, using accelerator chips derived from the Cell processor; in November 2010 China's Tianhe-1A took first place with 7,168 Nvidia Tesla GPUs alongside 14,336 CPUs; and in November 2012 Oak Ridge's GPU-based Titan was ranked number one. The episode shows how supercomputer centers learned to power, cool and program accelerator-heavy machines, practical groundwork for AI clusters. Reported benchmark results for Tianhe-1A vary slightly between sources, and the episode explains how the ranking works."
+        },
+        {
+          "number": 58,
+          "title": "Sixteen Thousand Cores and a Cat",
+          "years": "2011-2013",
+          "premise": "In June 2012 Google researchers reported that a neural network trained on still frames from unlabeled YouTube videos, spread over 1,000 machines with 16,000 CPU cores using a system called DistBelief, had developed a neuron that responded to cats. A 2013 paper by Adam Coates and colleagues argued that a cluster of GPU servers linked by InfiniBand could train networks as large or larger on far fewer machines. This episode owns that CPU-versus-GPU argument, which decided what AI data centers would be built from; the ImageNet result is the next episode."
+        },
+        {
+          "number": 59,
+          "title": "ImageNet and AlexNet: Two Gaming Cards Change Everything",
+          "years": "2009-2013",
+          "premise": "ImageNet, a large labeled image collection presented in 2009 by Fei-Fei Li's team, became the basis of an annual recognition contest. In 2012 AlexNet, from Alex Krizhevsky, Ilya Sutskever and Geoffrey Hinton at the University of Toronto, won with a top-5 error of 15.3 percent, more than ten points ahead of the runner-up, after five to six days of training on two Nvidia GTX 580 graphics cards. The episode explains why that result convinced the field, and then the computing industry, that deep learning ran on GPUs."
+        },
+        {
+          "number": 60,
+          "title": "Google's TPU: A Chip Built for Neural Networks",
+          "years": "2013-2018",
+          "premise": "Google says it began running its Tensor Processing Unit, a custom chip for neural network inference, in its data centers in 2015, and it disclosed the chip at Google I/O in May 2016. A 2017 paper led by Norm Jouppi reported that the first TPU was on average about 15 to 30 times faster than contemporary CPUs and GPUs on Google's workloads, with 30 to 80 times better performance per watt. The episode explains why a cloud giant designed its own silicon and how that decision reshaped the chip market for AI data centers."
+        },
+        {
+          "number": 61,
+          "title": "Big Sur and DGX-1: The First AI Servers",
+          "years": "2015-2018",
+          "premise": "In December 2015 Facebook announced Big Sur, a server holding eight Nvidia Tesla M40 GPUs, and said it would contribute the design to the Open Compute Project. In April 2016 Nvidia unveiled the DGX-1, with eight Pascal P100 GPUs joined by its NVLink interconnect and a price of about $129,000, and later that year delivered one to OpenAI. The episode shows how the AI server emerged as a distinct product with its own power, cooling and networking demands."
+        },
+        {
+          "number": 62,
+          "title": "InfiniBand: The Interconnect That Came Back",
+          "years": "1999-2020",
+          "premise": "InfiniBand was born in 1999 when two rival input/output efforts, Future I/O and the Intel-backed NGIO, merged, and Mellanox was founded the same year to build it. After falling short of becoming the general server interconnect its backers intended, InfiniBand found a home in supercomputers and then in GPU clusters, where low latency and direct memory access across the network mattered most. Nvidia announced its purchase of Mellanox in March 2019 for about $6.9 billion and completed it in April 2020, and the episode explains why owning the network became as important as owning the chip."
+        },
+        {
+          "number": 63,
+          "title": "Mining Farms: The Crypto Data Center",
+          "years": "2009-2022",
+          "premise": "Bitcoin's launch in 2009 led to a new kind of data center: warehouses of specialized machines chasing the cheapest possible electricity, with little need for redundancy. GPU mining of Ethereum ended when Ethereum moved to proof-of-stake on September 15, 2022, and some miners pivoted; CoreWeave, which began as a crypto-mining venture around 2017, left mining after that switch and became a GPU cloud. The episode examines what AI infrastructure inherited from mining: sites, power contracts, operators and hardware."
+        },
+        {
+          "number": 64,
+          "title": "Attention and Scale: The Ideas Behind Large Language Models",
+          "years": "2017-2020",
+          "premise": "The June 2017 paper 'Attention Is All You Need' introduced the Transformer, and in January 2020 an OpenAI team led by Jared Kaplan reported that language model performance improved as a smooth power law with model size, data and compute. The GPT-3 paper of May 2020 described a model with 175 billion parameters. This episode owns the ideas, explaining in plain terms why 'scale' turned from a research finding into demand for ever-larger data centers; the machines that trained these models belong to the next episode."
+        },
+        {
+          "number": 65,
+          "title": "The Supercomputer for Hire: Azure, OpenAI and the A100",
+          "years": "2019-2021",
+          "premise": "In July 2019 Microsoft announced a $1 billion investment in OpenAI, and in May 2020 it described a supercomputer built for OpenAI in Azure with more than 285,000 CPU cores, 10,000 GPUs and 400 gigabits per second of network connectivity for each GPU server, which it said would rank in the top five of the TOP500 although it had not formally submitted it. The same month Nvidia launched its A100 GPU. The episode shows how a cloud provider built a dedicated AI training machine for one customer, a template for the AI data center deals that followed."
+        },
+        {
+          "number": 66,
+          "title": "The Accelerator Gold Rush",
+          "years": "2016-2021",
+          "premise": "As AI demand grew, startups and cloud providers raced to build alternatives to the GPU: Cerebras unveiled a chip the size of a whole silicon wafer in 2019, Intel bought Habana Labs for about $2 billion in December 2019, and Amazon announced its own Inferentia and Trainium chips in 2018 and 2020. The episode compares the approaches and explains why software ecosystems proved as decisive as hardware in deciding which chips filled data centers."
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "title": "The AI Data Center",
+      "years": "2022-2026",
+      "summary": "After ChatGPT, demand for AI computing ran ahead of chips, power, cooling and buildings all at once. This season examines the AI data center as it exists today: its clusters, networks, racks, liquid cooling, power and water, supply chains, gigawatt campuses and the new companies built to run them.",
+      "episodes": [
+        {
+          "number": 67,
+          "title": "ChatGPT and the Great GPU Shortage",
+          "years": "2022-2024",
+          "premise": "OpenAI released ChatGPT on November 30, 2022, and a UBS analysis of Similarweb data estimated that it had reached 100 million monthly users by January 2023. Demand for Nvidia's H100, announced in March 2022, surged as companies large and small scrambled for GPUs, power and space. The episode explains how a consumer product became an infrastructure shock, and why the bottleneck kept moving from chips to packaging to power."
+        },
+        {
+          "number": 68,
+          "title": "Anatomy of a Training Cluster",
+          "years": "2023-2025",
+          "premise": "In March 2024 Meta described two clusters of 24,576 GPUs each, one networked with RoCE Ethernet and one with InfiniBand, and its Llama 3 paper reported 466 job interruptions during a 54-day stretch of training on 16,384 H100 GPUs, 419 of them unexpected and most traced to hardware. In September 2024 Elon Musk said xAI's Colossus cluster of 100,000 H100s in Memphis had come online after 122 days, a company claim some observers questioned, citing power limits at the site. This episode owns the inside of the cluster, what it is physically made of and why keeping thousands of GPUs working in lockstep is so hard; its power supply belongs to later episodes."
+        },
+        {
+          "number": 69,
+          "title": "The Network Inside the AI Data Center",
+          "years": "2020-2025",
+          "premise": "AI training splits one job across thousands of GPUs, so the network became as critical as the chips: very fast links within a server or rack, such as Nvidia's NVLink, and InfiniBand or Ethernet fabrics between racks. In July 2023 AMD, Arista, Broadcom, Cisco, Eviden, HPE, Intel, Meta and Microsoft formed the Ultra Ethernet Consortium, which published its 1.0 specification on June 11, 2025. Picking up after the InfiniBand episode, this one explains scale-up versus scale-out networking, the optics involved and the InfiniBand-versus-Ethernet contest."
+        },
+        {
+          "number": 70,
+          "title": "From Kilowatts to a Megawatt: Power in the Rack",
+          "years": "2018-2026",
+          "premise": "Nvidia's GB200 NVL72, announced in March 2024, joins 72 Blackwell GPUs in one liquid-cooled rack drawing roughly 120 to 132 kilowatts depending on the source and configuration, far beyond what air-cooled halls were designed for. In May 2025 Nvidia said it would lead a move to 800-volt direct-current power distribution to support racks of 1 megawatt and beyond, starting in 2027. The episode explains busbars, power shelves and why electrical design, not floor space, became the limit on AI data centers."
+        },
+        {
+          "number": 71,
+          "title": "Liquid Cooling Returns",
+          "years": "2018-2026",
+          "premise": "After decades of air-cooled server rooms, AI chips brought liquid back: cold plates fed by coolant distribution units, rear-door heat exchangers and, at some sites, tanks of immersion fluid. Racks such as the GB200 NVL72 are designed for liquid cooling, and xAI said its Colossus GPUs were liquid-cooled. The episode connects today's designs to the Freon of the CDC 6600, the Fluorinert of the Cray-2 and IBM's water-cooled modules, and explains what retrofitting a building for liquid really involves."
+        },
+        {
+          "number": 72,
+          "title": "The Grid Problem",
+          "years": "2020-2026",
+          "premise": "Lawrence Berkeley National Laboratory estimated in December 2024 that data centers used about 4.4 percent of US electricity in 2023 and could use 6.7 to 12 percent by 2028, and the International Energy Agency projected global data center use rising from about 415 terawatt-hours in 2024 to about 945 by 2030. In the PJM grid region, capacity auction prices set records, clearing at the $329.17 per megawatt-day cap for 2026/2027, and some developers turned to on-site gas, as xAI did in Memphis, where a permit for 15 turbines issued in July 2025 drew local opposition and an appeal. The episode explains interconnection queues, capacity markets and who pays when a single customer wants a gigawatt."
+        },
+        {
+          "number": 73,
+          "title": "Going Nuclear",
+          "years": "2023-2026",
+          "premise": "In March 2024 Amazon bought Talen Energy's data center campus beside the Susquehanna nuclear plant for $650 million, though federal regulators in November 2024 rejected an amended agreement that would have raised the power it could draw directly from the plant. In September 2024 Microsoft signed a 20-year deal to restart Three Mile Island Unit 1 as the Crane Clean Energy Center, followed in October 2024 by Google's agreement with Kairos Power for up to 500 megawatts of small modular reactors and Amazon's investment in X-energy, and in June 2025 by Meta's 20-year deal for power from Constellation's Clinton plant. The episode separates signed contracts from reactors that do not yet exist and explains the timelines involved."
+        },
+        {
+          "number": 74,
+          "title": "The Water Question",
+          "years": "2011-2026",
+          "premise": "Evaporative cooling saves electricity but consumes water, and local fights have forced disclosure: in 2021 the city of The Dalles sued to keep Google's water use secret before settling, and reporting then showed Google's facilities there used about 355 million gallons in 2021. In December 2024 Microsoft announced a closed-loop design meant to use no water for cooling, with pilot sites in Phoenix and Mount Pleasant, Wisconsin due in 2026. The episode explains water usage effectiveness, the trade-off between water and power, and how to read company water claims."
+        },
+        {
+          "number": 75,
+          "title": "Chips, Packaging and Export Controls",
+          "years": "2020-2026",
+          "premise": "AI chips depend on a short supply chain: advanced manufacturing and CoWoS packaging at TSMC, which analysts in 2023 identified as the main constraint on GPU output, and high-bandwidth memory from a few suppliers led by SK hynix. Governments stepped in: the CHIPS and Science Act was signed on August 9, 2022, the US Commerce Department issued sweeping export controls on advanced computing chips on October 7, 2022 and expanded them in October 2023, and a broader 'AI diffusion' rule issued in January 2025 was rescinded in May 2025. The episode explains why these choke points decide how fast AI data centers can be filled."
+        },
+        {
+          "number": 76,
+          "title": "Gigawatt Campuses",
+          "years": "2024-2026",
+          "premise": "On January 21, 2025 OpenAI, SoftBank, Oracle and MGX announced Stargate at the White House with a stated plan to invest up to $500 billion, with a flagship campus in Abilene, Texas developed by Crusoe. In July 2025 Mark Zuckerberg said Meta was building Prometheus in Ohio, due online in 2026, and Hyperion in Louisiana, able to scale to 5 gigawatts over several years, and in September 2025 Microsoft described Fairwater in Mount Pleasant, Wisconsin, which Satya Nadella said in April 2026 was going live ahead of schedule. The episode compares what was announced with what has actually been built, and explains what a gigawatt-scale campus requires."
+        },
+        {
+          "number": 77,
+          "title": "The Neoclouds",
+          "years": "2017-2026",
+          "premise": "A new class of specialist GPU cloud providers grew up beside the hyperscalers, the most prominent being CoreWeave, which priced its initial public offering at $40 a share on March 27, 2025, below its planned range, and began trading on Nasdaq the next day. In July 2025 CoreWeave agreed to buy Core Scientific, a bitcoin miner turned data center operator, in an all-stock deal valued at about $9 billion, but Core Scientific's shareholders rejected it on October 30, 2025. The episode explains the neocloud business model, its dependence on GPU-backed financing and a small number of very large customers, and its risks; CoreWeave's mining origins belong to Season 6."
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "title": "The Business, the Economics and the Future",
+      "years": "1992-2026",
+      "summary": "The final season steps back from engineering to ask how the business works: where data centers go, what they cost, who pays, what rules apply and who staffs them. It closes with a practical look at starting an AI data center services business today and with the open questions for the decades ahead.",
+      "episodes": [
+        {
+          "number": 78,
+          "title": "Data Center Alley: How Northern Virginia Won",
+          "years": "1992-2026",
+          "premise": "Northern Virginia's lead traces to MAE-East in 1992, AOL's move to the Dulles area in the mid-1990s (sources say 1996 or 1997) and the fiber it laid, and Equinix's first Ashburn facility in 1999, followed by cheap land, tax incentives and a county that courted the industry. Success brought backlash: Prince William County's Digital Gateway, approved in December 2023, had its rezoning voided by a circuit court in August 2025, with appeals continuing into 2026. The episode explains how data center markets form and why the places that host them are pushing back."
+        },
+        {
+          "number": 79,
+          "title": "What a Megawatt Costs",
+          "years": "2010-2026",
+          "premise": "This episode builds the economics of a data center from the ground up: land, power, construction, cooling, servers and staff, and why the industry prices capacity per megawatt rather than per square foot. It focuses on the newest uncertainty, how long AI hardware stays valuable: Meta moved most of its servers to a 5.5-year accounting life from January 2025, Amazon shortened some from six years to five in 2025 citing the pace of AI, and critics argue even that is too long while defenders point to older GPUs still earning rent. Every figure is presented with its source and date, because this market changes quarter by quarter."
+        },
+        {
+          "number": 80,
+          "title": "Who Pays for It: REITs, Private Equity and GPU-Backed Debt",
+          "years": "2004-2026",
+          "premise": "Data centers became a financial asset class: Digital Realty went public in November 2004 and elected to be taxed as a real estate investment trust, Equinix converted to a REIT in January 2015, and private equity and infrastructure funds became major owners. In the AI era financing took new forms, from loans secured by GPUs to deals such as the roughly $29 billion financing reported for Meta's Hyperion campus, led by Pimco and Blue Owl Capital. The episode explains who puts up the money, what they expect back and where the risks sit."
+        },
+        {
+          "number": 81,
+          "title": "Training versus Inference: Two Kinds of AI Data Center",
+          "years": "2016-2026",
+          "premise": "Training a model and serving it to users make different demands: training favors huge, tightly linked clusters that can sit wherever power is cheap, while inference favors capacity close to users with predictable response times and steady use. Google's first TPU was built for inference, and large cloud operators have argued that older GPUs can be moved to inference work as they age. The episode explains how this split shapes where new data centers go, what equipment they hold and how services are priced."
+        },
+        {
+          "number": 82,
+          "title": "Moratoriums, Rules and Reporting",
+          "years": "2019-2026",
+          "premise": "As data centers grew, governments began saying no or not yet: Amsterdam paused new data centers for a year in 2019, Singapore imposed a moratorium in 2019 and lifted it in January 2022 with strict criteria including a PUE of 1.3 or below, and Ireland's grid operator, following a 2021 regulatory decision, has considered new Dublin-area connections only case by case. The European Union now requires data centers with at least 500 kilowatts of IT power to report energy, water and waste-heat data, with the first reports due on September 15, 2024. The episode explains these rules and what they signal for anyone planning a site."
+        },
+        {
+          "number": 83,
+          "title": "Trust on the Data Center Floor: Audits, Certifications and Security",
+          "years": "2005-2026",
+          "premise": "Customers who hand over their data and hardware want proof, and an industry of audits and certifications grew to provide it: SOC 2 reports, ISO/IEC 27001 for information security, facility certifications based on the Tier and TIA-942 frameworks introduced in Season 4, and, for US government cloud work, FedRAMP, established by a December 8, 2011 memorandum. The episode explains what each one actually checks, what physical security in a modern facility looks like, and which certifications matter to which customers."
+        },
+        {
+          "number": 84,
+          "title": "Who Runs the Data Center: Jobs and the Skills Gap",
+          "years": "2018-2026",
+          "premise": "Behind every data hall are electricians, mechanical technicians, network engineers, security staff and facility managers, and operators keep reporting trouble finding them. Uptime Institute's global surveys put the share of operators struggling to find qualified candidates at 38 percent in 2018 and 53 percent in 2022, its 2023 staffing survey found 58 percent, and its 2026 survey still found more than half. The episode looks at the jobs, the training paths, including entry-level IT certifications for career changers, and what AI-scale construction has done to demand for skilled trades."
+        },
+        {
+          "number": 85,
+          "title": "Starting an AI Data Center Services Business, Part 1: Finding Your Place in the Stack",
+          "years": "2023-2026",
+          "premise": "Not every AI infrastructure business owns a building: some resell colocation, some rent out GPU capacity, some run managed clusters for others, and some sell consulting, data and software services around the hardware. Drawing on the history in this series, the episode sets out each model's capital needs, customers and risks, and how companies from Equinix to the neoclouds got their start. It is a guide to the questions to ask, not financial or legal advice; the practical paperwork is Part 2."
+        },
+        {
+          "number": 86,
+          "title": "Starting an AI Data Center Services Business, Part 2: Power, Paperwork and the First Customer",
+          "years": "2023-2026",
+          "premise": "Once the model is chosen, the practical work begins: forming a company, finding power and space, reading colocation and cloud contracts, setting service levels, understanding software and hardware licenses, meeting security and compliance expectations and hiring the first staff. The episode walks through the documents and decisions involved, from service-level agreements to export-control checks on advanced chips, and the government fees, permits and registrations that differ from place to place. It points viewers to official sources for their own jurisdiction rather than offering legal, tax or financial advice."
+        },
+        {
+          "number": 87,
+          "title": "Eighty Years On: Open Questions for the Next Data Center",
+          "years": "1945-2026",
+          "premise": "The series ends by returning to ENIAC's room and asking what has really changed in eighty years, since power, heat, reliability and people remain the core problems. It looks at directions companies have announced, including the 1-megawatt racks covered earlier and Google's Project Suncatcher, a research effort announced in November 2025 to test TPUs in orbit on prototype satellites built with Planet and planned for early 2027, alongside the open debate over whether AI infrastructure spending will pay off. The episode keeps announcements and speculation clearly apart and leaves open questions open."
+        }
+      ]
+    }
+  ]
+}

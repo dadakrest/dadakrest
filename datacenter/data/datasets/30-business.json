@@ -1,0 +1,460 @@
+[
+  {
+    "name": "incidents",
+    "description": "Every incident the operations team opened against the site, one row each, in the order they were raised. Incident ids restart at 001 each calendar year. Severity runs sev1 (tenant-visible outage) through sev4 (cosmetic or reporting only), minutes_to_resolve is exactly the gap between opened_at and resolved_at, and client_impact marks the incidents a tenant could notice without being told.",
+    "schema": {
+      "incident_id": "string",
+      "opened_at": "string",
+      "resolved_at": "string",
+      "severity": "string",
+      "category": "string",
+      "summary": "string",
+      "root_cause": "string",
+      "minutes_to_resolve": "integer",
+      "client_impact": "boolean"
+    },
+    "records": [
+      {
+        "incident_id": "INC-2025-001",
+        "opened_at": "2025-02-11T04:05:00Z",
+        "resolved_at": "2025-02-11T05:47:00Z",
+        "severity": "sev3",
+        "category": "cooling",
+        "summary": "Rack R03 inlet air warmed to 29 °C overnight when the east CRAC unit locked out on a high-pressure alarm.",
+        "root_cause": "A clogged condenser filter tripped the head-pressure switch, and the filter change had slipped two months past its interval.",
+        "minutes_to_resolve": 102,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2025-002",
+        "opened_at": "2025-03-19T21:30:00Z",
+        "resolved_at": "2025-03-20T01:12:00Z",
+        "severity": "sev2",
+        "category": "network",
+        "summary": "The management VLAN lost reachability to twelve nodes in R02, so operators could not reach any of their BMCs for most of the night shift.",
+        "root_cause": "A newly cabled top-of-rack switch came up with the default bridge priority and took the spanning-tree root role away from the core pair.",
+        "minutes_to_resolve": 222,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2025-003",
+        "opened_at": "2025-04-08T13:22:00Z",
+        "resolved_at": "2025-04-08T14:10:00Z",
+        "severity": "sev1",
+        "category": "network",
+        "summary": "Pinewire Fiber began upstream maintenance an hour early and dropped the secondary uplink while the primary was already drained for a switch upgrade.",
+        "root_cause": "The maintenance notice went to a retired distribution list, so the carrier window was never reconciled with the planned upgrade.",
+        "minutes_to_resolve": 48,
+        "client_impact": true
+      },
+      {
+        "incident_id": "INC-2025-004",
+        "opened_at": "2025-05-02T09:41:00Z",
+        "resolved_at": "2025-05-02T18:05:00Z",
+        "severity": "sev2",
+        "category": "gpu",
+        "summary": "Four H100 cards on gpu-a02 fell off the PCIe bus and ended a sixteen-GPU fine-tune for Halvorsen Reasoning Lab at step 41,000.",
+        "root_cause": "A riser cable left loose during the February rebuild worked its way free under thermal cycling.",
+        "minutes_to_resolve": 504,
+        "client_impact": true
+      },
+      {
+        "incident_id": "INC-2025-005",
+        "opened_at": "2025-05-27T02:50:00Z",
+        "resolved_at": "2025-05-27T03:36:00Z",
+        "severity": "sev3",
+        "category": "software",
+        "summary": "The nightly embedding refill exited after its first shard and left 1,412 documents without vectors until the morning rerun.",
+        "root_cause": "A schema change added a nullable tags column and the refill treated the null as a fatal parse error instead of an empty list.",
+        "minutes_to_resolve": 46,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2025-006",
+        "opened_at": "2025-06-14T17:05:00Z",
+        "resolved_at": "2025-06-16T11:20:00Z",
+        "severity": "sev4",
+        "category": "storage",
+        "summary": "Snapshot retention on the datasets volume stopped pruning and free space slid from 40 percent to 9 percent over a week.",
+        "root_cause": "The pruning job ran under a service token that had expired, and its only complaint went to a log file nobody reads.",
+        "minutes_to_resolve": 2535,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2025-007",
+        "opened_at": "2025-06-30T22:14:00Z",
+        "resolved_at": "2025-06-30T23:02:00Z",
+        "severity": "sev2",
+        "category": "power",
+        "summary": "Rack R02 lost its B feed when breaker B7 tripped during a scheduled load test, leaving eight nodes running without redundancy.",
+        "root_cause": "Two spare nodes had been racked without updating the circuit budget, so the test crossed the per-feed limit.",
+        "minutes_to_resolve": 48,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2025-008",
+        "opened_at": "2025-07-21T11:00:00Z",
+        "resolved_at": "2025-07-21T12:37:00Z",
+        "severity": "sev3",
+        "category": "security",
+        "summary": "A credential-stuffing burst against the tenant API ran for an hour and a half before per-account rate limits absorbed it.",
+        "root_cause": "Rate limiting was scoped per source address and the traffic rotated through a wide pool of them.",
+        "minutes_to_resolve": 97,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2025-009",
+        "opened_at": "2025-08-09T06:18:00Z",
+        "resolved_at": "2025-08-09T07:44:00Z",
+        "severity": "sev2",
+        "category": "storage",
+        "summary": "Checkpoint writes for stonebriar-ticket-triage-3b failed for an hour and a half when the shared export flipped to read-only.",
+        "root_cause": "The export hit its inode limit after a run was configured to checkpoint every step rather than every epoch.",
+        "minutes_to_resolve": 86,
+        "client_impact": true
+      },
+      {
+        "incident_id": "INC-2025-010",
+        "opened_at": "2025-09-02T15:33:00Z",
+        "resolved_at": "2025-09-02T16:05:00Z",
+        "severity": "sev4",
+        "category": "software",
+        "summary": "The status command reported every database as degraded while all seven were in fact healthy.",
+        "root_cause": "The health check compared live row counts against a cached manifest that the previous backup had failed to refresh.",
+        "minutes_to_resolve": 32,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2025-011",
+        "opened_at": "2025-10-11T03:07:00Z",
+        "resolved_at": "2025-10-11T09:55:00Z",
+        "severity": "sev1",
+        "category": "power",
+        "summary": "The site transferred to generator during a utility sag and one PDU in R04 never came back, dropping six inference nodes that serve Kestrel & Fern Outfitters.",
+        "root_cause": "The PDU's transfer switch carried a failed control board that only revealed itself under a live transfer, not during monthly self-tests.",
+        "minutes_to_resolve": 408,
+        "client_impact": true
+      },
+      {
+        "incident_id": "INC-2025-012",
+        "opened_at": "2025-11-05T19:48:00Z",
+        "resolved_at": "2025-11-05T20:31:00Z",
+        "severity": "sev3",
+        "category": "gpu",
+        "summary": "Card AST-GPU-017 logged 64 corrected ECC errors in a single hour and was drained out of gpu-b01 mid-shift.",
+        "root_cause": "The card had run with a marginal HBM stack since its June repair and finally crossed the threshold that forces an RMA.",
+        "minutes_to_resolve": 43,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2025-013",
+        "opened_at": "2025-12-18T08:25:00Z",
+        "resolved_at": "2025-12-18T10:47:00Z",
+        "severity": "sev2",
+        "category": "network",
+        "summary": "Traffic for Saffron Lane Pantry ran at roughly 40 percent packet loss on the north uplink for just over two hours.",
+        "root_cause": "An optic on the north uplink degraded gradually and the link never dropped, so nothing triggered a failover.",
+        "minutes_to_resolve": 142,
+        "client_impact": true
+      },
+      {
+        "incident_id": "INC-2026-001",
+        "opened_at": "2026-01-14T23:12:00Z",
+        "resolved_at": "2026-01-15T00:20:00Z",
+        "severity": "sev3",
+        "category": "cooling",
+        "summary": "The chilled-water loop lost pressure and the R01 rear-door exchangers warmed steadily until the loop was topped back up.",
+        "root_cause": "A weeping valve gland on the return header had been bleeding the loop down for several weeks.",
+        "minutes_to_resolve": 68,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2026-002",
+        "opened_at": "2026-02-03T12:40:00Z",
+        "resolved_at": "2026-02-03T13:05:00Z",
+        "severity": "sev4",
+        "category": "software",
+        "summary": "Semantic search ranked results oddly for any query longer than about eight words.",
+        "root_cause": "Queries were clipped to the tokenizer window before scoring, so the trailing terms never reached the ranker.",
+        "minutes_to_resolve": 25,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2026-003",
+        "opened_at": "2026-02-22T05:55:00Z",
+        "resolved_at": "2026-02-22T06:41:00Z",
+        "severity": "sev2",
+        "category": "security",
+        "summary": "A revoked API token belonging to Marigold Annotation Works kept authenticating for six hours after it was withdrawn.",
+        "root_cause": "Revocations were written to the database but the gateway cached token state with no invalidation hook.",
+        "minutes_to_resolve": 46,
+        "client_impact": true
+      },
+      {
+        "incident_id": "INC-2026-004",
+        "opened_at": "2026-03-16T14:02:00Z",
+        "resolved_at": "2026-03-16T15:36:00Z",
+        "severity": "sev1",
+        "category": "gpu",
+        "summary": "Eight GPUs across gpu-c01 and gpu-c02 throttled to half clocks and roughly doubled inference latency for Northgate Logistics.",
+        "root_cause": "A firmware rollout set a thermal target the rear-door exchangers could not hold once the racks reached full load.",
+        "minutes_to_resolve": 94,
+        "client_impact": true
+      },
+      {
+        "incident_id": "INC-2026-005",
+        "opened_at": "2026-04-07T20:15:00Z",
+        "resolved_at": "2026-04-09T08:30:00Z",
+        "severity": "sev4",
+        "category": "storage",
+        "summary": "Backups of the audit database reported success while writing zero-length files four nights running.",
+        "root_cause": "The backup script opened its output file before checking that the destination volume was mounted.",
+        "minutes_to_resolve": 2175,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2026-006",
+        "opened_at": "2026-04-29T10:08:00Z",
+        "resolved_at": "2026-04-29T11:00:00Z",
+        "severity": "sev3",
+        "category": "network",
+        "summary": "Inbound TLS handshakes failed for about fifty minutes after a certificate renewal landed without its intermediate.",
+        "root_cause": "The renewal tool wrote only the leaf certificate and the gateway reloaded it before anyone noticed the missing chain.",
+        "minutes_to_resolve": 52,
+        "client_impact": true
+      },
+      {
+        "incident_id": "INC-2026-007",
+        "opened_at": "2026-05-19T01:30:00Z",
+        "resolved_at": "2026-05-19T04:12:00Z",
+        "severity": "sev2",
+        "category": "cooling",
+        "summary": "A failing fan tray in the R04 rear door pushed outlet temperature to 44 °C and forced four nodes into a throttled state.",
+        "root_cause": "Two of the tray's six fans had failed weeks apart, and the alarm only fires when an entire tray drops out.",
+        "minutes_to_resolve": 162,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2026-008",
+        "opened_at": "2026-06-08T16:44:00Z",
+        "resolved_at": "2026-06-08T17:19:00Z",
+        "severity": "sev3",
+        "category": "software",
+        "summary": "The job queue stopped dispatching for thirty-five minutes while one malformed payload was retried in a tight loop.",
+        "root_cause": "The payload raised before the retry counter was incremented, so the job never reached its dead-letter limit.",
+        "minutes_to_resolve": 35,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2026-009",
+        "opened_at": "2026-06-27T07:02:00Z",
+        "resolved_at": "2026-06-27T07:50:00Z",
+        "severity": "sev2",
+        "category": "power",
+        "summary": "A UPS battery string failed its monthly self-test and dropped the R03 A feed onto bypass for the rest of the morning.",
+        "root_cause": "One cell in the string had vented and pushed the string impedance past the test threshold.",
+        "minutes_to_resolve": 48,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2026-010",
+        "opened_at": "2026-07-13T09:26:00Z",
+        "resolved_at": "2026-07-13T12:04:00Z",
+        "severity": "sev1",
+        "category": "security",
+        "summary": "A misconfigured object bucket left evaluation exports for two tenants readable by anyone holding the URL for most of a morning.",
+        "root_cause": "A deployment template shipped with public read access enabled and nothing compared it against the storage baseline before apply.",
+        "minutes_to_resolve": 158,
+        "client_impact": true
+      },
+      {
+        "incident_id": "INC-2026-011",
+        "opened_at": "2026-08-05T18:37:00Z",
+        "resolved_at": "2026-08-05T19:03:00Z",
+        "severity": "sev4",
+        "category": "gpu",
+        "summary": "Two A10 cards sitting on the STORE-A spares shelf were recorded as in-service after a stocktake, which skewed capacity reporting for a day.",
+        "root_cause": "The stocktake import matched rows on host name, and both cards still carried the host they had been pulled from.",
+        "minutes_to_resolve": 26,
+        "client_impact": false
+      },
+      {
+        "incident_id": "INC-2026-012",
+        "opened_at": "2026-08-30T04:11:00Z",
+        "resolved_at": "2026-08-30T06:58:00Z",
+        "severity": "sev2",
+        "category": "storage",
+        "summary": "A vector index rebuild ran out of scratch space and left search answering from a half-built index for nearly three hours.",
+        "root_cause": "The rebuild wrote its temporary index onto the volume it was reading from, which had no headroom for two copies.",
+        "minutes_to_resolve": 167,
+        "client_impact": true
+      }
+    ]
+  },
+  {
+    "name": "vendor_contracts",
+    "description": "Supplier agreements behind the site, one row per contract, priced per month in US dollars. Vendors are the supplier organizations in organizations.json. end_date is the current end of the agreement, and renewal_notice_days is how far ahead notice must be served. Status is read against 2026-09-20: active, pending-renewal once inside the notice window, expired once the end date has passed, renewed where a later row on this sheet supersedes the agreement, and terminated where it was ended rather than allowed to run on.",
+    "schema": {
+      "vendor": "string",
+      "service": "string",
+      "start_date": "date",
+      "end_date": "date",
+      "monthly_cost_usd": "number",
+      "renewal_notice_days": "integer",
+      "owner_email": "string",
+      "status": "string"
+    },
+    "records": [
+      {
+        "vendor": "Ashgrove Compute Supply",
+        "service": "GPU supply with advance replacement for the H100 and L40S fleet",
+        "start_date": "2025-02-01",
+        "end_date": "2026-01-31",
+        "monthly_cost_usd": 18400.0,
+        "renewal_notice_days": 60,
+        "owner_email": "procurement@sddu13.example",
+        "status": "renewed"
+      },
+      {
+        "vendor": "Ashgrove Compute Supply",
+        "service": "Spare card depot held on site, replacements shipped within 24 hours",
+        "start_date": "2026-02-01",
+        "end_date": "2026-12-31",
+        "monthly_cost_usd": 21200.0,
+        "renewal_notice_days": 60,
+        "owner_email": "procurement@sddu13.example",
+        "status": "active"
+      },
+      {
+        "vendor": "Stonebriar Colocation",
+        "service": "Cage space for twelve racks with 150 kW of committed power",
+        "start_date": "2025-01-01",
+        "end_date": "2026-12-31",
+        "monthly_cost_usd": 41500.0,
+        "renewal_notice_days": 90,
+        "owner_email": "facilities@sddu13.example",
+        "status": "active"
+      },
+      {
+        "vendor": "Stonebriar Colocation",
+        "service": "Remote hands, forty hours a month at four-hour response",
+        "start_date": "2025-06-01",
+        "end_date": "2026-05-31",
+        "monthly_cost_usd": 3800.0,
+        "renewal_notice_days": 30,
+        "owner_email": "facilities@sddu13.example",
+        "status": "expired"
+      },
+      {
+        "vendor": "Coldwater Mechanical & Power",
+        "service": "Quarterly service of the CRAC units and the chilled-water loop",
+        "start_date": "2025-03-01",
+        "end_date": "2026-02-28",
+        "monthly_cost_usd": 6250.0,
+        "renewal_notice_days": 45,
+        "owner_email": "facilities@sddu13.example",
+        "status": "renewed"
+      },
+      {
+        "vendor": "Coldwater Mechanical & Power",
+        "service": "UPS battery testing and annual generator load-bank run",
+        "start_date": "2026-03-01",
+        "end_date": "2026-12-31",
+        "monthly_cost_usd": 7400.0,
+        "renewal_notice_days": 45,
+        "owner_email": "facilities@sddu13.example",
+        "status": "active"
+      },
+      {
+        "vendor": "Pinewire Fiber",
+        "service": "Primary 100 Gbps transit at 99.95 percent availability",
+        "start_date": "2025-01-01",
+        "end_date": "2026-10-31",
+        "monthly_cost_usd": 12900.0,
+        "renewal_notice_days": 60,
+        "owner_email": "netops@sddu13.example",
+        "status": "pending-renewal"
+      },
+      {
+        "vendor": "Pinewire Fiber",
+        "service": "Secondary 40 Gbps transit over a diverse path",
+        "start_date": "2025-04-01",
+        "end_date": "2026-09-30",
+        "monthly_cost_usd": 5600.0,
+        "renewal_notice_days": 30,
+        "owner_email": "netops@sddu13.example",
+        "status": "pending-renewal"
+      },
+      {
+        "vendor": "Harbor Security",
+        "service": "Round-the-clock SOC monitoring with an incident response retainer",
+        "start_date": "2025-05-01",
+        "end_date": "2026-04-30",
+        "monthly_cost_usd": 9800.0,
+        "renewal_notice_days": 60,
+        "owner_email": "security-ops@sddu13.example",
+        "status": "renewed"
+      },
+      {
+        "vendor": "Harbor Security",
+        "service": "Annual penetration test and quarterly attack-surface review",
+        "start_date": "2026-05-01",
+        "end_date": "2026-12-31",
+        "monthly_cost_usd": 4200.0,
+        "renewal_notice_days": 30,
+        "owner_email": "security-ops@sddu13.example",
+        "status": "active"
+      },
+      {
+        "vendor": "Marigold Annotation Works",
+        "service": "Labelling and second-pass review for reasoning trace batches",
+        "start_date": "2025-09-01",
+        "end_date": "2026-08-31",
+        "monthly_cost_usd": 15750.0,
+        "renewal_notice_days": 45,
+        "owner_email": "data-ops@sddu13.example",
+        "status": "expired"
+      },
+      {
+        "vendor": "Okafor & Lindqvist LLP",
+        "service": "Outside counsel for tenant agreements and data processing terms",
+        "start_date": "2025-01-15",
+        "end_date": "2026-12-31",
+        "monthly_cost_usd": 4500.0,
+        "renewal_notice_days": 30,
+        "owner_email": "legal@sddu13.example",
+        "status": "active"
+      },
+      {
+        "vendor": "Ellery & Oduya Insurance Brokers",
+        "service": "Placement of property, equipment breakdown and cyber liability cover",
+        "start_date": "2026-07-01",
+        "end_date": "2026-12-31",
+        "monthly_cost_usd": 8300.0,
+        "renewal_notice_days": 60,
+        "owner_email": "finance@sddu13.example",
+        "status": "active"
+      },
+      {
+        "vendor": "Corvid Talent Search",
+        "service": "Retained search for site reliability and platform engineers",
+        "start_date": "2025-08-01",
+        "end_date": "2026-01-31",
+        "monthly_cost_usd": 5200.0,
+        "renewal_notice_days": 30,
+        "owner_email": "people-ops@sddu13.example",
+        "status": "terminated"
+      },
+      {
+        "vendor": "Northgate Logistics",
+        "service": "Crated freight and certified disposal of retired hardware",
+        "start_date": "2025-02-15",
+        "end_date": "2026-12-31",
+        "monthly_cost_usd": 1850.0,
+        "renewal_notice_days": 30,
+        "owner_email": "facilities@sddu13.example",
+        "status": "active"
+      }
+    ]
+  }
+]
