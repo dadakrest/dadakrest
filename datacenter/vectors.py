@@ -25,11 +25,12 @@ LOCAL_MODEL_NAME = "local-hashing-v1"
 _TOKEN_RE = re.compile(r"[^\W_]+")
 
 #: Words carried by almost every document, so they say nothing about which one
-#: a query means. Dropping them keeps scores driven by the distinctive terms,
-#: which matters here because every term weighs the same (there is no IDF): a
-#: question like "what about penetration testing" otherwise spends a third of
-#: its weight on "about". The list is tuned for English. `no`, `nor` and `not`
-#: are deliberately left out so a negation still changes what a query matches.
+#: a query means. Search weights query terms by IDF, which already pushes a
+#: word like "about" towards zero once the corpus is large enough to show it is
+#: everywhere; dropping these outright keeps that true for a small corpus too,
+#: where a word can miss a handful of documents by chance and look rarer than
+#: it is. The list is tuned for English. `no`, `nor` and `not` are deliberately
+#: left out so a negation still changes what a query matches.
 STOPWORDS = frozenset(
     """
     a about above after again all an and any are as at be been before
@@ -106,6 +107,43 @@ def similarity(left: dict[int, float], right: dict[int, float]) -> float:
     if len(right) < len(left):
         left, right = right, left
     return sum(weight * right[bucket] for bucket, weight in left.items() if bucket in right)
+
+
+def idf(documents: int, containing: int) -> float:
+    """How much a term found in `containing` of `documents` says about a match.
+
+    The BM25 form, log(1 + (N - df + 0.5) / (df + 0.5)): high for a rare term,
+    falling towards zero for one nearly every document carries, and never
+    negative, so a common term can lose its weight but cannot count against a
+    document.
+    """
+    if documents < 0 or containing < 0:
+        raise ValueError("counts cannot be negative")
+    return math.log(1.0 + (documents - containing + 0.5) / (containing + 0.5))
+
+
+def weight_query(
+    query: dict[int, float], frequency: dict[int, int], documents: int
+) -> dict[int, float]:
+    """Reweight a query embedding by how rare each of its terms is.
+
+    `frequency` maps a bucket to the number of documents that contain it, out
+    of `documents`. The result is L2-normalized again, so it still scores in
+    [0, 1] with `similarity` and `min_score` keeps its meaning.
+
+    Only the query is reweighted. Weighting the stored vectors too would tie
+    every one of them to the corpus it was indexed in, so adding a single
+    document would mean re-embedding all the others; reweighting the query
+    gets the ranking benefit with nothing stored changing.
+    """
+    weighted = {
+        bucket: weight * idf(documents, frequency.get(bucket, 0))
+        for bucket, weight in query.items()
+    }
+    norm = math.sqrt(sum(weight * weight for weight in weighted.values()))
+    if norm == 0.0:
+        return {}
+    return {bucket: weight / norm for bucket, weight in weighted.items()}
 
 
 def dumps(vector: dict[int, float]) -> str:

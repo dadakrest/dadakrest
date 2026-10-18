@@ -19,7 +19,7 @@ import datacenter.vectors  # noqa: E402
 from datacenter import DATABASE_KEYS, DataCenter  # noqa: E402
 from datacenter.cli import main as cli_main  # noqa: E402
 from datacenter.seed import seed  # noqa: E402
-from datacenter.vectors import embed, loads, similarity, tokenize  # noqa: E402
+from datacenter.vectors import embed, idf, loads, similarity, tokenize, weight_query  # noqa: E402
 
 
 class DataCenterTestCase(unittest.TestCase):
@@ -240,14 +240,6 @@ class TestDocumentsAndSearch(DataCenterTestCase):
         """Not even with the floor turned off: zero similarity is not a match."""
         self.assertEqual(self.center.search("photosynthesis chlorophyll", min_score=0.0), [])
 
-    def test_scores_are_the_similarity_of_the_stored_vectors(self) -> None:
-        hit = self.center.search("firewall rules")[0]
-        row = self.center.db("embeddings").query_one(
-            "SELECT vector FROM embeddings WHERE document_id = ?", (hit["document_id"],)
-        )
-        expected = similarity(embed("firewall rules"), loads(row["vector"]))
-        self.assertAlmostEqual(hit["score"], expected, places=4)
-
     def test_a_one_word_query_finds_a_long_document(self) -> None:
         """The defect the score floor used to cause.
 
@@ -329,6 +321,60 @@ class TestEmbeddingScheme(DataCenterTestCase):
         self.assertTrue(
             any(event["action"] == "search_skip" for event in self.center.recent_events())
         )
+
+
+class TestIdfRanking(DataCenterTestCase):
+    """A common word must not outrank a distinctive one."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        # "pay" appears in five of six documents; "rotation" in one.
+        self.payroll = self.center.add_document("Payroll", "pay pay pay salary")
+        self.rota = self.center.add_document("Rota", "rotation schedule handover weekly")
+        for title, body in (("Invoices", "pay invoice"), ("Expenses", "pay expenses"),
+                            ("Reviews", "pay review"), ("Bands", "pay bands")):
+            self.center.add_document(title, body)
+
+    def test_the_rare_term_decides_the_ranking(self) -> None:
+        hits = self.center.search("rotation pay", limit=6)
+        self.assertEqual(hits[0]["document_id"], self.rota)
+
+    def test_plain_cosine_would_have_ranked_the_common_term_first(self) -> None:
+        """Proof the test above is measuring IDF and not something else: with
+        every term weighted the same, the document saying "pay" three times
+        wins."""
+        query = embed("rotation pay")
+        stored = self.stored()
+        plain = max(stored, key=lambda document_id: similarity(query, stored[document_id]))
+        self.assertEqual(plain, self.payroll)
+
+    def stored(self) -> dict[int, dict[int, float]]:
+        return {
+            row["document_id"]: loads(row["vector"])
+            for row in self.center.db("embeddings").query("SELECT document_id, vector FROM embeddings")
+        }
+
+    def test_scores_are_the_idf_weighted_similarity_of_the_stored_vectors(self) -> None:
+        """Pins the formula. The two query words have different document
+        frequencies here (one in five documents, one in one), so an unweighted
+        score would differ and this would fail."""
+        stored = self.stored()
+        query = embed("rotation pay")
+        frequency = {bucket: sum(1 for v in stored.values() if bucket in v) for bucket in query}
+        weighted = weight_query(query, frequency, len(stored))
+
+        scores = {hit["document_id"]: hit["score"] for hit in self.center.search("rotation pay", limit=6)}
+        self.assertAlmostEqual(scores[self.payroll], similarity(weighted, stored[self.payroll]), places=4)
+        self.assertNotAlmostEqual(scores[self.payroll], similarity(query, stored[self.payroll]), places=2)
+
+    def test_a_single_word_query_is_unaffected(self) -> None:
+        """Reweighting one term and renormalising leaves it at weight 1, so a
+        one-word query scores exactly what plain cosine gives."""
+        hit = self.center.search("rotation")[0]
+        row = self.center.db("embeddings").query_one(
+            "SELECT vector FROM embeddings WHERE document_id = ?", (hit["document_id"],)
+        )
+        self.assertAlmostEqual(hit["score"], similarity(embed("rotation"), loads(row["vector"])), places=4)
 
 
 class TestDatasets(DataCenterTestCase):
@@ -482,6 +528,14 @@ class TestSeed(DataCenterTestCase):
         self.assertEqual(summary["documents"], len(self.center.list_documents()))
         self.assertTrue(self.center.search("incident escalation on-call analyst"))
 
+    def test_idf_puts_the_specific_runbook_first_in_the_bundled_corpus(self) -> None:
+        """The example DataCenter.search's docstring cites. "network" is
+        common in this corpus; unweighted, it carried the general hardening
+        checklist to the top."""
+        seed(self.center)
+        top = self.center.search("network segmentation for clusters", limit=1)[0]
+        self.assertEqual(top["title"], "Network segmentation for GPU clusters")
+
 
 class TestVectors(unittest.TestCase):
     def test_embedding_is_deterministic_and_normalized(self) -> None:
@@ -522,6 +576,32 @@ class TestVectors(unittest.TestCase):
 
     def test_empty_text_has_zero_similarity(self) -> None:
         self.assertEqual(similarity(embed(""), embed("anything")), 0.0)
+
+    def test_idf_rewards_rarity_and_never_goes_negative(self) -> None:
+        self.assertGreater(idf(100, 1), idf(100, 10))
+        self.assertGreater(idf(100, 10), idf(100, 90))
+        self.assertGreater(idf(100, 100), 0.0)
+        self.assertGreater(idf(1, 1), 0.0)
+
+    def test_idf_refuses_negative_counts(self) -> None:
+        with self.assertRaises(ValueError):
+            idf(-1, 0)
+
+    def test_a_weighted_query_is_still_unit_norm(self) -> None:
+        query = embed("network segmentation clusters")
+        frequency = {bucket: index + 1 for index, bucket in enumerate(query)}
+        weighted = weight_query(query, frequency, 50)
+        self.assertAlmostEqual(sum(w * w for w in weighted.values()), 1.0, places=6)
+
+    def test_weighting_shifts_weight_towards_the_rarer_term(self) -> None:
+        query = embed("common rare")
+        common, rare = (next(b for b in query if b == embed(word).popitem()[0])
+                        for word in ("common", "rare"))
+        weighted = weight_query(query, {common: 40, rare: 1}, 50)
+        self.assertGreater(weighted[rare], weighted[common])
+
+    def test_weighting_an_empty_query_is_empty(self) -> None:
+        self.assertEqual(weight_query({}, {}, 10), {})
 
     def test_similarity_is_symmetric(self) -> None:
         left, right = embed("invoice for the security audit"), embed("security audit")

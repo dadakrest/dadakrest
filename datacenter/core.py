@@ -463,6 +463,18 @@ class DataCenter:
     ) -> list[dict[str, Any]]:
         """Semantic search across indexed documents, best match first.
 
+        Query terms are weighted by IDF over the indexed documents, so a word
+        few documents use counts for more than one most of them use. In the
+        bundled corpus "network segmentation for clusters" used to rank the
+        general network hardening checklist first, on the strength of the
+        common word "network"; weighted, the distinctive terms decide and the
+        segmentation runbook comes first. Stored vectors are untouched; see
+        `vectors.weight_query`.
+
+        IDF cannot bridge different words for the same idea. There is no
+        stemming, so "paid" does not match "pay", and a stemmer would not help
+        there either: it is an irregular form.
+
         A document that shares nothing with the query is never a hit, whatever
         floor the caller asks for: a score of exactly zero means no term in
         common, not a weak match.
@@ -481,7 +493,12 @@ class DataCenter:
         if not rows:
             self._require_current_index(model, BUCKET_SPACE)
 
-        scored: list[tuple[float, int]] = []
+        # One pass collects document frequencies and the candidates together.
+        # A document sharing no bucket with the query can neither score nor
+        # change the frequency of any query term, so it only adds to the total.
+        candidates: list[tuple[int, dict[int, float]]] = []
+        frequency: dict[int, int] = {}
+        documents = 0
         unreadable = 0
         for row in rows:
             try:
@@ -490,9 +507,20 @@ class DataCenter:
                 # A corrupt blob is one lost document, not a failed search.
                 unreadable += 1
                 continue
-            score = vectors.similarity(query_vector, stored)
+            documents += 1
+            shared = [bucket for bucket in query_vector if bucket in stored]
+            if not shared:
+                continue
+            for bucket in shared:
+                frequency[bucket] = frequency.get(bucket, 0) + 1
+            candidates.append((int(row["document_id"]), stored))
+
+        weighted = vectors.weight_query(query_vector, frequency, documents)
+        scored: list[tuple[float, int]] = []
+        for document_id, stored in candidates:
+            score = vectors.similarity(weighted, stored)
             if score > 0.0 and score >= threshold:
-                scored.append((score, int(row["document_id"])))
+                scored.append((score, document_id))
         scored.sort(key=lambda pair: (-pair[0], pair[1]))
         if unreadable:
             self.log("embeddings", "search_skip", detail=f"{unreadable} unreadable vectors")

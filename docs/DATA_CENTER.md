@@ -160,6 +160,23 @@ Collisions are made negligible in the embedder rather than filtered by score.
 A document sharing no bucket with the query scores exactly zero and is never
 returned; `min_score` remains available to ask for a stronger overlap.
 
+Query terms are weighted by **IDF** before scoring, using BM25's form,
+`log(1 + (N - df + 0.5) / (df + 0.5))`, over the `N` indexed documents. A word
+few documents use counts for more than one most of them use, so in the bundled
+corpus "network segmentation for clusters" now ranks the segmentation runbook
+first instead of the general hardening checklist that won on the common word
+"network". Only the query is reweighted: weighting stored vectors too would tie
+each one to the corpus it was indexed in, so adding a document would mean
+re-embedding every other. A one-word query is unaffected, since one reweighted
+term normalizes back to weight 1.
+
+What IDF does not do is connect different words for the same idea. There is no
+stemming, so "paid" does not match "pay" — and a stemmer would not rescue that
+case anyway, being an irregular form. Asking about "on-call rotation pay" ranks
+the sickness policy, which uses all three words, above the hours policy that
+actually explains on-call pay but says "paid". A real embedding model is the
+fix for that.
+
 Scores are comparable within one result list, not across queries: a long
 document matching one term will always score below a short one matching the
 same term.
