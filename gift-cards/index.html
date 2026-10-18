@@ -156,6 +156,11 @@
 
   // ---------- Constants ----------
   const STORE_KEY = 'familyGiftCards.v2';
+  // Bump RULES whenever replay (apply/clean) changes: synced phones then rebuild their copy
+  // from the family's full log once, so phones on old and new versions agree again.
+  const RULES = 2;
+  // Kinds of unsent changes that move along when a family moves to a new code.
+  const CARRY_TYPES = new Set(['points', 'redeem', 'used', 'kid.add', 'kid.edit', 'kid.remove', 'card.add', 'card.remove', 'settings', 'acts', 'clear']);
   const OLD_STORE_KEY = 'familyGiftCards.v1';
   const MAX_AGE = 15;                               // kids profiles are for ages 1–15
   const MIN_AGE = 1;
@@ -221,7 +226,8 @@
   // Postgres refuses NUL characters and half emoji (lone surrogates), so strings never keep them.
   const wellFormed = s => {
     s = s.replace(/\0/g, '');
-    return s.toWellFormed ? s.toWellFormed() : s.replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '�');
+    // (no regex lookbehind here: Safari before 16.4 can't parse it, and the whole app would fail to start)
+    return s.toWellFormed ? s.toWellFormed() : s.replace(/[\ud800-\udbff][\udc00-\udfff]|[\ud800-\udfff]/g, m => m.length === 2 ? m : '\ufffd');
   };
   const str = (v, max) => {
     if (typeof v !== 'string') return '';
@@ -229,6 +235,8 @@
     if (s.length > max) { s = s.slice(0, max); if (/[\ud800-\udbff]$/.test(s)) s = s.slice(0, -1); }
     return wellFormed(s);
   };
+  // Settings are shown in one-line inputs, so they never keep line breaks (an input would drop them).
+  const line = (v, max) => typeof v === 'string' ? str(v.replace(/[\r\n]+/g, ' '), max) : '';
   const cleanStrings = v => JSON.parse(JSON.stringify(v, (k, x) => typeof x === 'string' ? wellFormed(x) : x));
   const int = (v, lo, hi) => {
     const n = typeof v === 'number' || (typeof v === 'string' && v.trim() !== '') ? Math.trunc(Number(v)) : NaN;
@@ -236,6 +244,7 @@
   };
   const arr = v => Array.isArray(v) ? v : [];
   const isColor = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
 
   // SHA-256 for the parent PIN, in plain JS so it also works where crypto.subtle is missing.
@@ -301,7 +310,7 @@
       stock: int(c.stock, -1, 10000) ?? -1,
       note: str(c.note, 80),
       emoji: str(c.emoji, 16) || '🎁',
-      color: isColor(c.color) ? c.color : '#6c4cf5',
+      color: isColor(c.color) ? c.color.toLowerCase() : '#6c4cf5',
     };
   }
   function cleanWallet(w) {
@@ -319,7 +328,7 @@
   }
   function cleanAct(a) {
     if (!isObj(a)) return null;
-    const label = str(a.label, 40), pts = int(a.pts, 1, 1000);
+    const label = line(a.label, 40), pts = int(a.pts, 1, 1000);
     return label && pts ? { label, pts } : null;
   }
   // Past the cap, the oldest *used* cards go first; unused cards are never dropped.
@@ -328,8 +337,8 @@
     const s = defaults();
     if (!isObj(d)) return s;
     const ds = isObj(d.settings) ? d.settings : {};
-    for (const k of ['familyName', 'appTitle', 'tagline', 'pointsName']) if (typeof ds[k] === 'string') s.settings[k] = str(ds[k], 60);
-    if (isColor(ds.accent)) s.settings.accent = ds.accent;
+    for (const k of ['familyName', 'appTitle', 'tagline', 'pointsName']) if (typeof ds[k] === 'string') s.settings[k] = line(ds[k], 60);
+    if (isColor(ds.accent)) s.settings.accent = ds.accent.toLowerCase();
     if (typeof ds.pinHash === 'string' && /^[0-9a-f]{64}$/.test(ds.pinHash)) {
       s.settings.pinHash = ds.pinHash; s.settings.pinSalt = str(ds.pinSalt, 64);
     } else if (typeof ds.pin === 'string' && /^\d{4,6}$/.test(ds.pin)) {
@@ -369,8 +378,8 @@
     switch (ev.type) {
       case 'settings': {
         const v = isObj(ev.settings) ? ev.settings : {};
-        for (const k of ['familyName', 'appTitle', 'tagline', 'pointsName']) if (typeof v[k] === 'string') s.settings[k] = str(v[k], 60);
-        if (isColor(v.accent)) s.settings.accent = v.accent;
+        for (const k of ['familyName', 'appTitle', 'tagline', 'pointsName']) if (typeof v[k] === 'string') s.settings[k] = line(v[k], 60);
+        if (isColor(v.accent)) s.settings.accent = v.accent.toLowerCase();
         break;
       }
       case 'acts': {
@@ -391,8 +400,13 @@
         break;
       }
       case 'kid.edit': {
-        // Only the fields that were changed are sent, so two phones editing different fields both win.
-        const k = kid(ev.kidId), c = k && cleanKid({ ...k, name: ev.name ?? k.name, age: ev.age ?? k.age });
+        // ev.fields lists what was changed, so two phones editing different fields both win.
+        // (Name and age are always sent too, for phones still on an older version.)
+        const k = kid(ev.kidId);
+        if (!k) break;
+        const only = Array.isArray(ev.fields) ? ev.fields : null;
+        const pick = f => (only ? only.includes(f) : ev[f] !== undefined) ? ev[f] : k[f];
+        const c = cleanKid({ ...k, name: pick('name'), age: pick('age') });
         if (c) Object.assign(k, c);
         break;
       }
@@ -500,7 +514,12 @@
             cursor: int(st.sync.cursor, 0, Number.MAX_SAFE_INTEGER) ?? 0,
             pulled: st.sync.pulled === true,
             ...(typeof st.sync.retire === 'string' && st.sync.retire.length === CODE_LEN ? { retire: st.sync.retire } : {}),
+            ...(typeof st.sync.seed === 'string' ? { seed: st.sync.seed } : {}),
+            ...(typeof st.sync.family === 'string' && UUID_RE.test(st.sync.family) ? { family: st.sync.family } : {}),
+            // replay rules changed since this copy was built (or an older version saved it): rebuild once
+            ...(st.sync.refold === true || st.rules !== RULES ? { refold: true } : {}),
           } : null,
+      rules: RULES,
     };
     if (!out.sync) { for (const e of out.pending) out.base = apply(out.base, e); out.pending = []; }
     return out;
@@ -539,14 +558,18 @@
   }
 
   // ---------- Sync ----------
-  const sync = { status: 'idle', error: '', busy: false, again: false, lastTry: 0, timer: 0 };
+  // sync.gone: the server no longer has this phone's family under its code (deleted, or moved
+  // to a new code). Joining again then carries this phone's unsent changes along.
+  const sync = { status: 'idle', error: '', code: '', gone: false, busy: false, again: false, lastTry: 0, timer: 0 };
   const ERRORS = {
     family_not_found: 'This family code isn\'t on the sync server.',
+    family_moved: 'This family moved to a new code.',
     bad_code: 'That family code isn\'t valid.',
     server_full: 'The sync server has no room for another family.',
-    family_full: 'This family\'s sync storage is full.',
+    family_full: 'This family\'s sync storage is full. A parent can make a new family code in Setup to keep syncing.',
   };
   const friendly = e => e.offline ? 'No internet connection.' : (ERRORS[e.message] || 'The sync server had a problem. Trying again soon.');
+  const fail = (message, extra) => Object.assign(new Error(message), extra);
   // Size of an event as the server counts it (UTF-8 bytes of jsonb text, which adds a space after : and ,).
   const serverSize = v => { const j = JSON.stringify(v); return new TextEncoder().encode(j).length + (j.match(/[:,]/g) || []).length; };
 
@@ -562,24 +585,44 @@
           body: JSON.stringify(args),
         });
       } catch {
-        throw Object.assign(new Error('offline'), { offline: true });
+        throw fail('offline', { offline: true });
       }
-      let body = null;
-      try { body = await res.json(); } catch {}
-      if (!res.ok) throw Object.assign(new Error(body?.message || `HTTP ${res.status}`), { status: res.status, code: body?.code });
+      let body = null, readable = true;
+      try { body = await res.json(); } catch { readable = false; }
+      if (!res.ok) throw fail(body?.message || `HTTP ${res.status}`, { status: res.status, code: body?.code });
+      // A reply cut off on a bad connection must never pass for an empty one.
+      if (!readable || !isObj(body)) throw fail('offline', { offline: true });
       return body;
     } finally {
       clearTimeout(timer);
     }
   }
 
+  // Wait for a sync that is already running, then run a fresh one.
+  async function syncFresh() {
+    while (sync.busy) await new Promise(r => setTimeout(r, 100));
+    await syncNow();
+  }
+
   // The server said no to the change itself (not a network or server hiccup), so resending won't help.
   const refusedEvent = e => ['bad_event', 'bad_events', 'too_big'].includes(e.message)
     || ['22P02', '22P05', '54000'].includes(e.code) || e.status === 413;
 
+  // Remember which family this phone belongs to. If the code is later deleted and registered
+  // again by someone else, that is a different family and this phone won't talk to it.
+  function checkFamily(r) {
+    if (typeof r?.family !== 'string' || !UUID_RE.test(r.family)) return;
+    if (!store.sync.family) { store.sync.family = r.family; persist(); }
+    else if (store.sync.family !== r.family) throw fail('family_not_found');
+  }
+
   async function pushPending(code) {
     const list = store.pending.slice();
-    const send = events => rpc('gc_push', { p_secret: code, p_device: store.device, p_events: cleanStrings(events) });
+    const send = async events => {
+      const r = await rpc('gc_push', { p_secret: code, p_device: store.device, p_events: cleanStrings(events), p_family: store.sync.family ?? null });
+      refreshFromDisk();
+      if (store.sync?.code === code) checkFamily(r);
+    };
     for (let i = 0; i < list.length;) {
       const batch = [];
       let size = 0;
@@ -610,8 +653,21 @@
   }
 
   function dropRefused(ev, code) {
-    if (ev.type === 'import' && store.sync.cursor === 0) {
-      // The family's very first upload: never lose it. Keep everything on this phone and turn sync off.
+    const firstUpload = ev.id === store.sync.seed && store.sync.cursor === 0;
+    if (firstUpload && store.sync.retire) {
+      // Moving to a new code failed at the first step: stay on the old code, which still has everything.
+      const old = store.sync.retire;
+      rpc('gc_delete_family', { p_secret: code }).catch(() => {});
+      rpc('gc_freeze_family', { p_secret: old, p_moved: false }).catch(() => {});
+      store.sync = { code: old, cursor: 0, pulled: false };
+      store.base = defaults(); store.pending = [];
+      persist(); recompute();
+      toast('Too much data to move to a new code. This phone stays on the old code; clear history and try again.');
+      scheduleSync(0);
+      return;
+    }
+    if (firstUpload) {
+      // This phone's very first upload for a new family: never lose it. Keep everything here and turn sync off.
       let base = cleanState(ev.state);
       for (const p of store.pending) if (p.id !== ev.id) base = apply(base, p);
       store.base = base; store.pending = []; store.sync = null;
@@ -630,25 +686,66 @@
     if (ev.by === store.device) toast(msg);
   }
 
-  async function pullAll(code) {
+  // One page of the family's log after `after`, checked before anything is applied.
+  async function pullPage(code, after) {
+    const r = await rpc('gc_pull', { p_secret: code, p_after: after, p_limit: 500 });
+    if (!Array.isArray(r.events) || !Number.isSafeInteger(r.last_seq)) throw fail('bad_reply');
+    // Seqs have no gaps, so a page that starts later than asked (or is empty while more exist) is damaged.
+    if (r.events.length ? r.events[0]?.seq !== after + 1 : after < r.last_seq) throw fail('bad_reply');
+    return r;
+  }
+
+  // After an update to the replay rules, rebuild this phone's copy from the whole log, off to
+  // the side, and swap it in only once it's complete.
+  async function refold(code) {
+    let b = defaults(), cur = 0;
+    const seen = new Set();
     for (let page = 0; page < 10000; page++) {
-      const r = await rpc('gc_pull', { p_secret: code, p_after: store.sync.cursor, p_limit: 500 });
+      const r = await pullPage(code, cur);
+      refreshFromDisk();
+      if (store.sync?.code !== code) return;
+      checkFamily(r);
+      for (const e of r.events) {
+        b = apply(b, e.body);                 // no messages: these changes were already shown once
+        cur = e.seq;
+        if (typeof e.body?.id === 'string') seen.add(e.body.id);
+      }
+      if (!r.events.length || cur >= r.last_seq) break;
+    }
+    if (cur < store.sync.cursor) return;     // another copy got further meanwhile; try again next time
+    store.base = b;
+    store.sync.cursor = cur;
+    store.pending = store.pending.filter(p => !seen.has(p.id));
+    delete store.sync.refold;
+    persist(); recompute();
+  }
+
+  async function pullAll(code, { allowMoved = false } = {}) {
+    if (store.sync.refold) await refold(code);
+    let moved = false;
+    for (let page = 0; page < 10000; page++) {
+      if (store.sync?.code !== code) return;
+      const after = store.sync.cursor;
+      const r = await pullPage(code, after);
       refreshFromDisk();
       if (store.sync?.code !== code) return;            // left or switched family meanwhile
-      const events = arr(r?.events);
-      let moved = false;
-      for (const e of events) {
+      if (store.sync.cursor < after) continue;          // left and joined again meanwhile: this page has a gap
+      checkFamily(r);
+      moved = r.moved === true;
+      let changed = false;
+      for (const e of r.events) {
         if (!(e?.seq > store.sync.cursor)) continue;      // another copy of the app already applied it
         // Each event moves base, cursor and pending together, so nothing is ever counted twice.
         store.base = apply(store.base, e.body, notifyRejected);
         store.sync.cursor = e.seq;
         const id = e.body?.id;
         if (typeof id === 'string') store.pending = store.pending.filter(p => p.id !== id);
-        moved = true;
+        changed = true;
       }
-      if (moved) persist();
-      if (!events.length || store.sync.cursor >= (r?.last_seq || 0)) return;
+      if (changed) persist();
+      if (!r.events.length || store.sync.cursor >= r.last_seq) break;
     }
+    if (moved && !allowMoved) throw fail('family_moved');
   }
 
   async function syncNow() {
@@ -658,13 +755,29 @@
     if (sync.busy) { sync.again = true; return; }
     sync.busy = true;
     sync.lastTry = Date.now();
-    const before = JSON.stringify(state);
+    const before = JSON.stringify(state), goneBefore = sync.gone;
     setSyncStatus('syncing');
     try {
-      if (store.pending.length) await pushPending(code);
+      let full = null;
+      if (store.pending.length) {
+        try {
+          await pushPending(code);
+        } catch (e) {
+          const own = store.sync?.code === code && store.sync.cursor === 0 && store.pending[0]?.id === store.sync.seed;
+          if (e.message === 'family_full') full = e;          // still bring in everyone else's changes
+          else if (e.message === 'family_not_found' && own) {
+            // Our new family's first upload was so late that the server freed the empty slot: register it again.
+            await rpc('gc_create_family', { p_secret: code });
+            refreshFromDisk();
+            if (store.sync?.code === code) await pushPending(code);
+          } else throw e;
+        }
+      }
       if (store.sync?.code === code) await pullAll(code);
+      if (full) throw full;
       if (store.sync?.code === code) {
         if (!store.sync.pulled) { store.sync.pulled = true; persist(); }
+        sync.gone = false;
         setSyncStatus('ok');
       }
       // After moving to a new family code, delete the old one once the new one holds everything.
@@ -678,14 +791,18 @@
       }
     } catch (e) {
       if (store.sync?.code === code) {
-        setSyncStatus(e.offline ? 'offline' : 'error', e.message === 'family_not_found'
-          ? 'This family\'s code was changed or deleted. Ask a parent for the new code, then Stop syncing and join again.'
-          : friendly(e));
+        sync.gone = e.message === 'family_not_found' || e.message === 'family_moved';
+        setSyncStatus(e.offline ? 'offline' : 'error',
+          e.message === 'family_moved'
+            ? 'This family moved to a new code. Ask a parent for the new code and join with it. Changes not synced yet will come along.'
+            : e.message === 'family_not_found'
+              ? 'This family\'s code was changed or deleted. Ask a parent for the new code and join with it.'
+              : friendly(e), e.message);
       }
     } finally {
       sync.busy = false;
       recompute();
-      if (JSON.stringify(state) !== before) render(true);
+      if (JSON.stringify(state) !== before || sync.gone !== goneBefore) render(true);
       if (sync.again) { sync.again = false; scheduleSync(0); }
     }
   }
@@ -696,9 +813,10 @@
     sync.timer = setTimeout(syncNow, delay);
   }
 
-  function setSyncStatus(status, error = '') {
+  function setSyncStatus(status, error = '', code = '') {
     sync.status = status;
     sync.error = error;
+    sync.code = code;
     updateBadge();
     const el = $('#syncStatusText');
     if (el) el.textContent = syncStatusText();
@@ -727,6 +845,7 @@
   let shopKid = null;
   let walletKid = null;
   let hiddenAt = 0;
+  let relockDraft = null;
   let renderWaiting = false;
   let renderRetry = 0;
   let pointerDown = false;
@@ -779,28 +898,52 @@
     });
   }
   async function newPin() {
+    const familyBefore = store.sync?.code ?? null, hashBefore = state.settings.pinHash;
     const p1 = await askPin('Create a 4–6 digit parent PIN');
     if (!p1) return false;
     if (p1.length < 4) { toast('PIN needs at least 4 digits'); return false; }
     const p2 = await askPin('Type the PIN again');
     if (p1 !== p2) { toast('PINs did not match'); return false; }
+    // While the dialog was open this phone may have joined a family, or received the family's
+    // PIN. A new PIN made now would replace the family's PIN on every phone.
+    refreshFromDisk();
+    if ((store.sync?.code ?? null) !== familyBefore || state.settings.pinHash !== hashBefore || (store.sync && !store.sync.pulled)) {
+      toast('This phone just got its family\'s data. Use the family\'s parent PIN.');
+      return false;
+    }
     commit('pin', hashPin(p1));
     return true;
   }
-  // After 5 wrong PINs in a row, wait 30 seconds (remembered across reloads).
+  // After 5 wrong PINs in a row, wait (30 s, then longer). The count is kept across reloads.
   const PIN_WAIT_KEY = STORE_KEY + '.pinWait';
-  let wrongPins = 0;
+  function pinFails() {
+    let v = null;
+    try { v = JSON.parse(readRaw(PIN_WAIT_KEY)); } catch {}
+    const n = isObj(v) ? int(v.n, 0, 1000) ?? 0 : 0;
+    let until = isObj(v) ? int(v.until, 0, 8.64e15) ?? 0 : 0;
+    const longest = 30000 * 64;
+    if (until - Date.now() > longest) until = Date.now() + 30000;   // the clock was moved back: don't lock for months
+    return { n, until };
+  }
+  function savePinFails(f) {
+    try { f.n ? localStorage.setItem(PIN_WAIT_KEY, JSON.stringify(f)) : localStorage.removeItem(PIN_WAIT_KEY); } catch {}
+  }
+  function pinWaiting(f) {
+    if (Date.now() >= f.until) return false;
+    toast(`Too many wrong PINs. Try again in ${Math.ceil((f.until - Date.now()) / 1000)} seconds.`);
+    return true;
+  }
   async function checkPin(title) {
-    const until = Number(readRaw(PIN_WAIT_KEY)) || 0;
-    if (Date.now() < until) { toast(`Too many wrong PINs. Try again in ${Math.ceil((until - Date.now()) / 1000)} seconds.`); return false; }
+    if (pinWaiting(pinFails())) return false;
     const p = await askPin(title);
     if (p === null) return false;
-    if (sha256(state.settings.pinSalt + ':' + p) === state.settings.pinHash) { wrongPins = 0; return true; }
-    if (++wrongPins >= 5) {
-      wrongPins = 0;
-      try { localStorage.setItem(PIN_WAIT_KEY, String(Date.now() + 30000)); } catch {}
-      toast('Too many wrong PINs. Wait 30 seconds.');
-    } else toast('Wrong PIN');
+    const f = pinFails();                      // read again: another copy of the app may have counted meanwhile
+    if (pinWaiting(f)) return false;
+    if (sha256(state.settings.pinSalt + ':' + p) === state.settings.pinHash) { savePinFails({ n: 0 }); return true; }
+    f.n++;
+    if (f.n % 5 === 0) f.until = Date.now() + 30000 * Math.min(2 ** (f.n / 5 - 1), 64);
+    savePinFails(f);
+    toast(f.n % 5 === 0 ? `Too many wrong PINs. Wait ${Math.round((f.until - Date.now()) / 1000)} seconds.` : 'Wrong PIN');
     return false;
   }
   // A phone that just joined doesn't have the family's PIN until its first sync finishes;
@@ -860,7 +1003,7 @@
         <button class="ghost" style="width:100%;margin-top:8px" data-act="joinFamily">Join family</button>
       </div>`;
     }
-    const code = parentUnlocked && showCode
+    const code = showCode
       ? `<div class="codebox">${esc(formatCode(store.sync.code))}</div>
          <p class="muted">Add another phone: open the app there, go to Setup, and type this code (or send it the link). Anyone with this code can see and change your family's data, so only give it to phones you trust.</p>
          <div class="row"><button class="ghost" data-act="copyCode">Copy code</button><button class="ghost" data-act="shareCode">Send link</button></div>`
@@ -870,7 +1013,11 @@
       <p class="muted">Changes show up on the other phones within about 10 seconds while the app is open. Changes made offline are kept and sent when the internet is back.</p>
       ${code}
       <button class="ghost" style="width:100%;margin-top:10px" data-act="syncNow">Sync now</button>
-      ${parentUnlocked && showCode ? `<button class="danger" style="width:100%;margin-top:8px" data-act="newFamilyCode">Code got out? Make a new family code</button>` : ''}
+      ${showCode ? `<button class="danger" style="width:100%;margin-top:8px" data-act="newFamilyCode">Code got out? Make a new family code</button>` : ''}
+      ${sync.gone ? `
+        <label for="joinCode">Got the family's new code? Type it here:</label>
+        <input id="joinCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX">
+        <button style="width:100%;margin-top:8px" data-act="joinFamily">Join with the new code</button>` : ''}
     </div>`;
   }
 
@@ -1082,7 +1229,7 @@
       ${usage != null ? `<div class="spread"><span>App total (incl. offline copy)</span><b>${fmtBytes(usage)}</b></div>` : ''}
       <div class="spread"><span>Limit</span><b>under 1 GB</b></div>
       <div class="bar" style="margin-top:8px"><div style="width:${Math.max(pct, 0.5)}%"></div></div>
-      <p class="muted" style="margin-bottom:0">The whole app is about 60 KB. Each phone keeps its own copy of the family's data, kept well under 1 GB.
+      <p class="muted" style="margin-bottom:0">The whole app is about 85 KB. Each phone keeps its own copy of the family's data, kept well under 1 GB.
       ${appBytes > APP_DATA_WARN ? '<br><b style="color:var(--warn)">Getting full. Clear history or save a backup.</b>' : ''}</p>`;
   }
 
@@ -1108,6 +1255,7 @@
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     view.innerHTML = views[tab]();
     if (saved) restoreInputs(view, saved);
+    if (relockDraft && tab === 'parent' && parentUnlocked) { restoreInputs(view, relockDraft); relockDraft = null; }
     if (tab === 'settings') { renderStorage(); if (deferredInstall) $('#installBtn').hidden = false; }
   }
   // Only fields the person changed are carried over; untouched ones show the newly synced values.
@@ -1139,10 +1287,17 @@
     window.scrollTo(0, saved.scroll);
   }
 
+  // Redraw right away (no waiting for a finger to lift), but keep what's picked and typed.
+  function redrawKeeping() {
+    const kept = saveInputs($('#view'));
+    render();
+    restoreInputs($('#view'), kept);
+  }
+
   // ---------- Actions ----------
   const actions = {
     unlock: async () => { if (await unlockParent()) render(); },
-    lock: () => { parentUnlocked = false; showCode = false; render(); },
+    lock: () => { parentUnlocked = false; showCode = false; relockDraft = null; render(); },
     goShop: el => { shopKid = el.dataset.id; tab = 'cards'; render(); },
     openWallet: el => { walletKid = el.dataset.id; render(); window.scrollTo(0, 0); },
     back: () => { walletKid = null; render(); },
@@ -1162,22 +1317,23 @@
       // The list may have changed on another phone since this button was drawn.
       if (!a || a.label !== el.dataset.label || String(a.pts) !== el.dataset.pts) {
         toast('The Peace Board just changed on another phone. Check it and tap again.');
-        return render();
+        return redrawKeeping();
       }
       const kidId = $('#peaceKid').value;
-      if (!kidById(kidId)) return;
+      if (!kidById(kidId)) { toast('That kid was removed on another phone.'); return redrawKeeping(); }
       if (!(await approvePin())) return;
       const k = kidById(kidId);
-      if (!k) return;
+      if (!k) { toast('That kid was removed on another phone. No points were given.'); return redrawKeeping(); }
       commit('points', { kidId: k.id, pts: a.pts, text: `${k.name}: ${a.label}` });
       toast(`+${a.pts} for ${k.name} 🕊️`); render();
     },
     async makePeace() {
       const aId = $('#peaceA').value, bId = $('#peaceB').value;
       if (!aId || aId === bId) { toast('Pick two different kids'); return; }
+      if (!kidById(aId) || !kidById(bId)) { toast('A kid was removed on another phone.'); return redrawKeeping(); }
       if (!(await approvePin())) return;
       const a = kidById(aId), b = kidById(bId);
-      if (!a || !b) return;
+      if (!a || !b) { toast('A kid was removed on another phone. No points were given.'); return redrawKeeping(); }
       commit('points', { kidId: a.id, pts: 10, text: `${a.name} made peace with ${b.name}` });
       commit('points', { kidId: b.id, pts: 10, text: `${b.name} made peace with ${a.name}` });
       toast('🤝 Peace made! +10 each'); render();
@@ -1205,10 +1361,10 @@
       const ageStr = prompt(`Age (${MIN_AGE}–${MAX_AGE})`, k.age); if (ageStr === null) return;
       const age = Number(ageStr);
       if (!Number.isInteger(age) || age < MIN_AGE || age > MAX_AGE) return toast(`Age must be ${MIN_AGE}–${MAX_AGE}`);
-      const changes = {};
-      if (name !== k.name) changes.name = name;
-      if (age !== k.age) changes.age = age;
-      if (Object.keys(changes).length) commit('kid.edit', { kidId: k.id, ...changes });
+      const fields = [];
+      if (name !== k.name) fields.push('name');
+      if (age !== k.age) fields.push('age');
+      if (fields.length) commit('kid.edit', { kidId: k.id, name, age, fields });
       render();
     },
     adjust(el) {
@@ -1247,7 +1403,7 @@
     },
 
     async saveSettings() {
-      if (!(await unlockParent())) return;
+      if (!(await approvePin())) return;
       // Only fields edited on this screen are sent. A field still showing an older value
       // (another phone changed it meanwhile) must not undo that phone's change.
       const edited = (sel, fallback) => {
@@ -1268,23 +1424,28 @@
       let skipped = 0;
       if (ta.value !== ta.defaultValue) {
         const lines = ta.value.split('\n').filter(l => l.trim());
-        const acts = lines.map(line => {
-          const [label, p] = line.split('|').map(x => x && x.trim());
-          return cleanAct({ label, pts: int(p, 1, 1000) });
+        const acts = lines.map(l => {
+          const [label, p] = l.split('|').map(x => x && x.trim());
+          return /^\d{1,4}$/.test(p || '') && +p >= 1 && +p <= 1000 ? cleanAct({ label, pts: +p }) : null;
         }).filter(Boolean).slice(0, MAX_ACTS);
         skipped = lines.length - acts.length;
-        if (acts.length && JSON.stringify(acts) !== JSON.stringify(state.peaceActs)) commit('acts', { acts });
+        if (!acts.length) {
+          toast('The Peace Board needs at least one "text | points" line (points 1–1000). It was not changed.');
+          return render();
+        }
+        if (JSON.stringify(acts) !== JSON.stringify(state.peaceActs)) commit('acts', { acts });
       }
-      toast(skipped ? `Saved. ${skipped} Peace Board line${skipped === 1 ? ' was' : 's were'} skipped (use "text | points", up to ${MAX_ACTS} lines).` : 'Saved');
+      toast(skipped ? `Saved. ${skipped} Peace Board line${skipped === 1 ? ' was' : 's were'} skipped (use "text | points" with points 1–1000, up to ${MAX_ACTS} lines).` : 'Saved');
       render();
     },
     async changePin() {
-      if (!(await unlockParent())) return;
+      if (pinNotReady()) return;
+      if (state.settings.pinHash && !(await checkPin('Current parent PIN'))) return;
       if (await newPin()) toast('New PIN saved');
     },
 
     async export() {
-      if (!(await unlockParent())) return;
+      if (!(await approvePin())) return;
       const out = clone(state);
       delete out.settings.pinHash; delete out.settings.pinSalt;     // backups never carry the PIN
       const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
@@ -1295,7 +1456,7 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     },
     async import() {
-      if (!(await unlockParent())) return;
+      if (!(await approvePin())) return;
       const inp = $('#importFile');
       inp.value = '';
       inp.onchange = async () => {
@@ -1315,13 +1476,13 @@
       inp.click();
     },
     async clearLog() {
-      if (!(await unlockParent())) return;
+      if (!(await approvePin())) return;
       if (!confirm('Clear history and used gift cards?')) return;
       commit('clear');
       render();
     },
     async reset() {
-      if (!(await unlockParent())) return;
+      if (!(await approvePin())) return;
       if (store.sync) {
         if (!confirm('Erase ALL kids, cards, points and settings on EVERY synced phone? The parent PIN stays the same.')) return;
         commit('reset');
@@ -1338,7 +1499,7 @@
     // --- sync ---
     async startFamily() {
       if (store.sync) return;
-      if (!(await unlockParent())) return;
+      if (!(await approvePin())) return;
       const seedEvent = () => ({ id: uuid(), type: 'import', at: Date.now(), by: store.device, state: clone(store.base) });
       if (serverSize(seedEvent()) > EVENT_MAX) return toast('Too much history to sync. Clear history first.');
       const code = randomCode(CODE_LEN);
@@ -1350,7 +1511,7 @@
       // The family starts from this phone's data, taken now so nothing changed meanwhile is lost.
       const seed = seedEvent();
       if (serverSize(seed) > EVENT_MAX) { setSyncStatus('idle'); return toast('Too much history to sync. Clear history first.'); }
-      store.sync = { code, cursor: 0, pulled: false };
+      store.sync = { code, cursor: 0, pulled: false, seed: seed.id };
       store.pending = [seed];
       store.base = defaults();
       persist(); recompute();
@@ -1362,57 +1523,94 @@
     async joinFamily(el, rawCode) {
       const code = normalizeCode(rawCode ?? $('#joinCode')?.value);
       if (code.length !== CODE_LEN) return toast('A family code has 25 letters and numbers.');
-      if (store.sync?.code === code) return toast('This phone is already in that family.');
+      if (store.sync?.code === code && !sync.gone) return toast('This phone is already in that family.');
       let first;
       try { first = await rpc('gc_pull', { p_secret: code, p_after: 0, p_limit: 1 }); }
       catch (e) { return toast(friendly(e)); }
-      const seedState = arr(first?.events)[0]?.body?.state;
-      const target = str(isObj(seedState) && isObj(seedState.settings) ? seedState.settings.familyName : '', 60);
-      if (state.settings.pinHash && !(await unlockParent())) return;
+      const seedState = isObj(arr(first.events)[0]?.body?.state) ? first.events[0].body.state : {};
+      const target = line(isObj(seedState.settings) ? seedState.settings.familyName : '', 60);
+      if (state.settings.pinHash && !(await approvePin())) return;
       refreshFromDisk();
-      const unsent = store.sync ? store.pending.length : 0;
+      // This phone's family moved to a new code (or was deleted): its unsent changes come along
+      // when the new family is the same one (it has the same kids or cards).
+      const sameFamily = arr(seedState.kids).some(k => kidById(k?.id)) || arr(seedState.cards).some(c => cardById(c?.id));
+      const carry = store.sync && sync.gone && sameFamily ? store.pending.filter(p => CARRY_TYPES.has(p.type)) : [];
+      const unsent = store.sync ? store.pending.length - carry.length : 0;
       const lines = [target ? `Join "${target}"?` : 'Join this family?'];
-      if (store.sync) lines.push(`This phone is synced with "${state.settings.familyName}" now and will leave it. You'll need the new family's parent PIN afterwards.`);
+      if (store.sync && !sync.gone) lines.push(`This phone is synced with "${state.settings.familyName}" now and will leave it. You'll need the new family's parent PIN afterwards.`);
       if (store.sync || state.kids.length || state.cards.length) lines.push('The kids, cards and points on THIS phone will be replaced by the family\'s.');
+      if (carry.length) lines.push(`${carry.length} change${carry.length === 1 ? '' : 's'} not synced yet will be added to the family.`);
       if (unsent) lines.push(`${unsent} change${unsent === 1 ? '' : 's'} not synced yet will be lost.`);
       if (!confirm(lines.join('\n\n'))) return;
       refreshFromDisk();
       store.sync = { code, cursor: 0, pulled: false };
       store.base = defaults();
-      store.pending = [];
+      store.pending = carry;
+      sync.gone = false;
       parentUnlocked = false; showCode = false; walletKid = null;
       persist(); recompute();
       tab = 'home';
       render();
-      await syncNow();
+      await syncFresh();
       if (store.sync?.code === code && store.sync.pulled) toast('Joined! This phone is synced with your family.');
     },
     async newFamilyCode() {
       if (!store.sync) return;
-      if (!(await unlockParent())) return;
+      if (!(await approvePin())) return;
       if (!confirm('Make a new family code? The old code stops working and its data is deleted from the server. Every other phone will need to join again with the new code.')) return;
-      await syncNow();
       refreshFromDisk();
-      if (!store.sync || store.pending.length || sync.status !== 'ok') return toast('This phone needs to finish syncing first. Check the internet and try again.');
+      // An older code still waiting to be deleted goes first, so it's never forgotten.
+      if (store.sync?.retire) {
+        try { await rpc('gc_delete_family', { p_secret: store.sync.retire }); }
+        catch (e) { return toast(`${friendly(e)} Try again.`); }
+        refreshFromDisk();
+        if (store.sync?.retire) { delete store.sync.retire; persist(); }
+      }
+      await syncFresh();
+      refreshFromDisk();
+      const full = sync.code === 'family_full';
+      if (!store.sync || (!full && (store.pending.length || sync.status !== 'ok'))) return toast('This phone needs to finish syncing first. Check the internet and try again.');
       const oldCode = store.sync.code;
       const code = randomCode(CODE_LEN);
-      try { await rpc('gc_create_family', { p_secret: code }); }
-      catch (e) { return toast(friendly(e)); }
+      const undo = () => rpc('gc_freeze_family', { p_secret: oldCode, p_moved: false }).catch(() => {});
+      while (sync.busy) await new Promise(r => setTimeout(r, 100));
+      sync.busy = true;                          // no background sync in the middle of the move
+      try {
+        // Stop the old code taking changes, then bring in everything it already took. Changes
+        // other phones make from now on wait on those phones and come along when they join again.
+        await rpc('gc_freeze_family', { p_secret: oldCode });
+        await pullAll(oldCode, { allowMoved: true });
+        await rpc('gc_create_family', { p_secret: code });
+      } catch (e) {
+        undo();
+        return toast(friendly(e));
+      } finally {
+        sync.busy = false;
+      }
       refreshFromDisk();
-      if (store.sync?.code !== oldCode) return;
+      if (store.sync?.code !== oldCode) { undo(); return; }
+      recompute();
       const seed = { id: uuid(), type: 'import', at: Date.now(), by: store.device, state: clone(state) };
-      if (serverSize(seed) > EVENT_MAX) return toast('Too much history. Clear history first.');
-      store.sync = { code, cursor: 0, pulled: false, retire: oldCode };
+      if (serverSize(seed) > EVENT_MAX) {
+        undo(); rpc('gc_delete_family', { p_secret: code }).catch(() => {});
+        return toast('Too much history. Clear history first.');
+      }
+      store.sync = { code, cursor: 0, pulled: false, retire: oldCode, seed: seed.id };
       store.pending = [seed];
       store.base = defaults();
       persist(); recompute();
       showCode = true;
       render();
-      await syncNow();
-      toast('New family code made. Join your other phones again with it.');
+      await syncFresh();
+      refreshFromDisk();
+      if (store.sync?.code === code) {
+        toast(store.sync.retire
+          ? 'New family code made. Join your other phones again with it. (The old code is deleted on the next sync.)'
+          : 'New family code made. Join your other phones again with it.');
+      }
     },
     async revealCode() {
-      if (!(await unlockParent())) return;
+      if (!(await approvePin())) return;
       showCode = true; render();
     },
     copyCode() {
@@ -1429,14 +1627,19 @@
     },
     syncNow: () => syncNow(),
     async leaveFamily() {
-      if (!(await unlockParent())) return;
+      refreshFromDisk();
+      // A phone that joined but never got any of the family's data has no PIN to ask for yet.
+      const fresh = store.sync && !store.sync.pulled && !state.settings.pinHash;
+      if (!fresh && !(await approvePin())) return;
       refreshFromDisk();
       const unsent = store.pending.length;
       if (!confirm(`Stop syncing this phone? It keeps its own copy, but changes won't reach the other phones anymore${unsent ? ` (${unsent} change${unsent === 1 ? '' : 's'} not sent yet)` : ''}.`)) return;
       refreshFromDisk();
+      if (fresh && (store.sync?.pulled || state.settings.pinHash)) return;    // the family's data arrived meanwhile
       store.base = clone(state);
       store.pending = [];
       store.sync = null;
+      sync.gone = false;
       showCode = false;
       persist(); recompute();
       setSyncStatus('idle');
@@ -1450,7 +1653,7 @@
     if (pick) { pick.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('sel')); pick.classList.add('sel'); return; }
     const nav = e.target.closest('#nav button');
     if (nav) {
-      tab = nav.dataset.tab; walletKid = null;
+      tab = nav.dataset.tab; walletKid = null; showCode = false;      // the family code shows only while it's asked for
       if (tab === 'parent' && !parentUnlocked) { render(); unlockParent().then(ok => ok && render()); return; }
       render(); window.scrollTo(0, 0); return;
     }
@@ -1474,6 +1677,7 @@
       parentUnlocked = false; showCode = false;
       render();
       restoreInputs($('#view'), kept);
+      relockDraft = tab === 'parent' ? kept : null;     // put back once the PIN unlocks the Parent tab again
     }
     scheduleSync(0);
   });
@@ -1504,6 +1708,7 @@
   function joinFromLink() {
     const join = location.hash.match(/join=([0-9A-Za-z-]+)/);
     if (!join) return;
+    if ($('#pinDialog').open) $('#pinCancel').click();     // the link wins over a PIN pad that was showing
     history.replaceState(null, '', location.pathname + location.search);
     tab = 'settings'; walletKid = null; render();
     setTimeout(() => actions.joinFamily(null, join[1]), 300);

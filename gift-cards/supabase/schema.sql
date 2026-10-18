@@ -26,6 +26,9 @@ create table if not exists public.gc_events (
   unique (family_id, event_id)
 );
 
+-- moved: the family switched to a new code; it can still be read but takes no new changes.
+alter table public.gc_families add column if not exists moved boolean not null default false;
+
 alter table public.gc_families enable row level security;
 alter table public.gc_events enable row level security;
 revoke all on table public.gc_families, public.gc_events from anon, authenticated;
@@ -49,9 +52,10 @@ begin
   if exists (select 1 from public.gc_families where secret_hash = v_hash) then
     return jsonb_build_object('ok', true);
   end if;
-  -- Families that were created but never used free their slot after an hour.
+  -- Families that were created but never used free their slot after a day.
+  -- (A phone whose first upload was that late registers its code again.)
   delete from public.gc_families
-   where last_seq = 0 and created_at < now() - interval '1 hour';
+   where last_seq = 0 and created_at < now() - interval '1 day';
   -- The app serves one household; the cap keeps strangers from filling the database.
   if (select count(*) from public.gc_families) >= 10 then
     raise exception 'server_full';
@@ -78,9 +82,33 @@ begin
 end;
 $$;
 
+-- Mark a family as moved to a new code (or undo that). Its log can still be read,
+-- so every change it already took gets carried over, but it takes no new ones.
+create or replace function public.gc_freeze_family(p_secret text, p_moved boolean default true)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_secret is null or p_secret !~ '^[0-9A-Z]{20,64}$' then
+    raise exception 'bad_code';
+  end if;
+  update public.gc_families set moved = coalesce(p_moved, true), updated_at = now()
+   where secret_hash = sha256(convert_to(p_secret, 'UTF8'));
+  if not found then
+    raise exception 'family_not_found';
+  end if;
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
 -- Append events to a family's log. Events already stored (same id) are skipped,
 -- so resending after a dropped connection never duplicates a change.
-create or replace function public.gc_push(p_secret text, p_device text, p_events jsonb)
+-- p_family: the family id this phone joined. A code that was deleted and registered
+-- again by someone else gets a new id, so the phone's changes never go there.
+drop function if exists public.gc_push(text, text, jsonb);
+create or replace function public.gc_push(p_secret text, p_device text, p_events jsonb, p_family uuid default null)
 returns jsonb
 language plpgsql
 security definer
@@ -111,12 +139,15 @@ begin
 
   -- The row lock serializes writers per family, so seq numbers are handed out
   -- (and committed) strictly in order and a reader's cursor never skips one.
-  select id, last_seq, bytes into v_fam
+  select id, last_seq, bytes, moved into v_fam
     from public.gc_families
    where secret_hash = sha256(convert_to(p_secret, 'UTF8'))
      for update;
-  if not found then
+  if not found or (p_family is not null and v_fam.id <> p_family) then
     raise exception 'family_not_found';
+  end if;
+  if v_fam.moved then
+    raise exception 'family_moved';
   end if;
 
   v_seq := v_fam.last_seq;
@@ -152,7 +183,7 @@ begin
      set last_seq = v_seq, bytes = v_bytes, updated_at = now()
    where id = v_fam.id;
 
-  return jsonb_build_object('last_seq', v_seq, 'added', v_added);
+  return jsonb_build_object('last_seq', v_seq, 'added', v_added, 'family', v_fam.id);
 end;
 $$;
 
@@ -167,13 +198,14 @@ as $$
 declare
   v_id     uuid;
   v_last   bigint;
+  v_moved  boolean;
   v_events jsonb;
 begin
   if p_secret is null or p_secret !~ '^[0-9A-Z]{20,64}$' then
     raise exception 'bad_code';
   end if;
 
-  select id, last_seq into v_id, v_last
+  select id, last_seq, moved into v_id, v_last, v_moved
     from public.gc_families
    where secret_hash = sha256(convert_to(p_secret, 'UTF8'));
   if not found then
@@ -194,15 +226,17 @@ begin
     ) x
    where x.bytes_before < 2000000;
 
-  return jsonb_build_object('last_seq', v_last, 'events', v_events);
+  return jsonb_build_object('last_seq', v_last, 'events', v_events, 'family', v_id, 'moved', v_moved);
 end;
 $$;
 
 revoke all on function public.gc_create_family(text) from public;
 revoke all on function public.gc_delete_family(text) from public;
-revoke all on function public.gc_push(text, text, jsonb) from public;
+revoke all on function public.gc_freeze_family(text, boolean) from public;
+revoke all on function public.gc_push(text, text, jsonb, uuid) from public;
 revoke all on function public.gc_pull(text, bigint, integer) from public;
 grant execute on function public.gc_create_family(text) to anon, authenticated;
 grant execute on function public.gc_delete_family(text) to anon, authenticated;
-grant execute on function public.gc_push(text, text, jsonb) to anon, authenticated;
+grant execute on function public.gc_freeze_family(text, boolean) to anon, authenticated;
+grant execute on function public.gc_push(text, text, jsonb, uuid) to anon, authenticated;
 grant execute on function public.gc_pull(text, bigint, integer) to anon, authenticated;
