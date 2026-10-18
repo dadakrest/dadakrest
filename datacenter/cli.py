@@ -12,6 +12,7 @@ from typing import Any
 from .config import DATA_CENTER_NAME, DEFAULT_ROOT, VERSION
 from .core import DataCenter
 from .loader import DATA_DIR, DataFileError, validate
+from .plans import PlanError, cost_plan, plan_names
 from .seed import seed as seed_data
 
 
@@ -199,6 +200,79 @@ def cmd_jobs(args: argparse.Namespace) -> int:
     return 0
 
 
+def _money(amount: float) -> str:
+    return f"${amount:,.2f}"
+
+
+FEE_TABLES = {
+    "government": ("government_fees", ("fee_code", "jurisdiction", "name", "period", "amount_usd")),
+    "service": ("service_fees", ("fee_code", "service", "unit", "unit_price_usd", "minimum_units")),
+    "employment": ("employment_fees", ("fee_code", "role", "employment_type", "base_salary_usd", "benefits_usd_month")),
+}
+
+
+def cmd_fees(args: argparse.Namespace) -> int:
+    chosen = [args.table] if args.table else list(FEE_TABLES)
+    with _open(args) as center:
+        for name in chosen:
+            dataset, columns = FEE_TABLES[name]
+            records = [record["payload"] for record in center.list_records(dataset)]
+            print(f"{dataset} ({len(records)})")
+            if not records:
+                print("  no rows — run seed")
+                continue
+            for payload in records:
+                cells = []
+                for column in columns:
+                    value = payload.get(column, "")
+                    cells.append(_money(value) if column.endswith("_usd") else str(value))
+                print("  " + "  ".join(f"{cell:<22}" if index == 1 else f"{cell:<14}"
+                                       for index, cell in enumerate(cells)))
+            print()
+    return 0
+
+
+def cmd_plans(args: argparse.Namespace) -> int:
+    with _open(args) as center:
+        names = plan_names(center)
+        if not names:
+            print("no business plans stored — run seed")
+            return 0
+        for name in names:
+            plan = cost_plan(center, name)
+            parts = ", ".join(f"{table.split('_')[0]} {_money(amount)}"
+                              for table, amount in sorted(plan["subtotals"].items()))
+            print(f"{name:<22} {plan['months']:>3} months  {_money(plan['total_usd']):>14}   {parts}")
+    return 0
+
+
+def cmd_plan(args: argparse.Namespace) -> int:
+    with _open(args) as center:
+        try:
+            plan = cost_plan(center, args.name)
+        except PlanError as error:
+            print(error, file=sys.stderr)
+            return 1
+
+    if args.json:
+        print(json.dumps(plan, indent=2))
+        return 0
+
+    print(f"{plan['plan']} — {plan['months']} months")
+    print()
+    header = f"{'code':<9} {'line':<28} {'basis':<24} {'amount':>14}"
+    print(header)
+    print("-" * len(header))
+    for row in plan["lines"]:
+        print(f"{row['fee_code']:<9} {row['line'][:28]:<28} {row['basis'][:24]:<24} {_money(row['amount_usd']):>14}")
+    print("-" * len(header))
+    for table, amount in sorted(plan["subtotals"].items()):
+        print(f"{'':<9} {table:<28} {'':<24} {_money(amount):>14}")
+    print(f"{'':<9} {'TOTAL':<28} {'':<24} {_money(plan['total_usd']):>14}")
+    print(f"{'':<9} {'monthly average':<28} {'':<24} {_money(plan['monthly_average_usd']):>14}")
+    return 0
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     with _open(args) as center:
         results = center.verify()
@@ -275,6 +349,17 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("contacts", help="list stored contacts").set_defaults(func=cmd_contacts)
     sub.add_parser("documents", help="list stored documents").set_defaults(func=cmd_documents)
     sub.add_parser("datasets", help="list stored datasets").set_defaults(func=cmd_datasets)
+
+    fees = sub.add_parser("fees", help="show the government, service and employment fee tables")
+    fees.add_argument("--table", choices=sorted(FEE_TABLES), help="just one of them")
+    fees.set_defaults(func=cmd_fees)
+
+    sub.add_parser("plans", help="list business plans with their totals").set_defaults(func=cmd_plans)
+
+    plan = sub.add_parser("plan", help="cost one business plan line by line")
+    plan.add_argument("name")
+    plan.add_argument("--json", action="store_true", help="machine-readable output")
+    plan.set_defaults(func=cmd_plan)
 
     jobs = sub.add_parser("jobs", help="show the queue, or run the next job")
     jobs.add_argument("--run", action="store_true", help="run the next pending job")

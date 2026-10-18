@@ -1,0 +1,671 @@
+[
+  {
+    "name": "government_fees",
+    "description": "Illustrative statutory and regulatory fees for operating the data centre. Jurisdictions and amounts are invented for this data set and are not legal or tax advice.",
+    "schema": {
+      "fee_code": "string",
+      "jurisdiction": "string",
+      "name": "string",
+      "category": "string",
+      "amount_usd": "number",
+      "period": "string",
+      "authority": "string",
+      "notes": "string"
+    },
+    "records": [
+      {
+        "fee_code": "GOV-001",
+        "jurisdiction": "Westmarch",
+        "name": "Business entity registration",
+        "category": "registration",
+        "amount_usd": 450.0,
+        "period": "one-time",
+        "authority": "Westmarch Secretary of State",
+        "notes": "Filed once when the company is formed."
+      },
+      {
+        "fee_code": "GOV-002",
+        "jurisdiction": "Westmarch",
+        "name": "Annual report filing",
+        "category": "registration",
+        "amount_usd": 175.0,
+        "period": "annual",
+        "authority": "Westmarch Secretary of State",
+        "notes": "Due on the anniversary of registration."
+      },
+      {
+        "fee_code": "GOV-003",
+        "jurisdiction": "Westmarch",
+        "name": "Registered agent of record",
+        "category": "registration",
+        "amount_usd": 120.0,
+        "period": "annual",
+        "authority": "Westmarch Secretary of State",
+        "notes": "Required while the entity is active."
+      },
+      {
+        "fee_code": "GOV-004",
+        "jurisdiction": "Northgate County",
+        "name": "Local business operating licence",
+        "category": "licence",
+        "amount_usd": 380.0,
+        "period": "annual",
+        "authority": "Northgate County Clerk",
+        "notes": "Scales with declared floor area."
+      },
+      {
+        "fee_code": "GOV-005",
+        "jurisdiction": "Northgate County",
+        "name": "Zoning compliance certificate",
+        "category": "permit",
+        "amount_usd": 640.0,
+        "period": "one-time",
+        "authority": "Northgate County Planning",
+        "notes": "Required before a data hall is occupied."
+      },
+      {
+        "fee_code": "GOV-006",
+        "jurisdiction": "Northgate County",
+        "name": "Building permit, computer room fit-out",
+        "category": "permit",
+        "amount_usd": 2850.0,
+        "period": "one-time",
+        "authority": "Northgate County Building Safety",
+        "notes": "Assessed on construction value."
+      },
+      {
+        "fee_code": "GOV-007",
+        "jurisdiction": "Northgate County",
+        "name": "Electrical permit, high-density racks",
+        "category": "permit",
+        "amount_usd": 1240.0,
+        "period": "one-time",
+        "authority": "Northgate County Building Safety",
+        "notes": "Per electrical plan submission."
+      },
+      {
+        "fee_code": "GOV-008",
+        "jurisdiction": "Northgate County",
+        "name": "Mechanical permit, cooling plant",
+        "category": "permit",
+        "amount_usd": 980.0,
+        "period": "one-time",
+        "authority": "Northgate County Building Safety",
+        "notes": "Covers chillers and air handling."
+      },
+      {
+        "fee_code": "GOV-009",
+        "jurisdiction": "Northgate County",
+        "name": "Fire suppression system plan review",
+        "category": "permit",
+        "amount_usd": 720.0,
+        "period": "one-time",
+        "authority": "Northgate County Fire Marshal",
+        "notes": "Clean-agent suppression in the data hall."
+      },
+      {
+        "fee_code": "GOV-010",
+        "jurisdiction": "Northgate County",
+        "name": "Annual fire safety inspection",
+        "category": "inspection",
+        "amount_usd": 310.0,
+        "period": "annual",
+        "authority": "Northgate County Fire Marshal",
+        "notes": "Scheduled inspection of suppression and egress."
+      },
+      {
+        "fee_code": "GOV-011",
+        "jurisdiction": "Northgate County",
+        "name": "Generator air quality permit",
+        "category": "environmental",
+        "amount_usd": 1960.0,
+        "period": "annual",
+        "authority": "Northgate County Environmental Health",
+        "notes": "Standby diesel generators above threshold capacity."
+      },
+      {
+        "fee_code": "GOV-012",
+        "jurisdiction": "Northgate County",
+        "name": "Diesel fuel storage registration",
+        "category": "environmental",
+        "amount_usd": 540.0,
+        "period": "annual",
+        "authority": "Northgate County Environmental Health",
+        "notes": "Above-ground tank registration."
+      },
+      {
+        "fee_code": "GOV-013",
+        "jurisdiction": "Westmarch",
+        "name": "Stormwater discharge permit",
+        "category": "environmental",
+        "amount_usd": 870.0,
+        "period": "annual",
+        "authority": "Westmarch Water Board",
+        "notes": "Covers condenser blowdown and site runoff."
+      },
+      {
+        "fee_code": "GOV-014",
+        "jurisdiction": "Westmarch",
+        "name": "Water withdrawal reporting",
+        "category": "environmental",
+        "amount_usd": 225.0,
+        "period": "quarterly",
+        "authority": "Westmarch Water Board",
+        "notes": "Evaporative cooling make-up water."
+      },
+      {
+        "fee_code": "GOV-015",
+        "jurisdiction": "Port Lindel",
+        "name": "Telecommunications right-of-way",
+        "category": "utility",
+        "amount_usd": 1450.0,
+        "period": "annual",
+        "authority": "Port Lindel Public Works",
+        "notes": "Fibre entry across public land."
+      },
+      {
+        "fee_code": "GOV-016",
+        "jurisdiction": "Port Lindel",
+        "name": "Utility interconnection study",
+        "category": "utility",
+        "amount_usd": 6800.0,
+        "period": "one-time",
+        "authority": "Port Lindel Power Authority",
+        "notes": "One-off study for a new service feed."
+      },
+      {
+        "fee_code": "GOV-017",
+        "jurisdiction": "Port Lindel",
+        "name": "Demand charge administration",
+        "category": "utility",
+        "amount_usd": 390.0,
+        "period": "monthly",
+        "authority": "Port Lindel Power Authority",
+        "notes": "Administrative component of the tariff."
+      },
+      {
+        "fee_code": "GOV-018",
+        "jurisdiction": "Westmarch",
+        "name": "Hazardous materials inventory filing",
+        "category": "environmental",
+        "amount_usd": 285.0,
+        "period": "annual",
+        "authority": "Westmarch Emergency Management",
+        "notes": "Battery electrolyte and fuel inventory."
+      },
+      {
+        "fee_code": "GOV-019",
+        "jurisdiction": "Westmarch",
+        "name": "Data protection registrar listing",
+        "category": "compliance",
+        "amount_usd": 410.0,
+        "period": "annual",
+        "authority": "Westmarch Data Protection Registrar",
+        "notes": "Required for processors of client records."
+      },
+      {
+        "fee_code": "GOV-020",
+        "jurisdiction": "Westmarch",
+        "name": "Sales and use tax registration",
+        "category": "tax",
+        "amount_usd": 0.0,
+        "period": "one-time",
+        "authority": "Westmarch Revenue Department",
+        "notes": "No fee to register; filing obligations follow."
+      },
+      {
+        "fee_code": "GOV-021",
+        "jurisdiction": "Westmarch",
+        "name": "Quarterly sales tax filing surcharge",
+        "category": "tax",
+        "amount_usd": 45.0,
+        "period": "quarterly",
+        "authority": "Westmarch Revenue Department",
+        "notes": "Flat administrative surcharge per return."
+      },
+      {
+        "fee_code": "GOV-022",
+        "jurisdiction": "Northgate County",
+        "name": "Commercial property tax administration",
+        "category": "tax",
+        "amount_usd": 1120.0,
+        "period": "annual",
+        "authority": "Northgate County Assessor",
+        "notes": "Administrative portion only, not the levy itself."
+      }
+    ]
+  },
+  {
+    "name": "service_fees",
+    "description": "The rate card the business charges clients for AI data centre services. Referenced by business_plans through fee_code.",
+    "schema": {
+      "fee_code": "string",
+      "service": "string",
+      "category": "string",
+      "unit": "string",
+      "unit_price_usd": "number",
+      "minimum_units": "integer",
+      "notes": "string"
+    },
+    "records": [
+      {
+        "fee_code": "SVC-001",
+        "service": "Dedicated H100 80GB GPU",
+        "category": "compute",
+        "unit": "gpu-month",
+        "unit_price_usd": 2850.0,
+        "minimum_units": 1,
+        "notes": "Reserved single GPU, 1-month minimum."
+      },
+      {
+        "fee_code": "SVC-002",
+        "service": "Dedicated A100 80GB GPU",
+        "category": "compute",
+        "unit": "gpu-month",
+        "unit_price_usd": 1750.0,
+        "minimum_units": 1,
+        "notes": "Reserved single GPU, 1-month minimum."
+      },
+      {
+        "fee_code": "SVC-003",
+        "service": "Dedicated L40S GPU",
+        "category": "compute",
+        "unit": "gpu-month",
+        "unit_price_usd": 1100.0,
+        "minimum_units": 1,
+        "notes": "Reserved single GPU, 1-month minimum."
+      },
+      {
+        "fee_code": "SVC-004",
+        "service": "On-demand H100 80GB",
+        "category": "compute",
+        "unit": "gpu-hour",
+        "unit_price_usd": 4.95,
+        "minimum_units": 1,
+        "notes": "Billed per hour, no commitment."
+      },
+      {
+        "fee_code": "SVC-005",
+        "service": "On-demand A100 80GB",
+        "category": "compute",
+        "unit": "gpu-hour",
+        "unit_price_usd": 2.95,
+        "minimum_units": 1,
+        "notes": "Billed per hour, no commitment."
+      },
+      {
+        "fee_code": "SVC-006",
+        "service": "On-demand L4",
+        "category": "compute",
+        "unit": "gpu-hour",
+        "unit_price_usd": 0.85,
+        "minimum_units": 1,
+        "notes": "Entry-tier inference accelerator."
+      },
+      {
+        "fee_code": "SVC-007",
+        "service": "CPU compute node",
+        "category": "compute",
+        "unit": "node-month",
+        "unit_price_usd": 340.0,
+        "minimum_units": 1,
+        "notes": "32 vCPU general purpose node."
+      },
+      {
+        "fee_code": "SVC-008",
+        "service": "Inference, input tokens",
+        "category": "inference",
+        "unit": "million-tokens",
+        "unit_price_usd": 0.85,
+        "minimum_units": 1,
+        "notes": "Hosted open-weights models."
+      },
+      {
+        "fee_code": "SVC-009",
+        "service": "Inference, output tokens",
+        "category": "inference",
+        "unit": "million-tokens",
+        "unit_price_usd": 3.4,
+        "minimum_units": 1,
+        "notes": "Hosted open-weights models."
+      },
+      {
+        "fee_code": "SVC-010",
+        "service": "Embedding generation",
+        "category": "inference",
+        "unit": "million-tokens",
+        "unit_price_usd": 0.22,
+        "minimum_units": 1,
+        "notes": "Batch or streaming."
+      },
+      {
+        "fee_code": "SVC-011",
+        "service": "Rerank requests",
+        "category": "inference",
+        "unit": "thousand-requests",
+        "unit_price_usd": 1.9,
+        "minimum_units": 1,
+        "notes": "Cross-encoder reranking."
+      },
+      {
+        "fee_code": "SVC-012",
+        "service": "Speech-to-text",
+        "category": "inference",
+        "unit": "audio-hour",
+        "unit_price_usd": 0.78,
+        "minimum_units": 1,
+        "notes": "Batch transcription."
+      },
+      {
+        "fee_code": "SVC-013",
+        "service": "Model fine-tuning run",
+        "category": "inference",
+        "unit": "gpu-hour",
+        "unit_price_usd": 5.6,
+        "minimum_units": 8,
+        "notes": "Includes checkpoint storage for 30 days."
+      },
+      {
+        "fee_code": "SVC-014",
+        "service": "Block storage, hot tier",
+        "category": "storage",
+        "unit": "tb-month",
+        "unit_price_usd": 92.0,
+        "minimum_units": 1,
+        "notes": "NVMe, for active datasets and checkpoints."
+      },
+      {
+        "fee_code": "SVC-015",
+        "service": "Object storage, warm tier",
+        "category": "storage",
+        "unit": "tb-month",
+        "unit_price_usd": 23.0,
+        "minimum_units": 1,
+        "notes": "For datasets not in active training."
+      },
+      {
+        "fee_code": "SVC-016",
+        "service": "Archive storage, cold tier",
+        "category": "storage",
+        "unit": "tb-month",
+        "unit_price_usd": 6.5,
+        "minimum_units": 1,
+        "notes": "Retrieval billed separately."
+      },
+      {
+        "fee_code": "SVC-017",
+        "service": "Archive retrieval",
+        "category": "storage",
+        "unit": "tb",
+        "unit_price_usd": 18.0,
+        "minimum_units": 1,
+        "notes": "Charged on restore."
+      },
+      {
+        "fee_code": "SVC-018",
+        "service": "Backup retention, off-site",
+        "category": "storage",
+        "unit": "tb-month",
+        "unit_price_usd": 14.0,
+        "minimum_units": 1,
+        "notes": "Second-site copy with manifest."
+      },
+      {
+        "fee_code": "SVC-019",
+        "service": "Egress bandwidth",
+        "category": "network",
+        "unit": "tb",
+        "unit_price_usd": 42.0,
+        "minimum_units": 1,
+        "notes": "Outbound to the public internet."
+      },
+      {
+        "fee_code": "SVC-020",
+        "service": "Private cross-connect",
+        "category": "network",
+        "unit": "port-month",
+        "unit_price_usd": 285.0,
+        "minimum_units": 1,
+        "notes": "Single-mode fibre to a client cage."
+      },
+      {
+        "fee_code": "SVC-021",
+        "service": "Rack colocation, full cabinet",
+        "category": "colocation",
+        "unit": "rack-month",
+        "unit_price_usd": 1850.0,
+        "minimum_units": 1,
+        "notes": "Includes 5 kW of drawn power."
+      },
+      {
+        "fee_code": "SVC-022",
+        "service": "Additional power draw",
+        "category": "colocation",
+        "unit": "kw-month",
+        "unit_price_usd": 210.0,
+        "minimum_units": 1,
+        "notes": "Above the included allowance."
+      },
+      {
+        "fee_code": "SVC-023",
+        "service": "Remote hands",
+        "category": "support",
+        "unit": "hour",
+        "unit_price_usd": 145.0,
+        "minimum_units": 1,
+        "notes": "Billed in 15-minute increments."
+      },
+      {
+        "fee_code": "SVC-024",
+        "service": "Managed support, standard",
+        "category": "support",
+        "unit": "month",
+        "unit_price_usd": 1250.0,
+        "minimum_units": 1,
+        "notes": "Business hours, 4-hour response."
+      },
+      {
+        "fee_code": "SVC-025",
+        "service": "Managed support, 24/7",
+        "category": "support",
+        "unit": "month",
+        "unit_price_usd": 3400.0,
+        "minimum_units": 1,
+        "notes": "Round the clock, 1-hour response."
+      },
+      {
+        "fee_code": "SVC-026",
+        "service": "Security audit engagement",
+        "category": "professional",
+        "unit": "engagement",
+        "unit_price_usd": 8500.0,
+        "minimum_units": 1,
+        "notes": "Scoped review and remediation report."
+      },
+      {
+        "fee_code": "SVC-027",
+        "service": "Onboarding and migration",
+        "category": "professional",
+        "unit": "engagement",
+        "unit_price_usd": 4200.0,
+        "minimum_units": 1,
+        "notes": "One-off, includes kickoff and cutover."
+      },
+      {
+        "fee_code": "SVC-028",
+        "service": "Compliance evidence pack",
+        "category": "professional",
+        "unit": "year",
+        "unit_price_usd": 2600.0,
+        "minimum_units": 1,
+        "notes": "Annual evidence collation for client audits."
+      }
+    ]
+  },
+  {
+    "name": "employment_fees",
+    "description": "Illustrative cost of employing each role: base pay, the employer tax percentage applied to it, monthly benefits and any one-off recruitment fee. Figures are invented for this data set and are not payroll or tax advice.",
+    "schema": {
+      "fee_code": "string",
+      "role": "string",
+      "employment_type": "string",
+      "base_salary_usd": "number",
+      "employer_tax_pct": "number",
+      "benefits_usd_month": "number",
+      "recruitment_fee_usd": "number",
+      "notes": "string"
+    },
+    "records": [
+      {
+        "fee_code": "EMP-001",
+        "role": "Operations lead",
+        "employment_type": "full-time",
+        "base_salary_usd": 112000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 780,
+        "recruitment_fee_usd": 0,
+        "notes": "Runs the on-call rotation."
+      },
+      {
+        "fee_code": "EMP-002",
+        "role": "Data centre technician",
+        "employment_type": "full-time",
+        "base_salary_usd": 68000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 640,
+        "recruitment_fee_usd": 4800,
+        "notes": "Agency fee on placement."
+      },
+      {
+        "fee_code": "EMP-003",
+        "role": "Senior data centre technician",
+        "employment_type": "full-time",
+        "base_salary_usd": 86000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 680,
+        "recruitment_fee_usd": 6200,
+        "notes": ""
+      },
+      {
+        "fee_code": "EMP-004",
+        "role": "Network engineer",
+        "employment_type": "full-time",
+        "base_salary_usd": 98000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 720,
+        "recruitment_fee_usd": 7400,
+        "notes": ""
+      },
+      {
+        "fee_code": "EMP-005",
+        "role": "Security analyst",
+        "employment_type": "full-time",
+        "base_salary_usd": 104000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 740,
+        "recruitment_fee_usd": 8100,
+        "notes": ""
+      },
+      {
+        "fee_code": "EMP-006",
+        "role": "Senior security analyst",
+        "employment_type": "full-time",
+        "base_salary_usd": 126000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 800,
+        "recruitment_fee_usd": 9800,
+        "notes": ""
+      },
+      {
+        "fee_code": "EMP-007",
+        "role": "Machine learning engineer",
+        "employment_type": "full-time",
+        "base_salary_usd": 138000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 840,
+        "recruitment_fee_usd": 11500,
+        "notes": ""
+      },
+      {
+        "fee_code": "EMP-008",
+        "role": "Platform engineer",
+        "employment_type": "full-time",
+        "base_salary_usd": 121000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 790,
+        "recruitment_fee_usd": 9200,
+        "notes": ""
+      },
+      {
+        "fee_code": "EMP-009",
+        "role": "Site reliability engineer",
+        "employment_type": "full-time",
+        "base_salary_usd": 129000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 810,
+        "recruitment_fee_usd": 10100,
+        "notes": ""
+      },
+      {
+        "fee_code": "EMP-010",
+        "role": "Account manager",
+        "employment_type": "full-time",
+        "base_salary_usd": 82000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 660,
+        "recruitment_fee_usd": 5400,
+        "notes": "Commission is separate from base."
+      },
+      {
+        "fee_code": "EMP-011",
+        "role": "Finance and billing officer",
+        "employment_type": "full-time",
+        "base_salary_usd": 74000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 650,
+        "recruitment_fee_usd": 4600,
+        "notes": ""
+      },
+      {
+        "fee_code": "EMP-012",
+        "role": "People operations officer",
+        "employment_type": "full-time",
+        "base_salary_usd": 71000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 640,
+        "recruitment_fee_usd": 4400,
+        "notes": ""
+      },
+      {
+        "fee_code": "EMP-013",
+        "role": "Facilities contractor",
+        "employment_type": "contract",
+        "base_salary_usd": 0,
+        "employer_tax_pct": 0.0,
+        "benefits_usd_month": 0,
+        "recruitment_fee_usd": 0,
+        "notes": "Billed hourly against SVC-023 rates, no employer burden."
+      },
+      {
+        "fee_code": "EMP-014",
+        "role": "Data labelling specialist",
+        "employment_type": "part-time",
+        "base_salary_usd": 36000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 320,
+        "recruitment_fee_usd": 2100,
+        "notes": "0.5 FTE."
+      },
+      {
+        "fee_code": "EMP-015",
+        "role": "Graduate operations trainee",
+        "employment_type": "full-time",
+        "base_salary_usd": 52000,
+        "employer_tax_pct": 9.4,
+        "benefits_usd_month": 580,
+        "recruitment_fee_usd": 0,
+        "notes": "Recruited directly, no agency fee."
+      }
+    ]
+  }
+]
