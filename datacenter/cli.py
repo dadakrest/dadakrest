@@ -13,6 +13,7 @@ from .config import DATA_CENTER_NAME, DEFAULT_ROOT, VERSION
 from .core import DataCenter
 from .loader import DATA_DIR, DataFileError, validate
 from .plans import PlanError, cost_plan, plan_names
+from .portal import DEFAULT_HOST, DEFAULT_PORT
 from .seed import seed as seed_data
 
 
@@ -273,6 +274,20 @@ def cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_portal(args: argparse.Namespace) -> int:
+    from .portal import serve
+
+    try:
+        serve(args.root, args.host, args.port, allow_remote=args.allow_remote)
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
+    except OSError as error:
+        print(f"cannot serve on {args.host}:{args.port}: {error.strerror or error}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     with _open(args) as center:
         results = center.verify()
@@ -355,6 +370,13 @@ def build_parser() -> argparse.ArgumentParser:
     fees.set_defaults(func=cmd_fees)
 
     sub.add_parser("plans", help="list business plans with their totals").set_defaults(func=cmd_plans)
+
+    portal = sub.add_parser("portal", help="serve the data center as a read-only web portal")
+    portal.add_argument("--host", default=DEFAULT_HOST, help=f"default {DEFAULT_HOST}")
+    portal.add_argument("--port", type=_positive_int, default=DEFAULT_PORT, help=f"default {DEFAULT_PORT}")
+    portal.add_argument("--allow-remote", action="store_true",
+                        help="permit a non-local --host; the portal has no authentication")
+    portal.set_defaults(func=cmd_portal)
 
     plan = sub.add_parser("plan", help="cost one business plan line by line")
     plan.add_argument("name")
