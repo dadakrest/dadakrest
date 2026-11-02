@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
 import sys
@@ -36,6 +37,14 @@ def _positive_int(text: str) -> int:
     if value < 1:
         raise argparse.ArgumentTypeError("must be at least 1")
     return value
+
+
+def _network(text: str) -> str:
+    """An argparse type for --allow-network: a network such as 100.64.0.0/10."""
+    try:
+        return str(ipaddress.ip_network(text.strip(), strict=False))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a network such as 100.64.0.0/10") from None
 
 
 def _print_status(report: dict[str, Any]) -> None:
@@ -278,7 +287,9 @@ def cmd_portal(args: argparse.Namespace) -> int:
     from .portal import serve
 
     try:
-        serve(args.root, args.host, args.port, allow_remote=args.allow_remote)
+        serve(args.root, args.host, args.port, allow_remote=args.allow_remote,
+              mail_outbox=args.mail_outbox, allow_network=args.allow_network or (),
+              trust_proxy=args.trust_proxy, https_cookies=args.https_cookies, public_url=args.public_url)
     except ValueError as error:
         print(error, file=sys.stderr)
         return 1
@@ -371,11 +382,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("plans", help="list business plans with their totals").set_defaults(func=cmd_plans)
 
-    portal = sub.add_parser("portal", help="serve the data center as a read-only web portal")
+    portal = sub.add_parser("portal", help="serve the data center as a web portal with sign-in")
     portal.add_argument("--host", default=DEFAULT_HOST, help=f"default {DEFAULT_HOST}")
     portal.add_argument("--port", type=_positive_int, default=DEFAULT_PORT, help=f"default {DEFAULT_PORT}")
     portal.add_argument("--allow-remote", action="store_true",
-                        help="permit a non-local --host; the portal has no authentication")
+                        help="permit a non-local --host: everyone who can reach it gets the sign-in page")
+    portal.add_argument("--allow-network", action="append", type=_network, metavar="CIDR",
+                        help="serve only clients in this network, e.g. 100.64.0.0/10 for Tailscale; "
+                             "repeatable; others get 403")
+    portal.add_argument("--trust-proxy", action="store_true",
+                        help="take the client address from X-Forwarded-For set by a reverse proxy "
+                             "on this machine")
+    portal.add_argument("--https-cookies", action="store_true",
+                        help="the portal is reached over HTTPS: mark cookies Secure and send HSTS")
+    portal.add_argument("--public-url", metavar="URL",
+                        help="where people reach the portal, e.g. https://portal.example.ts.net "
+                             "(default: SDDU13_PUBLIC_URL)")
+    portal.add_argument("--mail-outbox", metavar="DIR",
+                        help="write sign-in emails as files in DIR instead of sending them, for testing "
+                             "(default: SDDU13_MAIL_OUTBOX)")
     portal.set_defaults(func=cmd_portal)
 
     plan = sub.add_parser("plan", help="cost one business plan line by line")

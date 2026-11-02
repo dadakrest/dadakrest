@@ -55,7 +55,7 @@ that behaves identically to `python -m datacenter`.
 | `fees [--table government\|service\|employment]` | Show the fee tables. |
 | `plans` | List the business plans with their totals. |
 | `plan NAME [--json]` | Cost one plan, line by line. |
-| `portal [--host H] [--port P]` | Serve the read-only web portal. |
+| `portal [--host H] [--port P] [--allow-remote] [--allow-network CIDR] [--trust-proxy] [--https-cookies] [--public-url URL] [--mail-outbox DIR]` | Serve the web portal, with sign-in. |
 | `jobs [--run]` | Show the queue, or run the next pending job. |
 | `verify` | Check every database is present, complete and readable. Exits non-zero on failure. |
 | `backup [DEST]` | Copy every provisioned database into a timestamped folder with a manifest. |
@@ -248,28 +248,39 @@ add up.
 ## The portal
 
 ```bash
-python -m datacenter portal          # http://127.0.0.1:8013
+SDDU13_OWNER_EMAIL=you@example.com \
+python -m datacenter portal --mail-outbox outbox    # http://127.0.0.1:8013
 ```
 
 Serves the data center as pages — overview, search, documents, contacts,
-datasets, fees, plans and the audit trail — using nothing but `http.server`.
+datasets, fees, plans and the audit trail — using nothing but `http.server`,
+to people who have signed in.
 
-Two limits are enforced rather than merely intended:
+**Sign-in is two steps, always.** First a password or Google, then a 6-digit
+code emailed to the account's own address (or one of ten one-time backup
+codes). New people ask for access and confirm their address; the owner
+(`SDDU13_OWNER_EMAIL`) approves them in the owner center at `/owner`. The
+accounts live in their own store, `<root>/portal/accounts.db`, not in the
+seven databases. Without mail settings (`SDDU13_SMTP_*`, or `--mail-outbox`
+while testing) sign-in is off and every sign-in page says which settings are
+missing. Nobody, the owner included, can see a password or a code.
 
-**It is read-only.** There is no POST handler and no write path; a POST gets
-`501`. Everything that changes the data center goes through the CLI or the
-Python API, where the audit trail records a named caller.
+**The data stays read-only.** The portal's forms change accounts and portal
+updates only. Everything that changes the data center goes through the CLI or
+the Python API, where the audit trail records a named caller. Every form
+carries a CSRF token and must come from the portal's own origin.
 
-**It binds `127.0.0.1` unless told otherwise.** There is no authentication of
-any kind, so a reachable bind publishes every contact, document and fee to
-whatever can route to it. The portal refuses a non-local `--host` unless you
-also pass `--allow-remote`, and warns when you do. Put it behind something
-that authenticates before exposing it.
+**It binds `127.0.0.1` unless told otherwise.** A non-local `--host` needs
+`--allow-remote`. `--allow-network CIDR` (repeatable) serves only those
+networks, such as `100.64.0.0/10` for Tailscale; `--trust-proxy` takes the
+client address from a reverse proxy on the same machine, and
+`--https-cookies` marks cookies Secure and sends HSTS when the portal is
+reached over HTTPS.
 
-Everything a page displays comes from a database, so everything is escaped on
-the way out. Document bodies get a very small Markdown renderer that escapes
-first and only then adds its own tags, so a document containing a script tag is
-shown as those characters rather than run.
+Everything a page displays comes from a database or from a person, so
+everything is escaped on the way out. Document bodies get a very small
+Markdown renderer that escapes first and only then adds its own tags, so a
+document containing a script tag is shown as those characters rather than run.
 
 ## Jobs
 
@@ -322,15 +333,21 @@ python -m unittest discover -s tests
 
 ```
 datacenter/
-  config.py    the seven database specs, name, paths, constants
-  schema.py    SQL schema per database
-  engine.py    SQLite wrapper: connect, query, upsert, backup, integrity
-  core.py      DataCenter: provisioning, writes, search, jobs, audit, backups
-  vectors.py   hashing embedder and sparse cosine similarity
-  plans.py     connects business plan lines to the fee tables and costs them
-  portal.py    read-only web portal (http.server, local by default)
-  seed.py      demo data
-  cli.py       command line interface
+  config.py        the seven database specs, name, paths, constants
+  schema.py        SQL schema per database
+  engine.py        SQLite wrapper: connect, query, upsert, backup, integrity
+  core.py          DataCenter: provisioning, writes, search, jobs, audit, backups
+  vectors.py       hashing embedder and sparse cosine similarity
+  plans.py         connects business plan lines to the fee tables and costs them
+  portal.py        web portal: data pages, dispatcher and server
+  portal_web.py    pages, forms, cookies and the access guard every route uses
+  portal_auth.py   sign-in, access requests, password resets, account page
+  portal_owner.py  the owner center
+  accounts.py      accounts store: passwords, codes, sessions, blocks
+  mailer.py        SMTP or outbox mail for sign-in codes
+  google_signin.py Sign in with Google (OpenID Connect, PKCE)
+  seed.py          demo data
+  cli.py           command line interface
 docs/          this file
 tests/         unittest suite
 ```

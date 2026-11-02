@@ -1,44 +1,97 @@
-"""A read-only web portal over the data center.
+"""The web portal over the data center, with real sign-in.
 
 `python -m datacenter portal` serves the seven databases as pages: search,
-documents, contacts, datasets, the fee tables and the costed business plans.
+documents, contacts, datasets, the fee tables, the costed business plans and
+the audit trail. The sign-in, request and account pages are in
+`portal_auth`, the owner center in `portal_owner`, and what they share (the
+guard, forms, cookies, page layout) in `portal_web`.
 
-Two deliberate limits:
+The data stays read-only.
+    No page writes to the seven databases. Everything that changes the data
+    center goes through the CLI or the Python API, where it is logged to the
+    audit trail by a named caller. The POST handlers change accounts and
+    portal updates only, in the separate accounts store.
 
-Read-only.
-    There are no POST handlers and no write paths. Everything that changes the
-    data center goes through the CLI or the Python API, where it is logged to
-    the audit trail by a named caller. A browser tab cannot delete a document.
+Nobody sees data without both sign-in steps.
+    A password or Google, then a code emailed to the account's address (or
+    one backup code), on an account the owner approved. /healthz is the one
+    page open to everyone, and it says only "ok".
 
 Local by default.
-    The server binds 127.0.0.1 unless told otherwise. There is no
-    authentication of any kind, so binding it to a reachable address publishes
-    every contact, document and fee to whoever can route to it — `serve`
-    refuses to do that without `allow_remote=True`, and the CLI makes you pass
-    `--host` explicitly and prints a warning.
+    The server binds 127.0.0.1 unless `allow_remote=True` (CLI:
+    --allow-remote), and `allow_network` limits who is served at all to the
+    networks listed, such as a VPN's.
 
-Everything a page displays comes from the databases, so every value is escaped
-on the way out; see `_markup`, which escapes before it adds any tag of its own.
+Everything a page displays comes from the databases or from people, so every
+value is escaped on the way out; see `portal_web.markup`, which escapes
+before it adds any tag of its own.
 """
 
 from __future__ import annotations
 
-import html
-import json
+import os
 import re
 import socket
+import sys
+import threading
+import time
+from collections.abc import Iterable
+from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable
-from urllib.parse import parse_qs, quote, urlparse
+from typing import Any, Callable, Mapping
+from urllib.parse import parse_qs, quote, urlsplit
 
+from . import portal_auth, portal_owner
+from .accounts import PASSWORD_ITERATIONS, AccountError, AccountStore
 from .config import DATA_CENTER_NAME, VERSION
 from .core import DataCenter
+from .google_signin import GoogleConfigError, HttpPost, check_public_url
+from .google_signin import config_from_env as google_config_from_env
+from .mailer import Mailer, MailNotConfigured, mailer_from_env
 from .plans import PlanError, cost_plan, plan_names
+from .portal_web import (
+    MAX_BODY,
+    MEMBER,
+    NAV,
+    PUBLIC,
+    STYLE,
+    STYLESHEET,
+    Context,
+    Form,
+    HttpError,
+    NotFound,
+    PortalSettings,
+    Request,
+    Response,
+    Route,
+    authorize,
+    client_ip,
+    error_box,
+    esc,
+    markup,
+    money,
+    network_allowed,
+    page,
+    parse_cookies,
+    parse_networks,
+    same_origin,
+    security_headers,
+    table,
+    throttle_probe,
+)
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8013
+LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+#: How often expired sessions, codes and flows are swept out of the store.
+PURGE_EVERY = 600.0
+
+# Names earlier callers import from here; they now live in portal_web.
+_markup = markup
+__all__ = ["NAV", "build_server", "esc", "money", "page", "render", "resolve", "serve", "table"]
 
 FEE_VIEWS: dict[str, tuple[str, tuple[str, ...]]] = {
     "government": ("government_fees",
@@ -49,150 +102,6 @@ FEE_VIEWS: dict[str, tuple[str, tuple[str, ...]]] = {
                    ("fee_code", "role", "employment_type", "base_salary_usd",
                     "employer_tax_pct", "benefits_usd_month", "recruitment_fee_usd")),
 }
-
-STYLE = """
-:root{--bg:#f7f7f6;--panel:#fff;--ink:#17201f;--muted:#5d6a68;--rule:#dfe3e2;
---accent:#0f5f68;--accent-bg:#e8f1f1;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1514;--panel:#171f1e;--ink:#e6ecea;
---muted:#94a3a0;--rule:#27322f;--accent:#57c2c9;--accent-bg:#14282a}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55;
-font:16px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-header{border-bottom:1px solid var(--rule);background:var(--panel)}
-.bar{max-width:1100px;margin:0 auto;padding:14px 20px;display:flex;flex-wrap:wrap;
-gap:10px 18px;align-items:baseline}
-.brand{font-weight:700;text-decoration:none;color:var(--ink);margin-right:6px}
-nav{display:flex;flex-wrap:wrap;gap:6px 16px}
-nav a{color:var(--muted);text-decoration:none;font-size:14px}
-nav a:hover,nav a:focus{color:var(--accent)}
-main{max-width:1100px;margin:0 auto;padding:26px 20px 64px}
-h1{font-size:25px;margin:0 0 6px;line-height:1.2}
-h2{font-size:14px;font-family:var(--mono);font-weight:500;letter-spacing:.08em;
-text-transform:uppercase;color:var(--muted);margin:34px 0 12px;
-padding-bottom:8px;border-bottom:1px solid var(--rule)}
-p.sub{color:var(--muted);margin:0 0 18px}
-a{color:var(--accent)}
-form{display:flex;gap:8px;margin:0 0 20px;flex-wrap:wrap}
-input[type=search]{flex:1;min-width:220px;padding:9px 12px;font-size:15px;
-border:1px solid var(--rule);border-radius:6px;background:var(--panel);color:var(--ink)}
-button{padding:9px 16px;font-size:15px;font-weight:600;border:1px solid var(--accent);
-border-radius:6px;background:var(--accent);color:var(--panel);cursor:pointer}
-.scroll{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:14px}
-th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
-th{font-weight:600;color:var(--muted);white-space:nowrap}
-td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);white-space:nowrap}
-tr:last-child td{border-bottom:none}
-tfoot td{font-weight:700;border-top:2px solid var(--rule)}
-code,.mono{font-family:var(--mono);font-size:13px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
-.card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:14px 16px}
-.card .n{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
-.card .l{color:var(--muted);font-size:13px}
-.doc{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:20px 22px}
-.doc p{margin:0 0 12px}.doc ul,.doc ol{margin:0 0 12px;padding-left:22px}
-.tag{display:inline-block;font-family:var(--mono);font-size:12px;background:var(--accent-bg);
-color:var(--accent);padding:2px 8px;border-radius:10px;margin-right:6px}
-.score{font-family:var(--mono);color:var(--accent);font-size:13px}
-.empty{color:var(--muted);padding:16px 0}
-.warn{background:var(--accent-bg);border:1px solid var(--rule);border-left:3px solid var(--accent);
-border-radius:6px;padding:12px 16px;margin:0 0 20px;font-size:14px;color:var(--muted)}
-footer{max-width:1100px;margin:0 auto;padding:20px;color:var(--muted);
-font-family:var(--mono);font-size:12px;border-top:1px solid var(--rule)}
-@media(max-width:560px){th,td{padding:7px 8px}}
-"""
-
-NAV = (
-    ("/", "Overview"), ("/search", "Search"), ("/documents", "Documents"),
-    ("/contacts", "Contacts"), ("/datasets", "Datasets"), ("/fees", "Fees"),
-    ("/plans", "Plans"), ("/events", "Audit"),
-)
-
-
-# -- rendering ----------------------------------------------------------------
-
-def esc(value: Any) -> str:
-    """Everything shown on a page goes through here first."""
-    return html.escape("" if value is None else str(value), quote=True)
-
-
-def money(value: Any) -> str:
-    try:
-        return f"${float(value):,.2f}"
-    except (TypeError, ValueError):
-        return esc(value)
-
-
-_BOLD = re.compile(r"\*\*([^*]+)\*\*")
-_ORDERED = re.compile(r"^\d+[.)]\s*")
-_CODE = re.compile(r"`([^`]+)`")
-
-
-def _markup(text: str) -> str:
-    """Render a stored document body as HTML.
-
-    The text is escaped first and only then given tags, so a document
-    containing `<script>` is displayed as those characters rather than run.
-    Markdown support is deliberately tiny: paragraphs, bullet and numbered
-    lists, bold and inline code.
-    """
-    out: list[str] = []
-    for block in re.split(r"\n\s*\n", text.strip()):
-        lines = [line.strip() for line in block.splitlines() if line.strip()]
-        if not lines:
-            continue
-
-        def inline(value: str) -> str:
-            safe = esc(value)
-            safe = _BOLD.sub(r"<strong>\1</strong>", safe)
-            return _CODE.sub(r"<code>\1</code>", safe)
-
-        if all(line.startswith(("- ", "* ")) for line in lines):
-            items = "".join(f"<li>{inline(line[2:])}</li>" for line in lines)
-            out.append(f"<ul>{items}</ul>")
-        elif all(_ORDERED.match(line) for line in lines):
-            items = "".join(f"<li>{inline(_ORDERED.sub('', line))}</li>" for line in lines)
-            out.append(f"<ol>{items}</ol>")
-        else:
-            out.append(f"<p>{inline(' '.join(lines))}</p>")
-    return "".join(out)
-
-
-def page(title: str, body: str, *, subtitle: str = "") -> bytes:
-    nav = "".join(f'<a href="{path}">{esc(label)}</a>' for path, label in NAV)
-    sub = f'<p class="sub">{esc(subtitle)}</p>' if subtitle else ""
-    return f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{esc(title)} — {esc(DATA_CENTER_NAME)}</title>
-<style>{STYLE}</style></head>
-<body><header><div class="bar">
-<a class="brand" href="/">{esc(DATA_CENTER_NAME)}</a><nav>{nav}</nav>
-</div></header>
-<main><h1>{esc(title)}</h1>{sub}{body}</main>
-<footer>{esc(DATA_CENTER_NAME)} v{esc(VERSION)} · read-only portal · stdlib only</footer>
-</body></html>""".encode("utf-8")
-
-
-def table(columns: list[str], rows: list[list[str]], *, numeric: set[int] = frozenset(),
-          footer: list[str] | None = None) -> str:
-    if not rows:
-        return '<p class="empty">Nothing here yet.</p>'
-    head = "".join(f"<th>{esc(column)}</th>" for column in columns)
-    body = "".join(
-        "<tr>" + "".join(
-            f'<td class="num">{cell}</td>' if index in numeric else f"<td>{cell}</td>"
-            for index, cell in enumerate(row)
-        ) + "</tr>"
-        for row in rows
-    )
-    foot = ""
-    if footer:
-        foot = "<tfoot><tr>" + "".join(
-            f'<td class="num">{cell}</td>' if index in numeric else f"<td>{cell}</td>"
-            for index, cell in enumerate(footer)
-        ) + "</tr></tfoot>"
-    return f'<div class="scroll"><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody>{foot}</table></div>'
 
 
 # -- views --------------------------------------------------------------------
@@ -257,7 +166,7 @@ def view_document(center: DataCenter, document_id: str) -> tuple[str, str, str]:
     if document is None:
         raise NotFound(f"no document {document_id}")
     tags = "".join(f'<span class="tag">{esc(tag)}</span>' for tag in center.document_tags(document["id"]))
-    body = f'<div class="doc">{_markup(document["body"])}</div>'
+    body = f'<div class="doc">{markup(document["body"])}</div>'
     subtitle = " · ".join(part for part in (
         document["source"], document["external_id"], document["owner_email"]) if part)
     return document["title"], subtitle, (tags + body if tags else body)
@@ -364,10 +273,6 @@ def view_events(center: DataCenter, _query: dict[str, list[str]]) -> tuple[str, 
             table(["when", "database", "action", "detail"], rows))
 
 
-class NotFound(Exception):
-    """A page that does not correspond to anything stored."""
-
-
 ROUTES: dict[str, Callable[[DataCenter, dict[str, list[str]]], tuple[str, str, str]]] = {
     "/": view_overview,
     "/search": view_search,
@@ -386,95 +291,415 @@ PREFIXES: dict[str, Callable[[DataCenter, str], tuple[str, str, str]]] = {
 }
 
 
+def _normalise(path: str) -> str:
+    """"/documents/" is "/documents"."""
+    return path.rstrip("/") or "/"
+
+
+def resolve(center: DataCenter, path: str, query: dict[str, list[str]]) -> tuple[str, str, str]:
+    """The data view for one path, as (title, subtitle, body). Raises NotFound."""
+    path = _normalise(path)
+    if path in ROUTES:
+        return ROUTES[path](center, query)
+    for prefix, view in PREFIXES.items():
+        if path.startswith(prefix):
+            remainder = path[len(prefix):]
+            if remainder and "/" not in remainder:
+                return view(center, remainder)
+    raise NotFound(f"no page at {path}")
+
+
 def render(center: DataCenter, path: str, query: dict[str, list[str]]) -> tuple[int, bytes]:
-    """Resolve one path to a status code and a rendered page."""
-    if path != "/" and path.endswith("/"):
-        path = path.rstrip("/") or "/"
-
+    """Resolve one path to a status code and a rendered page, with no sign-in:
+    for callers that already decided who may see the data."""
     try:
-        if path in ROUTES:
-            title, subtitle, body = ROUTES[path](center, query)
-            return HTTPStatus.OK, page(title, body, subtitle=subtitle)
-
-        for prefix, view in PREFIXES.items():
-            if path.startswith(prefix):
-                remainder = path[len(prefix):]
-                if remainder and "/" not in remainder:
-                    title, subtitle, body = view(center, remainder)
-                    return HTTPStatus.OK, page(title, body, subtitle=subtitle)
-
-        raise NotFound(f"no page at {path}")
+        title, subtitle, body = resolve(center, path, query)
+        return HTTPStatus.OK, page(title, body, subtitle=subtitle)
     except NotFound as error:
         return HTTPStatus.NOT_FOUND, page(
             "Not found", f'<p class="empty">{esc(error)}</p><p><a href="/">Back to the overview</a></p>')
 
 
+# -- the web routes -----------------------------------------------------------
+
+def _data_page(ctx: Context, _match: re.Match[str]) -> Response:
+    title, subtitle, body = resolve(ctx.center(), ctx.request.path, ctx.request.query)
+    return ctx.page(title, body, subtitle=subtitle)
+
+
+def _health(_ctx: Context, _match: re.Match[str]) -> Response:
+    # Says it is up and nothing else: no version, no counts, no paths.
+    return Response(HTTPStatus.OK, b'{"status":"ok"}', "application/json")
+
+
+def _stylesheet(_ctx: Context, _match: re.Match[str]) -> Response:
+    return Response(HTTPStatus.OK, STYLE.encode("utf-8"), "text/css; charset=utf-8", cacheable=True)
+
+
+DATA_ROUTES: tuple[Route, ...] = (
+    tuple(Route("GET", re.escape(path), MEMBER, _data_page) for path in ROUTES)
+    + tuple(Route("GET", re.escape(prefix) + "[^/]+", MEMBER, _data_page) for prefix in PREFIXES)
+)
+
+WEB_ROUTES: tuple[Route, ...] = (
+    Route("GET", "/healthz", PUBLIC, _health),
+    Route("GET", re.escape(STYLESHEET), PUBLIC, _stylesheet),
+    *DATA_ROUTES,
+    *portal_auth.ROUTES,
+    *portal_owner.ROUTES,
+)
+
+
+class PortalApp:
+    """Takes a parsed request through the guard to its handler."""
+
+    def __init__(self, settings: PortalSettings, routes: Iterable[Route] = WEB_ROUTES) -> None:
+        self.settings = settings
+        self.routes = tuple(routes)
+        self._lock = threading.Lock()
+        self._provisioned = False
+        self._purged_at = float("-inf")
+
+    def open_store(self) -> AccountStore:
+        """A store for one request. The first creates the store's file, and
+        every PURGE_EVERY seconds one sweeps out what has expired."""
+        settings = self.settings
+        store = AccountStore(settings.root, mailer=settings.mailer, environ=settings.environ,
+                             clock=settings.clock, password_iterations=settings.password_iterations)
+        try:
+            with self._lock:
+                if not self._provisioned:
+                    store.provision()
+                    self._provisioned = True
+                if time.monotonic() - self._purged_at >= PURGE_EVERY:
+                    store.purge_expired()
+                    self._purged_at = time.monotonic()
+        except BaseException:
+            store.close()
+            raise
+        return store
+
+    def find(self, method: str, path: str) -> tuple[Route | None, re.Match[str] | None, list[str]]:
+        """The route for this method and path, and the methods the path takes."""
+        methods: list[str] = []
+        for route in self.routes:
+            match = route.regex.fullmatch(path)
+            if match is None:
+                continue
+            if route.method == method:
+                return route, match, methods
+            methods.append(route.method)
+        return None, None, methods
+
+    def handle(self, request: Request) -> Response:
+        if not self.settings.host_allowed(request.header("Host")):
+            return Response(HTTPStatus.BAD_REQUEST, page(
+                "Unknown address", f'<p class="empty">This portal answers at '
+                f'{esc(self.settings.public_url)}.</p>', nav=()))
+        request.path = _normalise(request.path)
+        route, match, methods = self.find(request.method, request.path)
+        if route is not None and route.access == PUBLIC:
+            assert match is not None
+            return route.handler(Context(self.settings, request, None), match)
+
+        store = self.open_store()
+        ctx = Context(self.settings, request, store)
+        try:
+            response = self._dispatch(ctx, route, match, methods)
+        finally:
+            ctx.close()
+            store.close()
+        response.headers.extend(("Set-Cookie", cookie) for cookie in ctx.set_cookies)
+        return response
+
+    def _dispatch(self, ctx: Context, route: Route | None, match: re.Match[str] | None,
+                  methods: list[str]) -> Response:
+        request = ctx.request
+        try:
+            ctx.load_session()
+            if request.method == "POST":
+                refusal = self._check_form(ctx)
+                if refusal is not None:
+                    return refusal
+            if route is None or match is None:
+                if ctx.session is None:
+                    throttle_probe(ctx)
+                if methods:
+                    error = HttpError(HTTPStatus.METHOD_NOT_ALLOWED, "This page does not take that method.")
+                    response = self._error(ctx, error)
+                    response.headers.append(("Allow", ", ".join(sorted(set(methods)))))
+                    return response
+                raise NotFound(f"no page at {request.path}")
+            refusal = authorize(ctx, route, match)
+            if refusal is not None:
+                return refusal
+            return route.handler(ctx, match)
+        except NotFound as error:
+            body = f'<p class="empty">{esc(error)}</p><p><a href="/">Back to the overview</a></p>'
+            return ctx.page("Not found", body, status=HTTPStatus.NOT_FOUND)
+        except HttpError as error:
+            return self._error(ctx, error)
+        except FileNotFoundError:
+            body = ('<p class="error">The data center is not set up on this server yet. '
+                    "The owner needs to run: python -m datacenter init</p>")
+            return ctx.page("Not set up", body, status=HTTPStatus.SERVICE_UNAVAILABLE)
+
+    @staticmethod
+    def _error(ctx: Context, error: HttpError) -> Response:
+        response = ctx.page(error.title, error_box(error.message), status=error.status, bare=not ctx.full)
+        if error.retry_after:
+            response.headers.append(("Retry-After", str(error.retry_after)))
+        return response
+
+    def _check_form(self, ctx: Context) -> Response | None:
+        """Every POST: from this portal's own pages, with this caller's token.
+        A refusal here never counts as a strike: a request that fails it may
+        have been forged by another site, and its victim did nothing."""
+        request = ctx.request
+        if not same_origin(request, self.settings):
+            reason = "This form did not come from this portal."
+        elif not ctx.csrf_ok():
+            reason = "This form has expired. Go back, reload the page and try again."
+        else:
+            return None
+        if ctx.full and ctx.account is not None:
+            ctx.store.log_security_event("form_refused", account_id=ctx.account.id, ip=request.ip,
+                                         detail=f"POST {request.path}: {reason}")
+        return self._error(ctx, HttpError(HTTPStatus.FORBIDDEN, reason))
+
+
+# -- HTTP -----------------------------------------------------------------------
+
+_QUERY = re.compile(r"\?[^\s'\"]*")
+_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+
+#: A form body larger than MAX_BODY is still read off the socket, up to this
+#: much, so the client sees the 413 rather than a reset connection.
+_DRAIN_LIMIT = 1024 * 1024
+
+
 class PortalHandler(BaseHTTPRequestHandler):
-    """Serves pages. GET only — the portal never writes."""
+    """Reads one request, hands it to the app, writes the answer with the
+    security headers every response carries."""
 
     server_version = f"SDDU13/{VERSION}"
     root: Path = Path("storage")
     quiet: bool = False
+    app: PortalApp | None = None
+    #: Seconds a client may take over its request before it is dropped.
+    timeout = 30
 
     def do_GET(self) -> None:  # noqa: N802 - the name BaseHTTPRequestHandler dispatches to
-        parsed = urlparse(self.path)
-        if parsed.path == "/healthz":
-            self._send(HTTPStatus.OK, b'{"status":"ok"}', "application/json")
+        self._serve("GET")
+
+    def do_POST(self) -> None:  # noqa: N802
+        self._serve("POST")
+
+    def _serve(self, method: str) -> None:
+        app = self.app
+        assert app is not None, "build the handler with build_server"
+        settings = app.settings
+        forwarded = ",".join(self.headers.get_all("X-Forwarded-For") or [])
+        ip = client_ip(self.client_address[0], forwarded, trust_proxy=settings.trust_proxy)
+        if not network_allowed(ip, settings.allowed_networks):
+            self.close_connection = True
+            self._send(Response(HTTPStatus.FORBIDDEN, page(
+                "Not available", '<p class="empty">This portal is not open to your network.</p>', nav=())))
             return
-
-        # A connection per request: SQLite connections belong to the thread
-        # that opened them, and this server handles requests on many.
-        center = DataCenter(root=self.root)
         try:
-            status, body = render(center, parsed.path, parse_qs(parsed.query))
+            response = app.handle(self._read(method, ip))
+        except HttpError as error:
+            response = Response(error.status, page(error.title, error_box(error.message), nav=()))
         except Exception as error:  # a bad page must not take the server down
-            self.log_error("rendering %s failed: %s", parsed.path, error)
-            status, body = HTTPStatus.INTERNAL_SERVER_ERROR, page(
-                "Something went wrong", f'<p class="empty">{esc(error)}</p>')
-        finally:
-            center.close()
-        self._send(status, body)
+            self.log_error("%s %s failed: %s: %s", method, urlsplit(self.path).path,
+                           type(error).__name__, error)
+            response = Response(HTTPStatus.INTERNAL_SERVER_ERROR, page(
+                "Something went wrong", '<p class="empty">The page could not be shown. Try again, and '
+                "tell the owner if it keeps happening.</p>", nav=()))
+        self._send(response)
 
-    def _send(self, status: int, body: bytes, content_type: str = "text/html; charset=utf-8") -> None:
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "no-referrer")
+    def _read(self, method: str, ip: str) -> Request:
+        if len(self.path) > 4096:
+            raise HttpError(HTTPStatus.REQUEST_URI_TOO_LONG, "That address is too long.")
+        parts = urlsplit(self.path)
+        try:
+            query = parse_qs(parts.query, max_num_fields=50)
+        except ValueError:
+            raise HttpError(HTTPStatus.BAD_REQUEST, "The address has too many parameters.") from None
+        form = Form()
+        if method == "POST":
+            form = self._read_form()
+        return Request(method=method, path=parts.path or "/", query=query, headers=self.headers, ip=ip,
+                       cookies=parse_cookies(self.headers.get_all("Cookie") or []), form=form)
+
+    def _read_form(self) -> Form:
+        if self.headers.get("Transfer-Encoding"):
+            self.close_connection = True
+            raise HttpError(HTTPStatus.LENGTH_REQUIRED, "Send the form with a Content-Length.")
+        try:
+            length = int(self.headers.get("Content-Length", ""))
+        except ValueError:
+            self.close_connection = True
+            raise HttpError(HTTPStatus.LENGTH_REQUIRED, "Send the form with a Content-Length.") from None
+        if length < 0:
+            self.close_connection = True
+            raise HttpError(HTTPStatus.BAD_REQUEST, "The Content-Length is not valid.")
+        if length > MAX_BODY:
+            self.close_connection = True
+            if length <= _DRAIN_LIMIT:
+                self.rfile.read(length)
+            raise HttpError(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "That form is too large.")
+        kind = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        body = self.rfile.read(length)
+        if kind != "application/x-www-form-urlencoded":
+            raise HttpError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+                            "Send forms as application/x-www-form-urlencoded.")
+        return Form.parse(body)
+
+    def _send(self, response: Response) -> None:
+        settings = self.app.settings if self.app is not None else PortalSettings(root=self.root)
+        self.send_response(response.status)
+        self.send_header("Content-Type", response.content_type)
+        self.send_header("Content-Length", str(len(response.body)))
+        for name, value in security_headers(settings, cacheable=response.cacheable):
+            self.send_header(name, value)
+        for name, value in response.headers:
+            self.send_header(name, value)
         self.end_headers()
-        self.wfile.write(body)
+        self.wfile.write(response.body)
 
-    def log_message(self, format: str, *args: Any) -> None:
-        if not self.quiet:
-            super().log_message(format, *args)
+    def log_request(self, code: Any = "-", size: Any = "-") -> None:
+        # The path only: a Google callback's query string carries a one-time code.
+        status = code.value if isinstance(code, HTTPStatus) else code
+        path = urlsplit(getattr(self, "path", "") or "").path[:200]
+        self.log_message('"%s %s" %s %s', getattr(self, "command", None) or "-", path, status, size)
+
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - the base class's name
+        if self.quiet:
+            return
+        message = _QUERY.sub("?...", format % args)
+        message = _CONTROL.sub(lambda found: f"\\x{ord(found.group()):02x}", message)
+        sys.stderr.write(f"{self.address_string()} - - [{self.log_date_time_string()}] {message}\n")
+
+
+def portal_settings(
+    root: Path | str,
+    *,
+    host: str = DEFAULT_HOST,
+    mail_outbox: Path | str | None = None,
+    allow_network: Iterable[str] = (),
+    trust_proxy: bool = False,
+    https_cookies: bool = False,
+    public_url: str | None = None,
+    environ: Mapping[str, str] | None = None,
+    mailer: Mailer | None = None,
+    google_http_post: HttpPost | None = None,
+    clock: Callable[[], datetime] | None = None,
+    password_iterations: int = PASSWORD_ITERATIONS,
+) -> PortalSettings:
+    """Read the configuration once, at start-up. Raises ValueError for a
+    setting that cannot work; mail or Google that is not set up is recorded
+    and shown, not raised, so the owner can still reach the server."""
+    env = dict(os.environ if environ is None else environ)
+    if public_url:
+        env["SDDU13_PUBLIC_URL"] = public_url
+    url = env.get("SDDU13_PUBLIC_URL", "").strip()
+    if url:
+        try:
+            url = check_public_url(url)
+        except GoogleConfigError as error:
+            raise ValueError(str(error)) from None
+
+    mail_problem = ""
+    if mailer is None:
+        try:
+            mailer = mailer_from_env(env, outbox=mail_outbox)
+        except MailNotConfigured as error:
+            mail_problem = str(error)
+
+    google, google_problem = None, ""
+    try:
+        google = google_config_from_env(env)
+    except GoogleConfigError as error:
+        google_problem = str(error)
+
+    return PortalSettings(
+        root=Path(root), environ=env, mailer=mailer, mail_problem=mail_problem, google=google,
+        google_problem=google_problem, google_http_post=google_http_post, public_url=url,
+        https_cookies=https_cookies, allowed_networks=parse_networks(allow_network),
+        trust_proxy=trust_proxy, host=host, clock=clock, password_iterations=password_iterations)
 
 
 def build_server(root: Path | str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
-                 *, allow_remote: bool = False, quiet: bool = False) -> ThreadingHTTPServer:
-    """Build the server without starting it. Raises if asked to publish
-    an unauthenticated portal to a reachable address."""
-    if host not in ("127.0.0.1", "localhost", "::1") and not allow_remote:
+                 *, allow_remote: bool = False, quiet: bool = False, **options: Any) -> ThreadingHTTPServer:
+    """Build the server without starting it. `options` are `portal_settings`'s.
+
+    Refuses a reachable address without `allow_remote`: anyone who can reach
+    it gets the sign-in page, so that should be a decision, not a default.
+    """
+    if host not in LOCAL_HOSTS and not allow_remote:
         raise ValueError(
-            f"refusing to bind {host}: the portal has no authentication, so this would publish "
-            "every contact, document and fee to anything that can reach it. "
-            "Pass allow_remote=True (CLI: --allow-remote) if that is what you want."
+            f"refusing to bind {host}: that serves the portal to every machine that can reach it. "
+            "Pass allow_remote=True (CLI: --allow-remote) if that is what you want, ideally with "
+            "--allow-network for your VPN's range."
         )
 
+    settings = portal_settings(root, host=host, **options)
+    app = PortalApp(settings)
     handler = type("BoundPortalHandler", (PortalHandler,),
-                   {"root": Path(root), "quiet": quiet})
+                   {"root": Path(root), "quiet": quiet, "app": app})
     ThreadingHTTPServer.allow_reuse_address = True
     ThreadingHTTPServer.address_family = socket.AF_INET6 if ":" in host else socket.AF_INET
-    return ThreadingHTTPServer((host, port), handler)
+    server = ThreadingHTTPServer((host, port), handler)
+    server.portal = app  # type: ignore[attr-defined] - for serve() and tests
+    return server
+
+
+def startup_report(app: PortalApp, bound_host: str, bound_port: int) -> list[str]:
+    """What `serve` prints: where it is, and anything that stops sign-in working."""
+    settings = app.settings
+    lines = [f"{DATA_CENTER_NAME} portal on http://{bound_host}:{bound_port}  (root: {settings.root})"]
+    if settings.public_url:
+        lines.append(f"public URL: {settings.public_url}")
+    if settings.mailer is not None:
+        lines.append(f"email: {settings.mailer.describe()}")
+    else:
+        lines.append(f"SIGN-IN IS OFF. {settings.mail_problem}")
+    if settings.google is not None:
+        lines.append("Google sign-in: on")
+    else:
+        lines.append(f"Google sign-in: {settings.google_problem or 'not set up'}")
+    store = app.open_store()
+    try:
+        owner = store.owner_email()
+    finally:
+        store.close()
+    lines.append(f"owner: {owner}" if owner else
+                 "no owner email yet: set SDDU13_OWNER_EMAIL to the owner's address")
+    if settings.allowed_networks:
+        lines.append("serving only: " + ", ".join(str(network) for network in settings.allowed_networks))
+    if settings.trust_proxy:
+        lines.append("trusting X-Forwarded-For from a proxy on this machine")
+    if settings.host not in LOCAL_HOSTS:
+        if not settings.allowed_networks:
+            lines.append("WARNING: bound to a reachable address with no --allow-network: "
+                         "anyone who can reach it gets the sign-in page.")
+        if not settings.secure_cookies:
+            lines.append("WARNING: cookies can travel over plain HTTP; put HTTPS in front and use --https-cookies.")
+    return lines
 
 
 def serve(root: Path | str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
-          *, allow_remote: bool = False) -> None:  # pragma: no cover - blocks
+          *, allow_remote: bool = False, **options: Any) -> None:  # pragma: no cover - blocks
     """Serve until interrupted."""
-    server = build_server(root, host, port, allow_remote=allow_remote)
-    bound_host, bound_port = server.server_address[:2]
-    print(f"{DATA_CENTER_NAME} portal on http://{bound_host}:{bound_port}  (root: {root})")
-    if allow_remote and host not in ("127.0.0.1", "localhost", "::1"):
-        print("WARNING: bound to a reachable address with no authentication.")
+    server = build_server(root, host, port, allow_remote=allow_remote, **options)
+    app: PortalApp = server.portal  # type: ignore[attr-defined]
+    try:
+        for line in startup_report(app, *server.server_address[:2]):
+            print(line)
+    except AccountError as error:
+        server.server_close()
+        raise ValueError(str(error)) from None
     print("Ctrl-C to stop.")
     try:
         server.serve_forever()

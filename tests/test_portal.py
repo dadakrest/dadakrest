@@ -1,13 +1,15 @@
-"""Tests for the read-only web portal."""
+"""Tests for the web portal's data pages, and its server with nobody signed in.
+
+Sign-in itself is covered over HTTP in test_portal_auth.
+"""
 
 from __future__ import annotations
 
+import http.client
 import sys
 import tempfile
 import threading
 import unittest
-import urllib.error
-import urllib.request
 from http import HTTPStatus
 from pathlib import Path
 
@@ -153,7 +155,7 @@ class TestBinding(unittest.TestCase):
     def test_a_reachable_host_is_refused_without_consent(self) -> None:
         with self.assertRaises(ValueError) as raised:
             build_server("storage", host="0.0.0.0", port=0)
-        self.assertIn("no authentication", str(raised.exception))
+        self.assertIn("--allow-remote", str(raised.exception))
 
     def test_localhost_binds_without_argument(self) -> None:
         server = build_server("storage", host="127.0.0.1", port=0, quiet=True)
@@ -171,11 +173,13 @@ class TestBinding(unittest.TestCase):
 
 
 class TestOverHttp(PortalTestCase):
-    """One pass through the real server, so the handler itself is covered."""
+    """One pass through the real server with nobody signed in."""
 
     def setUp(self) -> None:
-        self.server = build_server(self.root, host="127.0.0.1", port=0, quiet=True)
-        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self._outbox = tempfile.TemporaryDirectory()
+        self.server = build_server(self.root, host="127.0.0.1", port=0, quiet=True,
+                                   mail_outbox=self._outbox.name, environ={})
+        self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
 
@@ -183,18 +187,23 @@ class TestOverHttp(PortalTestCase):
         self.server.shutdown()
         self.thread.join(timeout=5)
         self.server.server_close()
+        self._outbox.cleanup()
 
-    def fetch(self, path: str) -> tuple[int, str, dict]:
+    def fetch(self, path: str, method: str = "GET", body: bytes | None = None,
+              headers: dict | None = None) -> tuple[int, str, http.client.HTTPMessage]:
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
         try:
-            with urllib.request.urlopen(f"{self.base}{path}", timeout=10) as response:
-                return response.status, response.read().decode("utf-8"), dict(response.headers)
-        except urllib.error.HTTPError as error:
-            return error.code, error.read().decode("utf-8"), dict(error.headers)
+            connection.request(method, path, body=body, headers=headers or {})
+            response = connection.getresponse()
+            return response.status, response.read().decode("utf-8"), response.headers
+        finally:
+            connection.close()
 
-    def test_the_overview_is_served(self) -> None:
-        status, body, headers = self.fetch("/")
-        self.assertEqual(status, 200)
-        self.assertIn("Overview", body)
+    def test_the_overview_needs_sign_in(self) -> None:
+        # Changed with sign-in: the data pages used to be public.
+        status, _, headers = self.fetch("/")
+        self.assertEqual(status, 303)
+        self.assertEqual(headers["Location"], "/sign-in")
         self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
 
     def test_health_check(self) -> None:
@@ -205,14 +214,18 @@ class TestOverHttp(PortalTestCase):
     def test_a_missing_page_is_404_over_http(self) -> None:
         self.assertEqual(self.fetch("/nope")[0], 404)
 
-    def test_the_portal_does_not_accept_writes(self) -> None:
-        request = urllib.request.Request(f"{self.base}/documents", data=b"x=1", method="POST")
-        try:
-            with urllib.request.urlopen(request, timeout=10) as response:
-                status = response.status
-        except urllib.error.HTTPError as error:
-            status = error.code
-        self.assertEqual(status, 501, "the portal must not implement any write method")
+    def test_a_post_without_a_form_token_is_refused(self) -> None:
+        # Changed with sign-in: POST used to be 501. Account forms post now,
+        # but only with a CSRF token from this portal's own pages.
+        status, _, _ = self.fetch("/documents", "POST", b"x=1", {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": f"http://127.0.0.1:{self.port}"})
+        self.assertEqual(status, 403)
+
+    def test_other_write_methods_are_not_implemented(self) -> None:
+        for method in ("PUT", "DELETE", "PATCH"):
+            with self.subTest(method=method):
+                self.assertEqual(self.fetch("/documents", method, b"x=1")[0], 501)
 
 
 if __name__ == "__main__":
