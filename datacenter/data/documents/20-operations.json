@@ -1,0 +1,262 @@
+[
+  {
+    "external_id": "kb-ops-01",
+    "title": "GPU server intake and burn-in",
+    "body": "Every new GPU node goes through the same intake before it is allowed to carry a job, including replacement nodes that arrive from a warranty claim. The steps below take about four days, most of which is unattended.\n\n1. Receive and inspect. Check the crate against the packing list, photograph any shipping damage before unboxing, and record the chassis serial, the eight GPU serials, and the asset tag in the hardware inventory the same day.\n2. Rack and cable. Mount the node in its assigned position, land the two power cords on the A and B feeds of different PDUs, and label every cable at both ends.\n3. Bring up out-of-band first. Set the BMC address on the management VLAN, replace the factory password, and confirm the console answers before an operating system exists.\n4. Flash to baseline. Bring BIOS, BMC, and NIC firmware to the versions named in the current hardware baseline, reboot, and confirm the reported versions match.\n5. Install the standard node image with the driver and CUDA versions pinned by the baseline.\n6. Burn in for 72 hours on the quarantine VLAN, isolated from production: a full memory test pass, a sustained matrix-multiply load across all eight GPUs, a storage write test, and a throughput test against a neighbouring node.\n7. Read the results. A pass means zero uncorrectable ECC errors, no Xid entries, no thermal shutdown, and a full-load draw within ten percent of the expected 2.9 kW.\n8. Accept or return. A pass moves the node onto the cluster VLAN and into inventory as available. A failure goes back to Ashgrove Compute Supply with the burn-in log attached.\n\nRoughly one node in twelve fails its first burn-in. That is normal, and it is the entire reason for the step: a bad GPU found in week one is a warranty claim, while the same GPU found in month six is an outage.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "operations",
+      "hardware",
+      "gpu"
+    ]
+  },
+  {
+    "external_id": "kb-ops-02",
+    "title": "Rack power budgeting",
+    "body": "Power, not floor space, is what runs out first in a GPU suite. Every rack in our suite at Stonebriar Colocation is fed by two 60 A 208 V three-phase circuits, an A feed and a B feed. Derated to eighty percent for continuous load, one feed carries 17.3 kW. Because either feed has to carry the whole rack alone during maintenance or a utility event, the rack budget is 17.3 kW, not 34.6 kW. Treating the pair as additive is the most common and most expensive mistake on this subject.\n\n**What a populated rack looks like.** A standard GPU rack holds four eight-GPU nodes at 2.9 kW measured under load, a pair of top-of-rack switches at 0.6 kW, and a storage shelf at 1.4 kW: 13.6 kW, or seventy-nine percent of budget. A high-density rack holds one eight-way H100 node at 10.2 kW plus its switch, which lands near sixty-two percent.\n\n**Rules.**\n\n1. Budget against measured full-load draw, never nameplate. Nameplate is a fuse rating, not a forecast.\n2. Stop adding equipment at eighty-five percent of the feed budget. The remaining headroom absorbs fan ramps and start-up surges.\n3. Keep the three phases within ten percent of each other; an unbalanced rack trips long before its total looks high.\n4. Read the PDU after every install and write the number in the rack record.\n5. Any change adding more than 1 kW to a rack goes to Stonebriar in writing, because contracted cooling follows contracted power.\n\nAcross nine populated racks the suite draws about 114 kW against 150 kW contracted. The 36 kW of headroom is two more standard racks with margin, and that number, not the empty racks, is what we plan against.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "operations",
+      "power",
+      "capacity"
+    ]
+  },
+  {
+    "external_id": "kb-ops-03",
+    "title": "Cooling and temperature thresholds",
+    "body": "Cold aisle inlet temperature is the number that matters; GPU die temperature only tells you what the room already did. Our target is 22 degrees Celsius at the inlet, with an acceptable band of 18 to 27 and relative humidity between 40 and 55 percent.\n\n**Alert thresholds.** An inlet reading at or above 27 degrees for ten minutes raises a ticket. At or above 32 degrees it pages the on-call primary immediately. A GPU sustaining 80 degrees is worth a look, and 88 degrees for five minutes pages; the driver throttles on its own before anything is damaged, so a hot GPU costs throughput first and hardware much later.\n\n**When the room runs hot.**\n\n1. Confirm the reading against a second sensor in the same aisle. One sensor reporting 35 degrees while its neighbour reports 22 is a sensor fault.\n2. Walk the aisle. Look for a missing blanking panel, an open rack face, a propped containment door, or a floor tile someone lifted and never replaced.\n3. Check node fans and filters. A single failed fan shows up as one hot node, not one hot aisle.\n4. If the aisle is genuinely hot, call Coldwater Mechanical & Power on the 24-hour line at +1-555-0128 and open a ticket with Stonebriar at the same time.\n5. Shed load in this order: pause the batch queue, then drain training nodes so their checkpoints land, then scale inference replicas down. Inference serving is the last thing to go, because it is the thing clients notice.\n6. Write down the inlet temperature every fifteen minutes until it is back in band, and keep the record for the incident review.\n\nBlanking panels in every empty rack unit and closed containment doors are not tidiness. They are several degrees of margin.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "operations",
+      "cooling",
+      "thresholds"
+    ]
+  },
+  {
+    "external_id": "kb-ops-04",
+    "title": "UPS and generator tests",
+    "body": "Stonebriar owns the batteries and the generators; we own the verification that they work and the assumption that they might not. The suite is backed by an N+1 UPS rated for nine minutes at full load, and by generators that start within twelve seconds and hold 72 hours of fuel at full load under a refuelling contract.\n\n**Test schedule.**\n\n1. Monthly, on the first Tuesday, the generators run for thirty minutes under load. We expect the test report within five business days and we read it rather than filing it.\n2. Quarterly, a full transfer test moves the suite to generator and back.\n3. Annually, a four-hour load-bank test proves the generators under real load. The next one is scheduled for 2026-03-10.\n\n**Our half of the work.** After every test we reconcile the facility report against our own PDU and node logs. If a node rebooted during a transfer, the cause is on our side: a single-corded device, a failed power supply, or a cord landed on the same feed twice. We audit for single-corded equipment every quarter and the current count is zero, which took three rounds to achieve.\n\n**When a test fails.** File with Stonebriar the same day, ask for a written remediation date, and do not accept a verbal one. Until remediation is confirmed we shorten the training checkpoint interval from 30 minutes to 15, so an unplanned drop costs less work, and we hold any change that would leave inference serving with replicas in only one rack.\n\nA UPS that has never been transferred under load is a decoration. The point of the schedule is that the first real outage is not also the first real test.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "operations",
+      "power",
+      "resilience"
+    ]
+  },
+  {
+    "external_id": "kb-ops-05",
+    "title": "Network segmentation for GPU clusters",
+    "body": "A GPU cluster is a small number of very expensive machines holding client data, so the network is built to keep those machines from talking to anything they do not need. Five segments, default deny between them.\n\n**The segments.**\n\n1. Management and out-of-band. BMCs, PDUs, switch management, the console server. No route to the internet, reachable only from the jump host with multi-factor authentication.\n2. Storage. Traffic between nodes and the warm tier. No route out of the suite.\n3. Cluster east-west. Training traffic between GPU nodes. No default route; package mirrors and model downloads go through an egress proxy with an allowlist.\n4. Inference serving. The only segment the load balancer can reach, and the only one exposed to client traffic, through the load balancer alone.\n5. Quarantine. New nodes under burn-in and any node pulled for investigation. Reaches nothing but the provisioning service.\n\n**Rules that keep it honest.** Firewall changes go through a ticket with a named requester, a reason, and an expiry date where one applies. Nothing is added \"temporarily\" without that date. Every rule is reviewed quarterly; the 2026-02-11 review removed fourteen rules whose reason no longer existed. Client data moves only between the storage and cluster segments, never through the serving segment except as a model response. No engineer workstation sits on a production segment; work happens through the jump host.\n\n**Testing.** Twice a year we verify segmentation from the inside rather than reading the config: from a node on the cluster segment, try to reach a BMC, the public internet, and a storage host in another client's namespace. All three attempts should fail, and the failures should appear in the firewall log.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "operations",
+      "network",
+      "security"
+    ]
+  },
+  {
+    "external_id": "kb-ops-06",
+    "title": "Out-of-band management",
+    "body": "Out-of-band access is how you fix a machine that no longer answers the network, which means it is the path you need precisely when everything else is broken. It consists of the BMC on every node, a serial console server, and PDUs with per-outlet switching, all on the management segment.\n\n**Standards.**\n\n1. Factory BMC passwords are replaced during intake, before the node is given an operating system. Credentials live in the shared password manager, are unique per node, and are never the same as any operating system account.\n2. The management segment is reachable only through the jump host with multi-factor authentication. No BMC is routable from the serving or cluster segments, and none is reachable from the internet under any circumstance.\n3. BMC and console firmware are patched in the monthly disruptive window. Management controllers run real software with real vulnerabilities, and they are the last thing anyone remembers to patch.\n4. Every node's PDU outlet is recorded in the rack record, verified at intake by cycling the outlet and watching the right node drop. A mislabelled outlet is how an engineer reboots a healthy machine at three in the morning.\n\n**Quarterly verification.** Pick two nodes at random during the maintenance window and exercise the full path: console over serial, a remote power cycle, and a BIOS setting change through the BMC. Record how long it took. If the path is broken, it is broken today too, and the useful time to learn that is not during an outage.\n\n**One caution.** Out-of-band access bypasses most of the controls that protect a node, so every session is logged and the log is retained with the audit logs for 400 days.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "operations",
+      "hardware",
+      "access-control"
+    ]
+  },
+  {
+    "external_id": "kb-ops-07",
+    "title": "Driver and CUDA upgrade procedure",
+    "body": "A driver upgrade is the change most likely to break every GPU node at once, so it moves slowly and in one direction at a time.\n\n1. Read the release notes and check the framework compatibility matrix before anything else. If a framework version we run in production is not listed as supported, the upgrade waits.\n2. Freeze on one version fleet-wide. Mixed driver versions make performance reports meaningless and make failures impossible to attribute.\n3. Build the new node image and test it on the burn-in node, running the same load used at intake for four hours.\n4. Canary one production node for 48 hours. Throughput must land within three percent of the previous version on the same benchmark, and the evaluation suite must produce identical outputs.\n5. Roll to a quarter of the fleet and hold for 72 hours. This is where issues that only appear under real job mixes show up.\n6. Roll the remainder during the monthly disruptive window.\n7. Keep the previous driver package and the previous container image for 30 days.\n\n**Rollback triggers, decided in advance.** A burst of Xid errors on any upgraded node, a throughput regression over five percent, or any numerical difference in the evaluation suite sends the fleet back to the previous version. Rolling back is a normal outcome and costs an hour; debugging a fleet-wide regression under load costs a day.\n\n**Two standing rules.** Never upgrade a node with a training job on it, so drain and let the checkpoint land first. Always record the new version in the hardware baseline and the node inventory on the day it ships, because in six months the only question anyone will ask is when this node changed.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "operations",
+      "gpu",
+      "upgrades"
+    ]
+  },
+  {
+    "external_id": "kb-ops-08",
+    "title": "Storage tiers for datasets and checkpoints",
+    "body": "Three tiers, each with a job. Putting data in the wrong one is either slow or expensive, and sometimes both.\n\n**Hot.** 96 TB of NVMe scratch spread across the GPU nodes. Job working sets live here for the duration of a run. Scratch is wiped when the job ends and nothing on it is backed up, ever. If the only copy of something is on scratch, it is already lost.\n\n**Warm.** 480 TB of shared SSD. Active datasets, current checkpoints, and anything a job will read again this month. This is the tier that fills up, so it carries per-project quotas: a warning at 85 percent and new jobs blocked at 92 percent.\n\n**Cold.** 1.2 PB of object storage with a nightly offsite replica. Immutable dataset copies, released model checkpoints, and archives. Cold costs roughly a fifth per terabyte of what warm costs, which is why an abandoned checkpoint set on warm is an expensive souvenir.\n\n**Placement rules.**\n\n1. Every raw dataset has an immutable copy in cold before any job touches it.\n2. Training data is staged from warm to hot at job start, not read across the network during the run.\n3. Checkpoints write to warm every 30 minutes. Keep the last three plus every tenth.\n4. At job end, promote the chosen checkpoint to cold and delete the rest after 14 days.\n5. Nothing in cold is deleted without a named owner approving it, because cold is where the restorable copy lives.\n\n**Monthly review.** Walk the warm tier by project, name the largest consumers, and ask each owner whether the data will be read again. Usually a third of it will not be.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "operations",
+      "storage",
+      "datasets"
+    ]
+  },
+  {
+    "external_id": "kb-ops-09",
+    "title": "Backup and restore drill",
+    "body": "**What is backed up.** The seven databases, the configuration repository, the model registry metadata, and dataset manifests. Nightly incrementals at 21:00 UTC, a full backup on Sunday at 01:00 UTC, 35 daily copies and 12 monthly copies retained, with an offsite replica. Our recovery point objective is 24 hours and our recovery time objective is 8 hours.\n\n**What is not backed up.** Scratch storage, container images we can rebuild from source, and the vector index, which is derived data and gets rebuilt after a restore. That rebuild takes time and belongs in the restore plan rather than being discovered halfway through one.\n\n**The quarterly drill.**\n\n1. Pick a restore point without telling the team in advance.\n2. Restore into an empty environment. Never restore over production, not even a little, not even to save time.\n3. Run `python3 -m datacenter --root <dir> verify` against the restored copy and compare record counts with the source.\n4. Time every phase and write the numbers down: fetch, restore, rebuild, verify.\n5. File each gap as a ticket with an owner and a date.\n\n**Last drill, 2026-01-20.** Restore completed in 5 hours 40 minutes, inside the objective. Two gaps: the vector index had to be rebuilt, adding 70 minutes that the runbook did not mention, and the runbook still named a storage bucket retired in 2025. Both were fixed by 2026-02-03 and the runbook was re-timed. The next drill is 2026-04-21.\n\nA backup that has never been restored is a hypothesis. The drill is how it becomes a fact, and the numbers it produces are what we promise clients.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "operations",
+      "backup",
+      "resilience"
+    ]
+  },
+  {
+    "external_id": "kb-ops-10",
+    "title": "Monitoring and alert thresholds",
+    "body": "Metrics are scraped every 30 seconds and kept for 13 months, which is long enough for capacity planning to see a full year of seasonality. Logs are separate and shorter-lived.\n\n**Page the on-call primary.** Inference p95 latency above 900 ms for 10 minutes. Error rate above one percent for 5 minutes. Any node unreachable for 3 minutes. Cold aisle inlet at or above 32 degrees Celsius. Warm storage above 92 percent. A failed backup job. Any uncorrectable GPU ECC error.\n\n**Raise a ticket for the next business day.** Retired GPU memory pages increasing. A single failed fan or power supply. Cold aisle inlet at or above 27 degrees. Warm storage above 85 percent. A certificate expiring within 21 days. Queue wait time p90 above 4 hours.\n\n**Rules for alerts themselves.**\n\n1. Every alert names an owner and links to a runbook section that says what to do. An alert without a documented response is an interruption, not information.\n2. Alerts page a person only when a person must act within the hour. Everything else is a ticket.\n3. Thresholds are written here and nowhere else, so the monitoring configuration and this page cannot drift apart silently.\n4. At each on-call handoff, review the previous week's pages and ask which ones led to action.\n\n**Precision.** We track the share of pages that resulted in a change: the target is three in four. February 2026 produced 19 pages of which 14 were actionable, so two noisy rules were rewritten and one was deleted outright. Deleting an alert nobody acts on is an improvement, not a loss of coverage, because the alerts that remain get taken seriously at four in the morning.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "operations",
+      "monitoring",
+      "thresholds"
+    ]
+  },
+  {
+    "external_id": "kb-ops-11",
+    "title": "On-call rotation and escalation",
+    "body": "Six engineers share the rotation. One primary and one secondary each week, handing off on Wednesday at 10:00 local time so a bad weekend is reviewed by the person who lived through it.\n\n**Escalation clock.** The primary acknowledges a page within 5 minutes. At 10 minutes without acknowledgement the secondary is paged automatically. At 20 minutes the engineering lead is paged. If the incident touches client-facing service, the account manager is notified within 30 minutes, by a person, not by a dashboard.\n\n**Severity.**\n\n1. Sev-1: inference serving is down, client data is at risk, or the facility is in trouble. Page immediately at any hour, written status update every 30 minutes, incident channel opened.\n2. Sev-2: degraded service, a redundancy lost, a training queue stalled. Page during business hours, ticket overnight.\n3. Sev-3: everything else. Ticket, handled in the next working day.\n\n**Rules that keep the rotation survivable.** The primary's sprint commitments are halved for that week; on-call is not a second job layered on a full one. Nobody takes two consecutive weeks. A page between 00:00 and 06:00 buys a late start the next morning, and that is a rule rather than a favour. The handoff note lists open incidents, anything currently drained, and any active change freeze.\n\n**After a Sev-1.** A written review within five business days: timeline, what we believed at each point, what actually happened, and actions with owners and dates. The review is blameless because the useful question is what made the mistake easy to make. Reviews are kept for three years and read before the next quarter's threshold changes.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "operations",
+      "on-call",
+      "incidents"
+    ]
+  },
+  {
+    "external_id": "kb-ops-12",
+    "title": "Capacity planning",
+    "body": "Capacity planning is a quarterly meeting with three inputs: 13 months of utilisation metrics, the booked project pipeline, and lead times. The next review is 2026-04-07.\n\n**Where we stand.** Twenty-four standard nodes carrying 192 L40S GPUs, plus three eight-way H100 nodes, across nine populated racks drawing about 114 kW of the 150 kW contracted. Mean GPU utilisation last quarter was 61 percent and the training queue's p90 wait was 4 hours.\n\n**Lead times, which decide everything.** GPU nodes run 10 to 14 weeks from Ashgrove Compute Supply. A contracted power increase needs 60 days' notice to Stonebriar and a cooling review with Coldwater Mechanical & Power. Rack space we already hold. This means a decision made when the cluster is full arrives a quarter too late, so the triggers below are deliberately early.\n\n**Buy triggers.** Any one of these starts a purchase conversation: mean GPU utilisation above 70 percent for six consecutive weeks, queue p90 wait above 8 hours for three consecutive weeks, warm storage above 85 percent with no clean-up left, or facility draw above 85 percent of contracted power.\n\n**What we do not do.** We do not buy hardware for a deal that is not signed, and we do not size the fleet for the busiest week of the year. Short spikes are served by rented burst capacity, which costs more per hour and far less per year than idle racks.\n\n**Retirement.** Nodes are on a five-year refresh, so the 2025 nodes are planned out in 2030. Retirement dates go in the plan at purchase time, not when the hardware starts failing.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "operations",
+      "capacity",
+      "planning"
+    ]
+  },
+  {
+    "external_id": "kb-ops-13",
+    "title": "Inference serving deployment checklist",
+    "body": "Run this before a new inference service takes client traffic. The on-call primary signs it off, because they are the one who gets paged.\n\n1. Capacity. One GPU per replica, a memory limit set, and a minimum of two replicas placed in different racks. A service with one replica is a scheduled outage.\n2. Health checks. Readiness only passes after the model is loaded, which takes about 90 seconds cold; a liveness check that fires sooner will restart the pod forever.\n3. Autoscaling. Scale on request queue depth, not CPU utilisation, which tells you nothing useful on a GPU node. Set a maximum that fits the rack power budget.\n4. Limits. A request timeout, a maximum request size, a maximum output length, and a per-client rate limit. Every one of these has been the cause of an incident somewhere.\n5. Logging. Record request id, latency, token counts, and status. Prompt and completion bodies go only to the 30-day restricted store, never to the general application log.\n6. Dashboards and alerts exist before traffic arrives, with the thresholds from the monitoring page.\n7. Rollback. The previous version stays warm and the rollback has been performed once, in staging, by the person on call.\n8. Runbook. One page: what this service does, who owns it, what its dependencies are, and the three failures most likely to happen.\n9. Canary. Five percent of traffic for an hour with someone watching, then ramp.\n\n**Before sign-off**, answer one question out loud: if this service stops right now, who notices and how? If nobody can answer, the monitoring is not finished.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "operations",
+      "inference",
+      "deployment"
+    ]
+  },
+  {
+    "external_id": "kb-ops-14",
+    "title": "Model rollout and rollback",
+    "body": "A model version reaches production the same way every time, and the exit is planned before the entrance.\n\n1. Register the version with its evaluation results attached. A version without eval numbers does not ship.\n2. Shadow traffic for 24 hours: real requests, responses compared offline, nothing returned to clients.\n3. Canary five percent of traffic for one hour.\n4. Twenty-five percent for 24 hours, covering at least one full business day.\n5. One hundred percent, with the previous version kept warm for 14 days.\n\n**Watch five numbers at every stage.** p95 latency, error rate, refusal rate, the evaluation suite score on the held-out set, and cost per 1,000 requests. The refusal rate is the one people forget, and a model that quietly starts declining ordinary requests damages more client trust than a slow one.\n\n**Rollback triggers, written before the rollout starts.** p95 latency above the 900 ms objective for 10 minutes. Error rate above one percent. An evaluation score drop of more than two points. Any safety regression, which rolls back immediately and without discussion.\n\n**Rollback is routine.** It takes about ten minutes, it is rehearsed during the deployment checklist, and choosing it early is a sign of a working process rather than a failure. The question after a rollback is what the eval suite missed, not who approved the version.\n\n**Timing.** No rollout after 15:00 local on a Friday, during a client's contracted peak week, or inside a change freeze. The 2025-12-20 to 2026-01-02 freeze held three rollouts, all of which shipped uneventfully in January.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "operations",
+      "models",
+      "deployment"
+    ]
+  },
+  {
+    "external_id": "kb-ops-15",
+    "title": "Log retention",
+    "body": "Logs answer questions about the past, cost money every day, and become a liability once they outlive their purpose. These periods are the ones we contract for and the ones the deletion job enforces.\n\n**Periods.** Prompt and completion logs: 30 days. Application and request logs: 90 days. System, network, and firewall logs: 90 days. Audit logs covering authentication, access grants, and administrative actions: 400 days. Billing and capacity metrics: 13 months. Incident records and post-incident reviews: 3 years. Backup catalogues: a rolling 35 days.\n\n**Rules.**\n\n1. Retention is enforced by a job, not by anyone's memory. It runs nightly at 03:00 UTC and reports what it deleted; a night with nothing deleted is investigated.\n2. The general logs carry no secrets, no credentials, and no client identifiers beyond an opaque account id. Anything richer belongs in the restricted 30-day store.\n3. A legal hold suspends deletion for named datasets only, and is recorded with who requested it, when, and the expected release date. An open-ended hold is reviewed every quarter.\n4. A client contract may shorten a period. Nothing lengthens one silently, because retention we did not agree to is data we should not still have.\n\n**A cost note.** On 2025-11-14 a service left at debug level filled the warm tier to 91 percent overnight and blocked two training jobs. Debug logging is now time-boxed to four hours and reverts on its own, and the deletion job reports its largest producers every Monday so the next one is caught in a day rather than a week.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "operations",
+      "logging",
+      "retention"
+    ]
+  },
+  {
+    "external_id": "kb-ops-16",
+    "title": "Patch windows",
+    "body": "Two standing windows and one exception, so that patching is boring and predictable rather than a negotiation each time.\n\n**Weekly, Tuesday 02:00 to 05:00 UTC.** Non-disruptive work: operating system packages, agents, certificate rotation, and rolling restarts taken one node at a time. Inference serving keeps its replica count throughout.\n\n**Monthly, third Sunday 01:00 to 07:00 UTC.** Disruptive work: BIOS and BMC firmware, switch software, storage controller updates, and driver rollouts. The training queue is drained beforehand.\n\n**Emergency.** A vulnerability with known active exploitation against something we run is patched within 72 hours whatever the calendar says. The change is logged afterwards with the reason, and the next window absorbs the follow-up work.\n\n**Running a window.**\n\n1. Announce five business days ahead in the operations channel and to any client whose service is affected.\n2. Drain training jobs and confirm their checkpoints landed.\n3. Confirm inference has healthy replicas in a rack you are not touching.\n4. Take a configuration backup and note the current versions.\n5. Patch, then verify: services healthy, versions as expected, a test request served end to end.\n6. Reopen the queue and post the window notes, including anything that did not go in.\n\n**Freezes.** No non-urgent patching during a client's contracted peak, in the 48 hours before a major rollout, or during a declared freeze. The 2025-12-20 to 2026-01-02 freeze allowed emergency patches only; two were applied and both were reviewed on 2026-01-05.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "operations",
+      "patching",
+      "maintenance"
+    ]
+  },
+  {
+    "external_id": "kb-ops-17",
+    "title": "Hardware failure handling",
+    "body": "GPUs and drives fail on their own schedule. The job is to notice early, act on thresholds instead of instinct, and keep the evidence a warranty claim needs.\n\n**GPU memory errors.** A handful of correctable ECC events over a card's life is ordinary. The thresholds are: any uncorrectable ECC error, or an Xid event indicating a fallen-off-the-bus or double-bit fault, drains the node now; remapped memory pages growing by more than ten in a week, or a total above 60, schedules a warranty replacement in the next window; a single correctable event is logged and watched.\n\n**Procedure for a suspect GPU.**\n\n1. Cordon the node so the scheduler stops placing work, and let the running job checkpoint and stop rather than killing it.\n2. Collect `nvidia-smi -q` output, the kernel log, and the Xid lines into the ticket before rebooting, because a reboot clears some of it.\n3. Reseat power and reboot once. Some faults clear after a reset and page remap.\n4. Rerun the burn-in load for four hours on the quarantine VLAN.\n5. If the fault returns, file with Ashgrove Compute Supply quoting the chassis and GPU serials, with logs attached. Nodes in production get advance replacement; spares wait the standard ten business days.\n\n**Drives.** One failed drive in a redundant pool is a ticket and gets replaced within 48 hours; a rebuild runs about seven hours per 8 TB drive and a second failure in the same pool during that window pages immediately. We keep four spare drives of each size and two cold spare nodes on site.\n\n**No failed drive leaves the facility with readable data on it.** Sanitisation follows the decommissioning procedure, without exception for warranty returns.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "operations",
+      "hardware",
+      "incidents"
+    ]
+  },
+  {
+    "external_id": "kb-ops-18",
+    "title": "Cost review cadence",
+    "body": "A 45-minute review on the first Thursday of the month, owned by the operations lead, plus a longer quarterly session with the account managers. The point is to catch a trend at month two rather than at the annual budget.\n\n**What the monthly bill looks like.** Rack rental runs 800 dollars per rack per month across 12 contracted racks, or 9,600 dollars. Power for about 114 kW of IT load, at a facility PUE near 1.45 and 0.11 dollars per kilowatt-hour, comes to roughly 13,300 dollars. Facility total is therefore about 22,900 dollars a month, against which the depreciation of the GPU nodes over their five-year life is the larger number and the easier one to forget.\n\n**The rest of the lines.** Burst GPU rental for spikes, storage growth by tier, transit from Pinewire Fiber, hosted model API spend, and cost per 1,000 inference requests broken down per client.\n\n**How we read it.**\n\n1. Any line more than fifteen percent above the previous month gets a named explanation, not a shrug.\n2. Cost per 1,000 requests trending upward means a model change, falling batch efficiency, or a client's traffic shape shifted. All three are worth knowing.\n3. Storage growth is compared against the monthly warm tier clean-up. If it is growing while clean-up is running, quotas are wrong.\n\n**Chargeback.** Every job carries a project tag, and untagged jobs are charged to the platform budget. This is a deliberate incentive and it has improved tagging more than any reminder ever did.\n\nRecord the decisions in the review notes, not just the numbers. Next review: 2026-10-01.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "operations",
+      "cost",
+      "finance"
+    ]
+  },
+  {
+    "external_id": "kb-ops-19",
+    "title": "Vendor escalation",
+    "body": "Four vendors carry our facility: Stonebriar Colocation for space, power, cooling, and remote hands; Coldwater Mechanical & Power for mechanical and electrical work; Ashgrove Compute Supply for GPU hardware and warranty; Pinewire Fiber for transit and cross-connects.\n\n**Before escalating**, have the ticket number, timestamps in UTC, exactly what was observed, what has already been ruled out on our side, and the contract clause that applies. An escalation that opens with \"everything is broken\" costs an hour establishing what everyone already knew.\n\n**The ladder.**\n\n1. Open a portal ticket at the correct severity. Overstating severity works once and then stops working.\n2. If there is no acknowledgement inside the contracted time, one hour for a Sev-1 and the next business day otherwise, call the 24-hour line and quote the ticket number. Stonebriar is +1-555-0112, Coldwater +1-555-0128, Ashgrove +1-555-0147, Pinewire +1-555-0163.\n3. Two hours into a Sev-1 without a repair estimate, ask for the duty manager and request a bridge call with our incident owner on it.\n4. Four hours in, the engineering lead contacts the account manager and states plainly which contractual remedy we intend to claim.\n5. Afterwards, record which step actually moved things. That record is the escalation path next time.\n\n**Conduct.** One owner per escalation, hourly written updates in the incident channel, and civility throughout. The person answering the phone did not cause the chiller failure, and they are the one who can reach the engineer who can fix it.\n\n**Renewals.** Contracts are reviewed 90 days out; Stonebriar renews 2026-07-31. Response-time performance from the year's incidents is the evidence we negotiate with.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "operations",
+      "vendors",
+      "escalation"
+    ]
+  },
+  {
+    "external_id": "kb-ops-20",
+    "title": "Decommissioning and data wiping",
+    "body": "A node leaves the fleet at its five-year refresh, when repair costs more than replacement, or when a client contract ends and dedicated hardware must be released. The order below matters, and the worst state for a machine is halfway through it.\n\n1. Stop the work. Cordon the node, drain running jobs, and confirm nothing references it: the scheduler, the inference configuration, monitoring, DNS, and the configuration repository.\n2. Account for the data. List every dataset, checkpoint, index, and log on its drives. Confirm the copies that must survive exist in the cold tier and can actually be restored, verifying rather than assuming.\n3. Sanitise. Self-encrypting NVMe drives get a cryptographic erase followed by a verification read across a sample of blocks. Drives without that support get a full overwrite pass. A drive that fails verification is physically destroyed, and so is any drive that failed in service.\n4. Record. Serial number, method, date, operator, and result go in the asset record. Certificates of destruction from the shredding vendor are kept for three years.\n5. Strip identity. Remove BMC credentials and certificates, revoke the node's service accounts, and delete its keys from the configuration repository.\n6. Dispose. Resale only after sanitisation is recorded; otherwise e-waste with a certificate.\n7. Release the space. Tell Stonebriar to free the rack position and the associated power, so we stop paying for a machine we no longer own.\n\n**Client hardware returns** follow every step above, plus a written confirmation to the client naming the datasets removed and the date, which is what our data handling commitments require.",
+    "source": "kb/operations",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "operations",
+      "decommissioning",
+      "data-handling"
+    ]
+  }
+]

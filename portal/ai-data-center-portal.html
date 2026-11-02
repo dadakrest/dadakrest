@@ -1,0 +1,904 @@
+<title>AI Data Center Portal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an access desk. A header strip carries the signed-in identity; a left rail
+   shows the four-step access path; the workspace on the right changes with the viewer's state. */
+:root {
+  --bg: #eef3f3;
+  --surface: #ffffff;
+  --sunk: #e3ebeb;
+  --ink: #10282b;
+  --muted: #566e71;
+  --line: #cfdcdc;
+  --accent: #0f5f68;
+  --accent-ink: #ffffff;
+  --accent-soft: #d6ecee;
+  --ok: #1b7343;
+  --ok-soft: #dcf1e4;
+  --warn: #8a5700;
+  --warn-soft: #f8ead0;
+  --bad: #a8261e;
+  --bad-soft: #f8dedb;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1516; --surface: #122224; --sunk: #0e1b1c; --ink: #e2eded; --muted: #91a8aa;
+    --line: #253b3e; --accent: #5cc0c9; --accent-ink: #052326; --accent-soft: #163a3e;
+    --ok: #74d39e; --ok-soft: #143323; --warn: #e6b45c; --warn-soft: #3a2c10;
+    --bad: #f08c84; --bad-soft: #3d1a17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1516; --surface: #122224; --sunk: #0e1b1c; --ink: #e2eded; --muted: #91a8aa;
+  --line: #253b3e; --accent: #5cc0c9; --accent-ink: #052326; --accent-soft: #163a3e;
+  --ok: #74d39e; --ok-soft: #143323; --warn: #e6b45c; --warn-soft: #3a2c10;
+  --bad: #f08c84; --bad-soft: #3d1a17; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 10; background: var(--accent);
+}
+.wrap {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--font-display); font-stretch: 87.5%; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: 1.6rem; font-weight: 800; }
+h2 { font-size: 1.3rem; font-weight: 700; }
+h3 { font-size: 1.02rem; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+.mono { font-family: var(--font-mono); font-size: 0.86em; }
+.muted { color: var(--muted); }
+.label {
+  font-family: var(--font-display); font-stretch: 87.5%; font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted);
+}
+
+/* header */
+header.top { background: var(--accent); color: var(--accent-ink); }
+header.top .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-block: 18px; }
+.brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.brand .label { color: inherit; opacity: 0.8; }
+.who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.who img { width: 34px; height: 34px; border-radius: 50%; border: 2px solid currentColor; }
+.who-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.who-text strong { overflow-wrap: anywhere; }
+.who-text span { font-size: 0.85rem; opacity: 0.85; overflow-wrap: anywhere; }
+
+/* main grid */
+main .wrap { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 28px; padding-block: 28px 56px; align-items: start; }
+@media (max-width: 820px) { main .wrap { grid-template-columns: minmax(0, 1fr); } }
+.rail { display: flex; flex-direction: column; gap: 20px; }
+.work { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel.quiet { background: transparent; border-style: dashed; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+
+/* access path */
+ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+ol.steps li { display: grid; grid-template-columns: 30px 1fr; gap: 12px; padding-block: 10px; position: relative; }
+ol.steps li:not(:last-child)::after { content: ""; position: absolute; left: 14px; top: 40px; bottom: -4px; width: 2px; background: var(--line); }
+.dot { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600; border: 2px solid var(--line); color: var(--muted); background: var(--surface); }
+li.done .dot { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+li.now .dot { border-color: var(--accent); color: var(--accent); }
+li.stop .dot { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.step-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.step-text strong { font-weight: 600; }
+.step-text span { font-size: 0.88rem; color: var(--muted); overflow-wrap: anywhere; }
+
+/* sign-in methods */
+ul.methods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+ul.methods li { display: flex; flex-direction: column; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+ul.methods li:last-child { border-bottom: 0; padding-bottom: 0; }
+.method-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.method-row strong { font-weight: 600; }
+ul.methods p { font-size: 0.88rem; color: var(--muted); }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; font-family: var(--font-body); }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.ok { color: var(--ok); background: var(--ok-soft); }
+.chip.warn { color: var(--warn); background: var(--warn-soft); }
+.chip.bad { color: var(--bad); background: var(--bad-soft); }
+.chip.off { color: var(--muted); background: var(--sunk); }
+
+/* form */
+form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-weight: 600; }
+.field small { color: var(--muted); font-size: 0.85rem; }
+input[type="text"], textarea {
+  font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 7px; padding: 9px 11px; width: 100%;
+}
+textarea { min-height: 96px; resize: vertical; }
+input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.check { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; }
+.check input { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--accent); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 7px; padding: 8px 16px;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+}
+button.ghost { background: transparent; color: var(--accent); }
+button.danger { background: transparent; color: var(--bad); border-color: var(--bad); }
+button:disabled { opacity: 0.55; cursor: default; }
+button.small { padding: 4px 11px; font-size: 0.88rem; }
+.msg { font-size: 0.92rem; min-height: 1.4em; }
+.msg.err { color: var(--bad); }
+.msg.good { color: var(--ok); }
+
+/* status banner */
+.banner { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
+.banner .chip { margin-top: 3px; }
+.banner > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+/* tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button { background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; border-radius: 0; padding: 8px 14px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs .count { font-family: var(--font-mono); font-size: 0.78rem; margin-left: 4px; }
+
+/* rack of databases */
+.rack { display: flex; flex-direction: column; gap: 6px; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.unit { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 8px 12px; }
+.unit .u { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+.unit strong { font-weight: 600; }
+.unit .rows { font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.unit .led { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 8px; vertical-align: middle; }
+
+/* tables */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.94rem; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-display); font-stretch: 87.5%; font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 0.86rem; white-space: nowrap; }
+.person { display: flex; gap: 10px; align-items: center; min-width: 180px; }
+.person img { width: 30px; height: 30px; border-radius: 50%; flex: none; }
+.person div { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.person span { font-size: 0.84rem; color: var(--muted); overflow-wrap: anywhere; }
+.reason { max-width: 320px; overflow-wrap: anywhere; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* documents */
+ul.docs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 620px) { ul.docs { grid-template-columns: minmax(0, 1fr); } }
+ul.docs a { display: flex; flex-direction: column; gap: 2px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 7px; text-decoration: none; color: var(--ink); background: var(--bg); height: 100%; }
+ul.docs a:hover { border-color: var(--accent); }
+ul.docs a span { font-size: 0.85rem; color: var(--muted); }
+
+/* block confirmation */
+.blockform { border: 1px solid var(--bad); background: var(--bad-soft); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.blockform h3 { color: var(--bad); overflow-wrap: anywhere; }
+.blockform input[type="text"] { background: var(--surface); }
+.lock-note { font-size: 0.86rem; color: var(--muted); }
+
+ul.guarantees { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 8px; }
+ul.guarantees li { padding-left: 4px; }
+.empty { padding: 18px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); text-align: center; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <span class="label">Software da Database User 13</span>
+      <h1>AI Data Center</h1>
+    </div>
+    <div class="who" id="who" hidden>
+      <img id="who-avatar" alt="">
+      <div class="who-text">
+        <strong id="who-name"></strong>
+        <span id="who-role"></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <aside class="rail">
+      <section class="panel" aria-labelledby="path-h">
+        <span class="label" id="path-h">Your access</span>
+        <ol class="steps" id="steps">
+          <li id="step-1" class="now"><span class="dot">1</span><span class="step-text"><strong>Sign in</strong><span id="step-1-note">Checking your Claude account…</span></span></li>
+          <li id="step-2"><span class="dot">2</span><span class="step-text"><strong>Email verified</strong><span id="step-2-note">Done by Claude when you sign in</span></span></li>
+          <li id="step-3"><span class="dot">3</span><span class="step-text"><strong>Request access</strong><span id="step-3-note">Tell the owner who you are</span></span></li>
+          <li id="step-4"><span class="dot">4</span><span class="step-text"><strong>Owner approves</strong><span id="step-4-note">Only the owner can approve</span></span></li>
+        </ol>
+      </section>
+
+      <section class="panel" aria-labelledby="methods-h">
+        <span class="label" id="methods-h">Sign-in methods</span>
+        <ul class="methods">
+          <li>
+            <div class="method-row"><strong>Claude account</strong><span class="chip ok">In use</span></div>
+            <p>Sign in at claude.ai with Google or with your email address. This portal uses that sign-in.</p>
+          </li>
+          <li>
+            <div class="method-row"><strong>Email verification</strong><span class="chip ok">In use</span></div>
+            <p>Claude checks your email address when you sign in, so this portal does not send its own codes.</p>
+          </li>
+          <li>
+            <div class="method-row"><strong>Google, direct</strong><span class="chip warn">Needs setup</span></div>
+            <p>Needs a Google Cloud OAuth client and a server. Google sign-in already works through your Claude account.</p>
+          </li>
+          <li>
+            <div class="method-row"><strong>Meta account</strong><span class="chip warn">Needs setup</span></div>
+            <p>Needs a Meta developer app, app review and a server. Not connected.</p>
+          </li>
+          <li>
+            <div class="method-row"><strong>Username and password</strong><span class="chip off">Not used</span></div>
+            <p>No passwords are stored anywhere in this portal, so there are none to leak or read.</p>
+          </li>
+        </ul>
+      </section>
+    </aside>
+
+    <div class="work">
+      <!-- shown while the viewer's identity loads -->
+      <div class="banner" id="state-loading">
+        <span class="chip off">Loading</span>
+        <div><strong>Checking your sign-in</strong><p class="muted">This takes a moment after the page opens.</p></div>
+      </div>
+
+      <!-- no identity in this view -->
+      <div class="banner" id="state-signedout" hidden>
+        <span class="chip bad">Signed out</span>
+        <div>
+          <strong>Sign in to claude.ai to use this portal</strong>
+          <p class="muted">Open the link the owner sent you while signed in to your Claude account. If you signed in and still see this, ask the owner to share the page with you as a Contributor.</p>
+        </div>
+      </div>
+
+      <!-- request form -->
+      <section class="panel" id="state-request" hidden aria-labelledby="req-h">
+        <div class="panel-head"><h2 id="req-h">Request access</h2><span class="chip warn" id="req-chip">Not requested</span></div>
+        <p class="muted" id="req-intro">The owner reviews every request. You will see the decision here.</p>
+        <form id="req-form" novalidate>
+          <div class="two">
+            <div class="field">
+              <label for="req-name">Name to show the owner</label>
+              <input type="text" id="req-name" maxlength="80" autocomplete="name">
+              <small>Optional. Your Claude account name is shown too.</small>
+            </div>
+            <div class="field">
+              <label for="req-company">Company or role</label>
+              <input type="text" id="req-company" maxlength="120" autocomplete="organization">
+              <small>Optional.</small>
+            </div>
+          </div>
+          <div class="field">
+            <label for="req-reason">Why do you need access?</label>
+            <textarea id="req-reason" maxlength="500" required></textarea>
+            <small><span id="req-count">0</span> of 500 characters</small>
+          </div>
+          <label class="check" for="req-terms">
+            <input type="checkbox" id="req-terms">
+            <span>I will use this portal only for Software da Database User 13 business and keep its documents private.</span>
+          </label>
+          <div class="actions">
+            <button type="submit" id="req-send">Send request</button>
+            <span class="msg" id="req-msg" role="status"></span>
+          </div>
+        </form>
+      </section>
+
+      <!-- pending / declined / revoked -->
+      <div class="banner" id="state-status" hidden>
+        <span class="chip warn" id="status-chip">Waiting</span>
+        <div>
+          <strong id="status-title">Your request is with the owner</strong>
+          <p class="muted" id="status-text">You can close this page. Your status updates here as soon as the owner decides.</p>
+        </div>
+      </div>
+
+      <!-- owner console -->
+      <section class="panel" id="owner-console" hidden aria-labelledby="owner-h">
+        <div class="panel-head">
+          <h2 id="owner-h">Owner console</h2>
+          <span class="muted">Only you see this section and its data.</span>
+        </div>
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" id="tab-requests" aria-selected="true" data-tab="requests">Requests<span class="count" id="count-pending">0</span></button>
+          <button type="button" role="tab" id="tab-members" aria-selected="false" data-tab="members">Members<span class="count" id="count-members">0</span></button>
+          <button type="button" role="tab" id="tab-blocked" aria-selected="false" data-tab="blocked">Blocked<span class="count" id="count-blocked">0</span></button>
+          <button type="button" role="tab" id="tab-activity" aria-selected="false" data-tab="activity">Activity</button>
+        </div>
+        <form id="block-form" class="blockform" hidden novalidate>
+          <h3 id="block-title">Block this person for 4 months?</h3>
+          <p>They lose access to this portal right away and can't send new requests. The block can't be lifted before <strong id="block-until"></strong>. After that date it stays in place until you lift it.</p>
+          <div class="field">
+            <label for="block-reason">Reason</label>
+            <input type="text" id="block-reason" maxlength="200">
+            <small>Only you can see the reason.</small>
+          </div>
+          <p class="lock-note">To stop them opening this page at all, also remove them in the page's Share menu.</p>
+          <div class="actions">
+            <button type="submit" class="danger" id="block-confirm">Block for 4 months</button>
+            <button type="button" class="ghost" id="block-cancel">Cancel</button>
+          </div>
+        </form>
+        <div id="pane-requests" role="tabpanel"></div>
+        <div id="pane-members" role="tabpanel" hidden></div>
+        <div id="pane-blocked" role="tabpanel" hidden></div>
+        <div id="pane-activity" role="tabpanel" hidden></div>
+        <p class="msg" id="owner-msg" role="status"></p>
+      </section>
+
+      <!-- member area -->
+      <section class="panel" id="member-area" hidden aria-labelledby="dc-h">
+        <div class="panel-head"><h2 id="dc-h">The data center</h2><span class="muted">Seven databases, version 1.0.0</span></div>
+        <div class="rack">
+          <div class="unit"><span class="u">U1</span><span><span class="led"></span><strong>contacts</strong> <span class="muted">people, organizations</span></span><span class="rows">107 rows</span></div>
+          <div class="unit"><span class="u">U2</span><span><span class="led"></span><strong>documents</strong> <span class="muted">knowledge base</span></span><span class="rows">79 docs</span></div>
+          <div class="unit"><span class="u">U3</span><span><span class="led"></span><strong>datasets</strong> <span class="muted">fees, plans, usage</span></span><span class="rows">462 records</span></div>
+          <div class="unit"><span class="u">U4</span><span><span class="led"></span><strong>models</strong> <span class="muted">AI model registry</span></span><span class="rows">72 models</span></div>
+          <div class="unit"><span class="u">U5</span><span><span class="led"></span><strong>embeddings</strong> <span class="muted">search index</span></span><span class="rows">79 vectors</span></div>
+          <div class="unit"><span class="u">U6</span><span><span class="led"></span><strong>jobs</strong> <span class="muted">scheduled work</span></span><span class="rows">1 job</span></div>
+          <div class="unit"><span class="u">U7</span><span><span class="led"></span><strong>audit</strong> <span class="muted">event log</span></span><span class="rows">every change</span></div>
+        </div>
+
+        <h3>Business plans, first 12 months</h3>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Plan</th><th>Built from</th><th class="num">Total</th></tr></thead>
+            <tbody>
+              <tr><td>GPU cluster launch</td><td>Staff <span class="mono">EMP</span> $457,942 · Government <span class="mono">GOV</span> $19,870</td><td class="num">$477,812</td></tr>
+              <tr><td>Year-one operating</td><td>Staff <span class="mono">EMP</span> $459,028 · Government <span class="mono">GOV</span> $4,015</td><td class="num">$463,043</td></tr>
+              <tr><td>Starter colocation</td><td>Services <span class="mono">SVC</span> $53,388</td><td class="num">$53,388</td></tr>
+              <tr><td>Managed inference</td><td>Services <span class="mono">SVC</span> $50,524</td><td class="num">$50,524</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted" style="font-size:0.88rem">Fee tables: 22 government fees, 28 data center service fees and 15 employment roles. The figures are planning examples, not quotes.</p>
+
+        <h3>Documents</h3>
+        <ul class="docs">
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/pdf/ai-data-center.pdf" target="_blank" rel="noopener">AI Data Center<span>Overview · 8 pages</span></a></li>
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/pdf/fee-schedule.pdf" target="_blank" rel="noopener">Fee Schedule<span>Government, service and employment fees · 10 pages</span></a></li>
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/pdf/ai-tools-and-databases.pdf" target="_blank" rel="noopener">AI Tools and Databases<span>Reference · 15 pages</span></a></li>
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/pdf/license-agreement.pdf" target="_blank" rel="noopener">License Agreement<span>Template · 9 pages</span></a></li>
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/pdf/llc-operating-agreement.pdf" target="_blank" rel="noopener">LLC Operating Agreement<span>Template · 9 pages</span></a></li>
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/pdf/employment-application.pdf" target="_blank" rel="noopener">Employment Application<span>Fillable form · 3 pages</span></a></li>
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/library/ai-data-center-business-plan.pdf" target="_blank" rel="noopener">Business Plan<span>Library · 10 pages</span></a></li>
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/library/ai-data-center-documents.pdf" target="_blank" rel="noopener">AI Data Center Documents<span>Library · 11 pages</span></a></li>
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/library/ai-data-center-employment-forms.pdf" target="_blank" rel="noopener">Employment Forms<span>Library · 6 pages</span></a></li>
+          <li><a href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/library/financial-trade-data.pdf" target="_blank" rel="noopener">Financial Trade Data<span>Library · 6 pages</span></a></li>
+        </ul>
+
+        <h3>Private notes</h3>
+        <div class="field">
+          <label for="notes-text">Only you can read these. The owner cannot.</label>
+          <textarea id="notes-text" maxlength="4000"></textarea>
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost" id="notes-save">Save notes</button>
+          <span class="msg" id="notes-msg" role="status"></span>
+        </div>
+      </section>
+
+      <!-- security -->
+      <section class="panel quiet" aria-labelledby="sec-h">
+        <h2 id="sec-h">Security</h2>
+        <ul class="guarantees">
+          <li><strong>No passwords.</strong> You sign in with your Claude account, so this portal never sees or stores a password. Nobody can read one here, the owner included.</li>
+          <li><strong>Only invited people get in.</strong> The page is private. Only people the owner shares it with can open it, and they must be signed in.</li>
+          <li><strong>Only the owner decides.</strong> The database lets only the owner approve, decline or remove members, and only the owner can read requests and the activity log.</li>
+          <li><strong>Your request is yours.</strong> You can read and update your own request. You cannot see anyone else's.</li>
+          <li><strong>Private notes stay private.</strong> Each member's notes are readable by that member alone, the owner included.</li>
+          <li><strong>Trying to get at other people's data gets you blocked.</strong> The database refuses those attempts. Anyone the owner catches trying is blocked for at least four months, and after that only the owner can lift the block.</li>
+          <li><strong>What approval unlocks.</strong> The plans and documents above are the same ones on the public website. Approval opens the member tools; it does not protect secret files, so never put ID numbers or bank details in this portal.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const S = {
+    user: null, db: null, uid: null, me: null, owner: false,
+    request: null, member: null,
+    requests: new Map(), members: new Map(), blocks: new Map(), audit: [],
+    tab: "requests", busy: false, notesDirty: false, blockTarget: null,
+  };
+  const STATUS = {
+    approved: { chip: "ok", text: "Approved" },
+    declined: { chip: "bad", text: "Declined" },
+    revoked: { chip: "bad", text: "Removed" },
+    blocked: { chip: "bad", text: "Blocked" },
+    unblocked: { chip: "off", text: "Unblocked" },
+    pending: { chip: "warn", text: "Waiting" },
+  };
+  const BLOCK_MONTHS = 4;
+
+  // Same day of the month, N months later; a day the target month lacks becomes its last day.
+  function addMonths(iso, n) {
+    const d = new Date(iso);
+    const day = d.getUTCDate();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() + n);
+    const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    d.setUTCDate(Math.min(day, last));
+    return d.toISOString();
+  }
+  function reviewDue(mem) {
+    return !!(mem && mem.reviewAfter && new Date().toISOString() >= mem.reviewAfter);
+  }
+  function day(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return isNaN(d) ? "" : d.toLocaleDateString(undefined, { dateStyle: "long" });
+  }
+
+  function show(id, on) { $(id).hidden = !on; }
+  function when(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return isNaN(d) ? "" : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  }
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function chip(kind, text) { return el("span", "chip " + kind, text); }
+  function step(n, cls, note) {
+    const li = $("step-" + n);
+    li.className = cls || "";
+    if (note) $("step-" + n + "-note").textContent = note;
+  }
+
+  // A request counts as pending when no decision exists, or the person sent it again after one.
+  // A block outranks everything: new requests from a blocked account stay blocked.
+  function statusOf(req, mem) {
+    if (mem && mem.status === "blocked") return "blocked";
+    if (mem && mem.status === "approved") return "approved";
+    if (mem && req && req.updatedAt && mem.decidedAt && req.updatedAt > mem.decidedAt) return "pending";
+    if (mem) return mem.status;
+    return req ? "pending" : null;
+  }
+
+  async function boot() {
+    const host = window.claude;
+    if (!host || typeof host.use !== "function") return signedOut();
+    let user = null, db = null;
+    try { [user, db] = await Promise.all([host.use("user"), host.use("db")]); } catch (e) { /* treated as absent */ }
+    S.user = user; S.db = db;
+    if (!user || !db) return signedOut();
+    S.me = await user.me();
+    S.uid = S.me.id;
+    S.owner = S.me.isOwner;
+    if (!S.uid && !S.owner) return signedOut();
+    renderIdentity();
+    if (S.owner) startOwner();
+    else startViewer();
+    startNotes();
+  }
+
+  function signedOut() {
+    show("state-loading", false);
+    show("state-signedout", true);
+    step(1, "now", "Not signed in");
+  }
+
+  function renderIdentity() {
+    show("who", true);
+    $("who-avatar").src = S.me.avatarUrl;
+    $("who-name").textContent = S.me.name || "Signed in";
+    $("who-role").textContent = S.owner ? "Owner" : (S.me.email || "Claude account");
+    step(1, "done", "Signed in with your Claude account");
+    step(2, "done", S.me.email ? S.me.email : "Verified by Claude at sign-in");
+  }
+
+  // ---- viewer ----------------------------------------------------------
+  function startViewer() {
+    S.db.doc("requests/" + S.uid).onSnapshot((snap) => {
+      S.request = snap.exists ? snap.data() : null;
+      renderViewer();
+    }, failed);
+    S.db.doc("members/" + S.uid).onSnapshot((snap) => {
+      S.member = snap.exists ? snap.data() : null;
+      renderViewer();
+    }, failed);
+  }
+
+  function renderViewer() {
+    show("state-loading", false);
+    const st = statusOf(S.request, S.member);
+    const approved = st === "approved";
+    show("member-area", approved);
+    show("state-request", !st || st === "declined" || st === "revoked" || st === "unblocked");
+    show("state-status", !!st && !approved);
+    if (!st) {
+      step(3, "now", "Tell the owner who you are");
+      step(4, "", "Only the owner can approve");
+      $("req-chip").className = "chip warn"; $("req-chip").textContent = "Not requested";
+      $("req-intro").textContent = "The owner reviews every request. You will see the decision here.";
+      return;
+    }
+    step(3, "done", "Sent " + when(S.request && S.request.updatedAt));
+    if (approved) {
+      step(4, "done", "Approved " + when(S.member.decidedAt));
+      return;
+    }
+    const s = STATUS[st] || STATUS.pending;
+    $("status-chip").className = "chip " + s.chip;
+    $("status-chip").textContent = s.text;
+    if (st === "pending") {
+      step(4, "now", "Waiting for the owner");
+      $("status-title").textContent = "Your request is with the owner";
+      $("status-text").textContent = "You can close this page. Your status updates here as soon as the owner decides.";
+    } else if (st === "blocked") {
+      step(3, "stop", "Requests are closed while you are blocked");
+      step(4, "stop", "Blocked");
+      $("status-title").textContent = "The owner blocked this account";
+      $("status-text").textContent = "The block can't be lifted before " + (day(S.member.reviewAfter) || "its review date") +
+        ". After that, only the owner decides whether to lift it.";
+    } else if (st === "unblocked") {
+      step(4, "now", "Block lifted");
+      $("status-title").textContent = "The owner lifted your block";
+      $("status-text").textContent = "Your earlier access is not restored automatically. Send a new request below if you still need it.";
+      $("req-chip").className = "chip off"; $("req-chip").textContent = s.text;
+      $("req-intro").textContent = "Sending a request puts you back in the owner's list.";
+    } else {
+      step(4, "stop", st === "revoked" ? "Access removed" : "Request declined");
+      $("status-title").textContent = st === "revoked" ? "The owner removed your access" : "The owner declined your request";
+      $("status-text").textContent = "You can send a new request below if something has changed.";
+      $("req-chip").className = "chip bad"; $("req-chip").textContent = s.text;
+      $("req-intro").textContent = "Sending again puts your request back in the owner's list.";
+    }
+  }
+
+  $("req-reason").addEventListener("input", () => { $("req-count").textContent = $("req-reason").value.length; });
+
+  $("req-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const msg = $("req-msg");
+    const reason = $("req-reason").value.trim();
+    msg.className = "msg err";
+    if (!reason) { msg.textContent = "Write a sentence about why you need access."; $("req-reason").focus(); return; }
+    if (!$("req-terms").checked) { msg.textContent = "Tick the box to agree before sending."; return; }
+    if (!S.db || !S.uid) { msg.textContent = "Sign in to claude.ai first."; return; }
+    const now = new Date().toISOString();
+    const body = {
+      displayName: $("req-name").value.trim().slice(0, 80),
+      company: $("req-company").value.trim().slice(0, 120),
+      reason: reason.slice(0, 500),
+      termsAccepted: true,
+      requestedAt: (S.request && S.request.requestedAt) || now,
+      updatedAt: now,
+    };
+    $("req-send").disabled = true;
+    msg.className = "msg"; msg.textContent = "Sending…";
+    try {
+      await S.db.doc("requests/" + S.uid).set(body);
+      msg.className = "msg good"; msg.textContent = "Request sent.";
+    } catch (e) {
+      msg.className = "msg err";
+      msg.textContent = e && e.code === "invalid_argument"
+        ? "Your access level can't send requests. Ask the owner to share the page with you as a Contributor."
+        : "The request didn't send. Check your connection and try again.";
+    } finally {
+      $("req-send").disabled = false;
+    }
+  });
+
+  // ---- owner -----------------------------------------------------------
+  function startOwner() {
+    show("state-loading", false);
+    show("owner-console", true);
+    show("member-area", true);
+    step(3, "done", "Not needed for the owner");
+    step(4, "done", "You approve everyone else");
+    S.db.collection("requests").onSnapshot((snap) => {
+      S.requests = new Map(snap.docs.map((d) => [d.id, d.data()]));
+      renderOwner();
+    }, failed);
+    S.db.collection("members").onSnapshot((snap) => {
+      S.members = new Map(snap.docs.map((d) => [d.id, d.data()]));
+      renderOwner();
+    }, failed);
+    S.db.collection("blocks").onSnapshot((snap) => {
+      S.blocks = new Map(snap.docs.map((d) => [d.id, d.data()]));
+      renderOwner();
+    }, failed);
+    S.db.collection("audit").orderBy("at", "desc").limit(40).onSnapshot((snap) => {
+      S.audit = snap.docs.map((d) => d.data());
+      renderOwner();
+    }, failed);
+  }
+
+  document.querySelectorAll(".tabs button").forEach((b) => {
+    b.addEventListener("click", () => {
+      S.tab = b.dataset.tab;
+      document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+      ["requests", "members", "blocked", "activity"].forEach((t) => show("pane-" + t, t === S.tab));
+    });
+  });
+
+  let renderSeq = 0;
+  async function renderOwner() {
+    const seq = ++renderSeq;
+    const ids = new Set([...S.requests.keys(), ...S.members.keys()]);
+    S.audit.forEach((a) => a.target && ids.add(a.target));
+    const people = ids.size ? await S.user.profiles([...ids]) : {};
+    if (seq !== renderSeq) return;
+
+    const rows = [...ids].map((id) => ({ id, req: S.requests.get(id) || null, mem: S.members.get(id) || null }))
+      .map((r) => ({ ...r, st: statusOf(r.req, r.mem) }));
+    const pending = rows.filter((r) => r.st === "pending")
+      .sort((a, b) => String(a.req.updatedAt).localeCompare(String(b.req.updatedAt)));
+    const blocked = rows.filter((r) => r.st === "blocked")
+      .sort((a, b) => String(a.mem.reviewAfter).localeCompare(String(b.mem.reviewAfter)));
+    const decided = rows.filter((r) => r.st && r.st !== "pending" && r.st !== "blocked")
+      .sort((a, b) => String(b.mem.decidedAt).localeCompare(String(a.mem.decidedAt)));
+    $("count-pending").textContent = pending.length;
+    $("count-members").textContent = decided.filter((r) => r.st === "approved").length;
+    $("count-blocked").textContent = blocked.length;
+    const nameOf = (r) => (people[r.id] && people[r.id].name) || (r.req && r.req.displayName) || "this person";
+
+    $("pane-requests").replaceChildren(pending.length
+      ? table(["Person", "Why", "Sent", ""], pending.map((r) => [
+          personCell(people[r.id], r.req),
+          reasonCell(r.req),
+          el("span", "muted", when(r.req.updatedAt)),
+          actionsCell([
+            ["Approve", "", () => decide(r.id, "approved")],
+            ["Decline", "ghost", () => decide(r.id, "declined")],
+            ["Block", "danger", () => openBlockForm(r.id, nameOf(r))],
+          ]),
+        ]))
+      : el("p", "empty", "No requests waiting. Share this page with Contributor access, and new requests appear here."));
+
+    $("pane-members").replaceChildren(decided.length
+      ? table(["Person", "Status", "Decided", ""], decided.map((r) => {
+          const s = STATUS[r.st] || STATUS.pending;
+          return [
+            personCell(people[r.id], r.req),
+            chip(s.chip, s.text),
+            el("span", "muted", when(r.mem.decidedAt)),
+            actionsCell([
+              r.st === "approved"
+                ? ["Remove", "ghost", () => decide(r.id, "revoked")]
+                : ["Approve", "ghost", () => decide(r.id, "approved")],
+              ["Block", "danger", () => openBlockForm(r.id, nameOf(r))],
+            ]),
+          ];
+        }))
+      : el("p", "empty", "No decisions yet. Approved and declined people are listed here."));
+
+    $("pane-blocked").replaceChildren(blocked.length
+      ? table(["Person", "Reason", "Blocked", "Review", ""], blocked.map((r) => {
+          const due = reviewDue(r.mem);
+          const info = S.blocks.get(r.id);
+          const review = el("div", "reason");
+          review.appendChild(chip(due ? "warn" : "bad", due ? "Review due" : "Locked"));
+          review.appendChild(el("span", "lock-note", " " + day(r.mem.reviewAfter)));
+          return [
+            personCell(people[r.id], r.req),
+            el("p", "reason", (info && info.reason) || "No reason recorded"),
+            el("span", "muted", day(r.mem.blockedAt)),
+            review,
+            due
+              ? actionsCell([
+                  ["Unblock", "ghost", () => unblock(r.id, r.mem)],
+                  ["Keep blocked 4 more months", "danger", () => extendBlock(r.id, r.mem)],
+                ])
+              : el("span", "lock-note", "You can decide on " + day(r.mem.reviewAfter)),
+          ];
+        }))
+      : el("p", "empty", "Nobody is blocked. A block lasts at least four months, and after that you decide whether to lift it."));
+
+    $("pane-activity").replaceChildren(S.audit.length
+      ? table(["When", "What", "Who"], S.audit.map((a) => {
+          const p = people[a.target];
+          const req = S.requests.get(a.target);
+          return [
+            el("span", "muted", when(a.at)),
+            el("span", "", ACTION_TEXT[a.action] || a.action || ""),
+            el("span", "", (p && p.name) || (req && req.displayName) || "Someone"),
+          ];
+        }))
+      : el("p", "empty", "Your approvals, declines and removals are logged here."));
+  }
+
+  const ACTION_TEXT = {
+    approved: "Approved access", declined: "Declined request", revoked: "Removed access",
+    blocked: "Blocked for 4 months", unblocked: "Lifted a block", extended: "Kept a block 4 more months",
+  };
+
+  function table(heads, rows) {
+    const wrap = el("div", "scroll");
+    const t = el("table");
+    const tr = el("tr");
+    heads.forEach((h) => tr.appendChild(el("th", "", h)));
+    t.appendChild(el("thead")).appendChild(tr);
+    const tb = el("tbody");
+    rows.forEach((cells) => {
+      const r = el("tr");
+      cells.forEach((c) => { const td = el("td"); td.appendChild(c); r.appendChild(td); });
+      tb.appendChild(r);
+    });
+    t.appendChild(tb);
+    wrap.appendChild(t);
+    return wrap;
+  }
+
+  function personCell(p, req) {
+    const box = el("div", "person");
+    const img = el("img");
+    img.alt = "";
+    if (p) img.src = p.avatarUrl;
+    box.appendChild(img);
+    const text = el("div");
+    const name = (p && p.name) || (req && req.displayName) || "Someone";
+    text.appendChild(el("strong", "", name));
+    const extra = [];
+    if (p && p.email) extra.push(p.email);
+    if (req && req.displayName && p && p.name && req.displayName !== p.name) extra.push("calls themselves " + req.displayName);
+    if (p && p.guest) extra.push("outside your organization");
+    if (extra.length) text.appendChild(el("span", "", extra.join(" · ")));
+    box.appendChild(text);
+    return box;
+  }
+
+  function reasonCell(req) {
+    const box = el("div", "reason");
+    if (req && req.company) box.appendChild(el("strong", "", req.company));
+    box.appendChild(el("p", "", (req && req.reason) || ""));
+    return box;
+  }
+
+  function actionsCell(list) {
+    const box = el("div", "row-actions");
+    list.forEach(([label, cls, fn]) => {
+      const b = el("button", "small " + cls, label);
+      b.type = "button";
+      b.addEventListener("click", async () => {
+        if (S.busy) return;
+        S.busy = true;
+        box.querySelectorAll("button").forEach((x) => (x.disabled = true));
+        try { await fn(); } finally { S.busy = false; box.querySelectorAll("button").forEach((x) => (x.disabled = false)); }
+      });
+      box.appendChild(b);
+    });
+    return box;
+  }
+
+  // Every owner decision: write the member's status first (that is what takes effect),
+  // then any owner-only details, then one activity entry.
+  async function commit(id, action, member, details) {
+    const msg = $("owner-msg");
+    try {
+      await S.db.doc("members/" + id).set(member);
+      if (details) await S.db.doc("blocks/" + id).set(details);
+      await S.db.collection("audit").add({ action, target: id, at: member.decidedAt });
+      msg.className = "msg good";
+      msg.textContent = ACTION_TEXT[action] + ".";
+      return true;
+    } catch (e) {
+      msg.className = "msg err";
+      msg.textContent = e && e.code === "quota_exceeded"
+        ? "The portal's database is full. Remove old activity entries before making more changes."
+        : "That change didn't save. Check your connection and try again.";
+      return false;
+    }
+  }
+
+  function decide(id, status) {
+    if (statusOf(S.requests.get(id), S.members.get(id)) === "blocked") return Promise.resolve(false);
+    return commit(id, status, { status, decidedAt: new Date().toISOString() });
+  }
+
+  function openBlockForm(id, name) {
+    S.blockTarget = id;
+    $("block-title").textContent = "Block " + name + " for 4 months?";
+    $("block-until").textContent = day(addMonths(new Date().toISOString(), BLOCK_MONTHS));
+    $("block-reason").value = "";
+    $("owner-msg").textContent = "";
+    show("block-form", true);
+    $("block-reason").focus();
+  }
+
+  function closeBlockForm() {
+    S.blockTarget = null;
+    show("block-form", false);
+  }
+
+  $("block-cancel").addEventListener("click", closeBlockForm);
+
+  $("block-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const id = S.blockTarget;
+    const reason = $("block-reason").value.trim().slice(0, 200);
+    if (!id || S.busy) return;
+    if (!reason) {
+      $("owner-msg").className = "msg err";
+      $("owner-msg").textContent = "Write a short reason so you remember why when the review date comes.";
+      $("block-reason").focus();
+      return;
+    }
+    const now = new Date().toISOString();
+    const until = addMonths(now, BLOCK_MONTHS);
+    S.busy = true;
+    $("block-confirm").disabled = true;
+    try {
+      const ok = await commit(id, "blocked",
+        { status: "blocked", decidedAt: now, blockedAt: now, reviewAfter: until },
+        { reason, blockedAt: now, reviewAfter: until });
+      if (ok) closeBlockForm();
+    } finally {
+      S.busy = false;
+      $("block-confirm").disabled = false;
+    }
+  });
+
+  function unblock(id, mem) {
+    if (!reviewDue(mem)) return Promise.resolve(false);
+    return commit(id, "unblocked", { status: "unblocked", decidedAt: new Date().toISOString() });
+  }
+
+  function extendBlock(id, mem) {
+    if (!reviewDue(mem)) return Promise.resolve(false);
+    const now = new Date().toISOString();
+    const until = addMonths(now, BLOCK_MONTHS);
+    const info = S.blocks.get(id) || {};
+    return commit(id, "extended",
+      { status: "blocked", decidedAt: now, blockedAt: mem.blockedAt || now, reviewAfter: until },
+      { reason: info.reason || "", blockedAt: mem.blockedAt || now, reviewAfter: until });
+  }
+
+  // ---- private notes ---------------------------------------------------
+  function startNotes() {
+    if (!S.uid) { $("notes-save").disabled = true; return; }
+    const ref = S.db.doc("data/users/" + S.uid + "/notes");
+    ref.onSnapshot((snap) => {
+      if (S.notesDirty) return;
+      $("notes-text").value = snap.exists ? String(snap.data().text || "") : "";
+    }, () => {});
+    $("notes-text").addEventListener("input", () => { S.notesDirty = true; $("notes-msg").textContent = ""; });
+    $("notes-save").addEventListener("click", async () => {
+      const btn = $("notes-save"), msg = $("notes-msg");
+      btn.disabled = true;
+      try {
+        await ref.set({ text: $("notes-text").value.slice(0, 4000), updatedAt: new Date().toISOString() });
+        S.notesDirty = false;
+        msg.className = "msg good"; msg.textContent = "Saved.";
+      } catch (e) {
+        msg.className = "msg err"; msg.textContent = "Notes didn't save. Try again in a moment.";
+      } finally { btn.disabled = false; }
+    });
+  }
+
+  function failed(e) {
+    if (e && e.code === "revoked") return;
+    const msg = $(S.owner ? "owner-msg" : "status-text");
+    msg.classList.add("err");
+    msg.textContent = "Live updates stopped. Reload the page to reconnect.";
+  }
+
+  boot();
+})();
+</script>
+

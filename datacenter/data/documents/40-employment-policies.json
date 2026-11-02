@@ -1,0 +1,185 @@
+[
+  {
+    "external_id": "kb-emp-01",
+    "title": "Employment types and contracts",
+    "body": "Everyone who works here does so under one of three arrangements, and the difference decides what else in this handbook applies to them.\n\n**Full-time employees** work a 38-hour standard week, are paid monthly against a banded salary, and carry the full benefit set: leave accrual, the employer pension contribution, and cover under the group health plan. Their costs are recorded against an `EMP-` code in the `employment_fees` dataset, which is what the budgeting plans draw on.\n\n**Part-time employees** hold the same contract on a stated fraction of a full week. Leave, benefits and the pension contribution are pro-rated against that fraction. A part-time role is still a permanent role; it is not a probationary or temporary arrangement by another name.\n\n**Contractors** are engaged for a defined piece of work against a signed statement of work with a start date, an end date and a deliverable. They invoice us, we do not run payroll for them, and they carry no employer tax or benefit burden — which is why `EMP-013` records zero against both. A contractor who has been working continuously on general duties for more than six months is a sign the role should have been an employee one; People Operations reviews every engagement at the six-month mark for exactly that.\n\nNobody starts work before a signed contract is on file. A verbal offer is not an offer, and a start date agreed in a message thread is not a contract.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-02",
+    "title": "Probation and confirmation",
+    "body": "New employees serve a six-month probationary period. It exists so both sides can find out whether the role is right, and it is a real review rather than a formality that lapses quietly.\n\nThe manager sets out, in writing and inside the first week, what the role has to look like by the end of probation: the systems the person must be able to work in unsupervised, the on-call readiness expected, and any certification the role depends on. A person cannot fail a standard they were never shown.\n\nThere are check-ins at six weeks, three months and five months. The five-month check-in is the decision point, not the six-month date: anyone whose confirmation is in doubt must hear so with a month left to change the outcome, along with what specifically needs to be different.\n\nProbation can be extended once, by up to three months, where the problem is a gap in experience that is plainly closing. It cannot be extended twice, and it cannot be extended to avoid a difficult conversation.\n\nDuring probation either side may end the arrangement with two weeks' notice. After confirmation, the notice period in the contract applies.\n\nConfirmation is recorded by People Operations against the employee record. Access that was provisioned as time-limited during probation — production credentials in particular — is reviewed at confirmation rather than extended automatically.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-03",
+    "title": "Working hours, shifts and on-call",
+    "body": "The standard week is 38 hours. Data hall operations run a shift pattern because the facility does not stop; most other roles work to a core-hours arrangement, available between 10:00 and 16:00 with the rest arranged to suit.\n\nShift technicians work four days on, four off, alternating days and nights across the cycle. A shift change is handed over in person or on the shift log — never only verbally in passing — and the outgoing technician stays until the handover is acknowledged.\n\nOn-call is separate from shift work and is paid as an allowance for the week held, plus the hours actually worked if a page lands. The rotation is published a month ahead. Nobody is on call for more than one week in four, and nobody holds on-call during their first month after confirmation.\n\nA page that takes you out of bed earns the following working day off, taken as rest rather than banked. If an incident runs past four hours, the incident lead arranges a handover rather than letting one person work it to exhaustion; tiredness is how a small outage becomes a large one.\n\nAnyone who has worked an extended incident records the hours on the incident record. That is how the `incidents` dataset's `minutes_to_resolve` stays honest, and how we find out that a rotation is too thin before someone burns out in it.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "employment",
+      "operations",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-04",
+    "title": "Pay, payroll and deductions",
+    "body": "Salaries are paid monthly, on the last working day of the month, covering that calendar month. A payslip is issued at the same time showing gross pay, each deduction and the net amount.\n\nPay bands are attached to roles rather than to people, and the band for every role is recorded in the `employment_fees` dataset against its `EMP-` code. The figure recorded there is base salary; the cost of employing someone also includes the employer tax percentage applied to that base and the monthly benefits contribution, which is why the budgeting plans compute a far larger number than the salary line alone.\n\nEmployer-side costs are not deducted from pay. They sit on top of it, and the distinction matters when reading any plan produced by `datacenter.plans`: a line costed at a person-month is the cost to the business, not the amount reaching the employee.\n\nDeductions are limited to those required by law, those the employee has agreed to in writing, and recovery of a genuine overpayment. An overpayment is recovered on a schedule agreed with the employee, never in a single unannounced deduction.\n\nPay is reviewed annually against the bands. A review may move someone within a band; moving between bands is a change of role and follows the promotion route rather than the review one. Finance and People Operations hold the band table jointly, and a change to it is a change to the fee data, recorded the same way.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-05",
+    "title": "Overtime, time off in lieu and expenses",
+    "body": "Overtime is the exception. A pattern of it is a staffing problem showing up as an individual one, and the manager is expected to raise it as such.\n\nHours worked beyond the standard week are approved in advance where the work is planned — a migration window, a cutover, an audit deadline — and recorded afterwards where they were not, because an incident does not wait for approval. Approved overtime is taken as time off in lieu within the following two months, or paid at the agreed rate where the rota cannot absorb the time.\n\nTime off in lieu that is never taken is not a saving. People Operations reports unredeemed balances over 24 hours to the operations lead each quarter, and the lead is responsible for getting them taken.\n\nExpenses are reimbursed where they are incurred doing the job: travel to a client site or the colocation facility, tools and parts bought under the remote hands rate, professional subscriptions agreed with the manager, and the certification costs covered by the training policy.\n\nClaims go in within 60 days with a receipt, and are paid with the following month's payroll. Anything above the standing limit needs approval before it is spent rather than after. Travel is booked at the cheapest reasonable option, which is a judgement about total cost including the time it takes, not the lowest headline fare.\n\nClient entertainment is not a general expense category here and needs the account manager's and finance's agreement in advance.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-06",
+    "title": "Leave, holiday and public days",
+    "body": "Full-time employees accrue 25 days of paid annual leave a year, plus the public days observed in the jurisdiction the contract is written in. Part-time employees accrue the same entitlement pro-rated to their fraction of a week.\n\nLeave accrues monthly from the start date and can be taken during probation with the manager's agreement. It is not held back as a reward for staying.\n\nRequests go in through People Operations. A week or more wants a month's notice; a day or two wants whatever notice is reasonable. The only reasons to refuse are a genuine operational clash — an audit window, a planned migration, too few people on the rota — and a refusal comes with alternative dates rather than just a no.\n\nUp to five days carry over into the following year and must be used by the end of March. Nothing beyond five days carries, because leave that is never taken is not a benefit anyone received.\n\nAnyone holding on-call hands the rotation over before their leave starts. Leave is not on-call cover by another name, and a technician on leave is not a fallback.\n\nWhere a public day falls inside a shift cycle, the shift technician who works it takes an equivalent day in the following cycle. The facility running on a public day is normal; somebody working it unacknowledged is not.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-07",
+    "title": "Sickness, injury and return to work",
+    "body": "Tell your manager as early in the day as you can — a message is fine — and say roughly how long you expect to be out. You do not owe anyone a diagnosis.\n\nAbsences of up to five consecutive working days are self-certified. Beyond that, a medical note is needed to continue sick pay. Company sick pay runs to 20 working days in a rolling twelve months at full pay, after which statutory arrangements apply.\n\nNobody with a contagious illness comes into the data hall or the office. This is not politeness: a shift of four people losing two to the same bug is a rotation that cannot cover the facility.\n\nAn injury that happens at work is reported on the incident record the same day, however minor, and People Operations is told within 24 hours. The data hall carries real hazards — rack doors, heavy equipment on rails, stored electrical energy, the acoustic level in a hot aisle — and a near miss recorded is how the next one is prevented.\n\nAnyone returning after more than two weeks has a return-to-work conversation with their manager before resuming on-call or shift duties. The conversation is about what support or adjustment is needed, and the outcome is written down.\n\nA pattern of short absences is a conversation, not a disciplinary step. It is far more often a workload or a health matter that nobody asked about.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-08",
+    "title": "Parental and family leave",
+    "body": "Parental leave is available to every employee who becomes a parent, by birth or adoption, with no distinction by gender or by which parent is the primary carer.\n\nThe entitlement is 18 weeks at full pay for the primary carer and 6 weeks at full pay for a second parent, both taken within the first year. Either may be taken in up to three blocks by agreement, which suits people who would rather return gradually than in one step.\n\nNotice is a month before the intended start where circumstances allow. Where they do not — an early birth, a placement at short notice — the leave starts anyway and the paperwork follows.\n\nPay, leave accrual and benefits continue through parental leave. Time on parental leave counts in full towards length of service and towards any pay review falling inside it. Somebody should not be financially worse off at review time for having been away.\n\nBefore the leave starts, the manager agrees in writing who is picking up each responsibility, so neither the person leaving nor the team is improvising it. On-call and shift duties are handed over fully; there is no such thing as being on call from parental leave.\n\nA request to change hours or pattern on return is taken seriously and answered within two weeks. Where it cannot be accommodated as asked, the answer explains why and what alternative is possible.\n\nFamily emergency leave is separate from this and from annual leave: up to five paid days a year for the urgent care of a dependant.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-09",
+    "title": "Remote and hybrid working",
+    "body": "Roles that do not need hands on hardware can be worked remotely. Roles that do cannot, and no policy wording changes that: a technician, a facilities contractor and anyone on the physical-access rota works on site for the parts of the job that are physical.\n\nHybrid roles agree a pattern with their manager and publish it to the team calendar, so a colleague can tell whether you are reachable in person without asking. The pattern is a commitment both ways — it is not a plan that only binds the employee.\n\nRemote work carries the same security expectations as on-site work, and the governance policies apply unchanged. Company work happens on company equipment. Client data is not copied to personal devices or personal cloud accounts. Screens are not left unlocked in shared spaces, and the home network the equipment sits on is the employee's responsibility to keep patched.\n\nAnyone with production credentials connects through the company's access path, never directly, and never from a device somebody else administers.\n\nWorking from another country for more than two weeks needs agreement in advance, because it can create tax and data residency obligations for the company that the employee cannot see from where they are sitting.\n\nEquipment for a remote setup is provided and remains company property. It is returned at offboarding, and the asset record is closed at that point rather than left open against someone who has left.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-10",
+    "title": "Health and safety in the data hall",
+    "body": "The data hall is an industrial environment. Treat it as one.\n\nNobody works in the hall alone outside business hours. The buddy rule is not about competence, it is about who raises the alarm if something goes wrong while you are behind a rack with a cabinet door open.\n\nBefore any work on powered equipment: confirm the circuit, confirm it with someone else, and lock it out. Stored energy in a UPS string does not care that the breaker upstream is off. Anyone who has not been signed off on the lock-out procedure does not do this work, whatever the pressure is.\n\nHearing protection is worn in hot aisles. The noise level in a high-density row is sustained, not occasional, and hearing loss from it is cumulative and permanent.\n\nHeavy equipment goes in on rails with two people and the lift aid, not with enthusiasm. A GPU chassis is heavier than it looks and the weight is not where you expect.\n\nFire suppression in the hall is a clean agent. Know where the manual hold is, know the evacuation route from wherever you are working, and never prop a fire door for cable runs.\n\nReport every hazard and every near miss on the incident record, the same day, however trivial it felt. The purpose is not blame. A loose rail, a damaged cable or a door that does not latch is a thing we can fix for the cost of noticing it.\n\nAnnual safety refresher is mandatory for anyone holding physical access.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "employment",
+      "operations",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-11",
+    "title": "Training, certification and development",
+    "body": "Each employee has a training budget and the working time to use it. Time is the half of this that organisations usually forget: a budget nobody can take a day to spend is a budget that goes unspent.\n\nCertifications the business depends on are paid in full — the facility and electrical safety sign-offs, the network and security certifications the client contracts reference, and the renewals that keep them current. These are a cost of running the service, not a personal benefit, and they are not deducted from anybody's development budget.\n\nBeyond that, each employee has an annual allowance for training they choose, agreed with their manager against the direction they want to grow in rather than only against this quarter's need.\n\nWhere the business pays for a certification costing more than the standing threshold, a repayment agreement applies if the employee leaves within 12 months, tapering to nothing across that year. It is signed before the course is booked, never produced afterwards.\n\nSomeone who has learned something is expected to pass it on: a short write-up for the knowledge base is the normal form, and those write-ups are what the `kb/` documents in this data centre are made of.\n\nShadowing counts as training. A technician spending a day with the network engineer, or an analyst sitting in on a capacity review, is usually worth more than a course and costs only the time.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-12",
+    "title": "Performance, promotion and pay review",
+    "body": "Performance is discussed continuously and reviewed formally twice a year. Nothing raised in a formal review should be the first time the person has heard it; a review that surprises someone is a management failure, not a performance one.\n\nThe review covers what was delivered, how it was done, and what support the person needs next. It is written down, both parties see the text, and the employee can record a disagreement on the record itself.\n\nPay review happens annually and is separate from the performance conversation, deliberately, so that a discussion about development does not turn into a negotiation. Movement within a band follows the review; movement between bands is a change of role.\n\nPromotion is to a role that exists and has work in it, not a title awarded for tenure. Where a role has no vacancy, that is said plainly rather than dressed up as a performance judgement, because the two are not the same thing and conflating them loses people.\n\nObjectives are set for the half year and are expected to change inside it — plans change, incidents happen, and an objective nobody revisited is not a useful measure of anything.\n\nUnderperformance is addressed as soon as it is apparent, with a written plan, a stated timescale and the support named in it. The disciplinary route is for conduct. It is not the route for someone who is struggling and has not yet been given a fair chance to stop struggling.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-13",
+    "title": "Conduct, disciplinary and grievance",
+    "body": "The standard is straightforward: deal honestly with colleagues and clients, protect the data we hold, and do not put the facility or anyone in it at risk.\n\nA concern about conduct is looked into before any action is taken. The person hears what is alleged, in writing and with enough detail to answer it, and is given a meeting to respond with a colleague present if they want one. Outcomes run from no action, through a recorded warning, to dismissal for gross misconduct. Every outcome carries a right of appeal to someone who was not part of the original decision.\n\nGross misconduct is a short list and it is stated plainly: deliberate mishandling of client data, falsifying records including the audit trail, bypassing a safety lock-out, and violence or harassment. Access is suspended while an investigation of this kind runs. Suspension is a neutral step and is not itself a finding.\n\nA grievance can be raised with a manager or, where the manager is the subject, directly with People Operations. It gets a written response within ten working days — and if the matter needs longer than that, the response says so and gives a date, rather than going quiet.\n\nRaising a concern in good faith is protected. Retaliation against someone for raising one is itself gross misconduct, and that holds even where the original concern turns out to be mistaken.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ben@harborsec.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-14",
+    "title": "Equal opportunity and respect at work",
+    "body": "We hire, pay, promote and dismiss on the work. Nothing else belongs in those decisions.\n\nVacancies are advertised with the band published. Shortlisting is against written criteria agreed before any application is read, and interviews ask the same core questions of every candidate, scored independently before the panel confers. This is not bureaucracy; it is what stops a decision being made on familiarity and then justified afterwards.\n\nReasonable adjustments are made at every stage — in the recruitment process and in the job itself — and asking for one never counts against anyone. Where an adjustment cannot be made, the reason is given honestly rather than the request being left unanswered.\n\nHarassment and bullying are treated as misconduct and handled under the disciplinary policy. That applies equally to behaviour towards clients, contractors and vendors, and it applies in every channel the work happens in, not only in the building.\n\nPay bands are published internally, and the distribution of people across them is reviewed annually. A pattern in that distribution is something to explain and act on, not to note and move past.\n\nThe quieter failure is in who gets offered the interesting work — the migration, the client-facing review, the certification. Managers are asked to look at that allocation explicitly each half year, because opportunity distributed unevenly becomes a performance record that looks objective a year later.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "carla@northgate.example",
+    "tags": [
+      "employment",
+      "policy"
+    ]
+  },
+  {
+    "external_id": "kb-emp-15",
+    "title": "Offboarding and access removal",
+    "body": "Offboarding starts the day notice is given, by either side, and it is run as a checklist because the failure mode is forgetting one item for months.\n\nPeople Operations opens the record. The manager arranges handover: who picks up each responsibility, which client relationships transfer to whom, and what knowledge needs writing down before it leaves. Anything only one person knows is a risk the offboarding is the last chance to retire.\n\nAccess is removed on the last working day, not in the week after. That means building and cage access, the access path to production, every credential and API key issued to the person, and membership of shared accounts and channels. Shared credentials the person knew are rotated rather than merely re-listed — removing someone from a list does not remove what they remember.\n\nEquipment is returned and the asset record closed against it. A laptop still open against someone who left is a hole in the inventory and in the next audit.\n\nClient-facing departures are communicated by the account manager before the client notices, with the named replacement.\n\nAn exit conversation is offered to everyone leaving, run by People Operations rather than the manager, and what is said in it is reported in aggregate rather than attributed.\n\nFinal pay, including any untaken leave, is settled with the following payroll run. Nothing is withheld pending the return of equipment; those are separate matters and conflating them is not lawful here.",
+    "source": "kb/employment",
+    "mime_type": "text/markdown",
+    "owner_email": "ada@northgate.example",
+    "tags": [
+      "employment",
+      "governance",
+      "policy"
+    ]
+  }
+]

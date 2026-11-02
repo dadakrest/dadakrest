@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "reindex",
+    "payload": {
+      "reason": "initial load"
+    },
+    "priority": 10
+  }
+]

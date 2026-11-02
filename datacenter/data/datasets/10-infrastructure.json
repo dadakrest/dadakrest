@@ -1,0 +1,1392 @@
+[
+  {
+    "name": "gpu_inventory",
+    "description": "Every accelerator the data center owns, one row per card. Installed cards are keyed by host, rack and PCIe slot; cards that are spare, out for repair or retired are tracked against the STORE-A shelving, where slot is the shelf bin. last_ecc_errors is the corrected-ECC count from the most recent health sweep, and a card is pulled for RMA once it climbs past 30.",
+    "schema": {
+      "asset_tag": "string",
+      "model": "string",
+      "host": "string",
+      "rack": "string",
+      "slot": "integer",
+      "vram_gb": "integer",
+      "purchase_date": "date",
+      "status": "string",
+      "last_ecc_errors": "integer"
+    },
+    "records": [
+      {
+        "asset_tag": "AST-GPU-001",
+        "model": "H100 80GB",
+        "host": "gpu-a01",
+        "rack": "R01",
+        "slot": 1,
+        "vram_gb": 80,
+        "purchase_date": "2025-03-10",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-002",
+        "model": "H100 80GB",
+        "host": "gpu-a01",
+        "rack": "R01",
+        "slot": 2,
+        "vram_gb": 80,
+        "purchase_date": "2025-03-10",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-003",
+        "model": "H100 80GB",
+        "host": "gpu-a01",
+        "rack": "R01",
+        "slot": 3,
+        "vram_gb": 80,
+        "purchase_date": "2025-03-10",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-004",
+        "model": "H100 80GB",
+        "host": "gpu-a01",
+        "rack": "R01",
+        "slot": 4,
+        "vram_gb": 80,
+        "purchase_date": "2025-03-10",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-005",
+        "model": "H100 80GB",
+        "host": "gpu-a01",
+        "rack": "R01",
+        "slot": 5,
+        "vram_gb": 80,
+        "purchase_date": "2025-03-10",
+        "status": "in-service",
+        "last_ecc_errors": 1
+      },
+      {
+        "asset_tag": "AST-GPU-006",
+        "model": "H100 80GB",
+        "host": "gpu-a01",
+        "rack": "R01",
+        "slot": 6,
+        "vram_gb": 80,
+        "purchase_date": "2025-03-10",
+        "status": "in-service",
+        "last_ecc_errors": 3
+      },
+      {
+        "asset_tag": "AST-GPU-007",
+        "model": "H100 80GB",
+        "host": "gpu-a01",
+        "rack": "R01",
+        "slot": 7,
+        "vram_gb": 80,
+        "purchase_date": "2025-03-10",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-008",
+        "model": "H100 80GB",
+        "host": "gpu-a01",
+        "rack": "R01",
+        "slot": 8,
+        "vram_gb": 80,
+        "purchase_date": "2025-03-10",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-009",
+        "model": "H100 80GB",
+        "host": "gpu-a02",
+        "rack": "R01",
+        "slot": 1,
+        "vram_gb": 80,
+        "purchase_date": "2025-06-02",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-010",
+        "model": "H100 80GB",
+        "host": "gpu-a02",
+        "rack": "R01",
+        "slot": 2,
+        "vram_gb": 80,
+        "purchase_date": "2025-06-02",
+        "status": "in-service",
+        "last_ecc_errors": 1
+      },
+      {
+        "asset_tag": "AST-GPU-011",
+        "model": "H100 80GB",
+        "host": "gpu-a02",
+        "rack": "R01",
+        "slot": 3,
+        "vram_gb": 80,
+        "purchase_date": "2025-06-02",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-012",
+        "model": "H100 80GB",
+        "host": "gpu-a02",
+        "rack": "R01",
+        "slot": 4,
+        "vram_gb": 80,
+        "purchase_date": "2025-06-02",
+        "status": "in-service",
+        "last_ecc_errors": 3
+      },
+      {
+        "asset_tag": "AST-GPU-013",
+        "model": "H100 80GB",
+        "host": "gpu-a02",
+        "rack": "R01",
+        "slot": 6,
+        "vram_gb": 80,
+        "purchase_date": "2025-06-02",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-014",
+        "model": "H100 80GB",
+        "host": "gpu-a02",
+        "rack": "R01",
+        "slot": 7,
+        "vram_gb": 80,
+        "purchase_date": "2025-06-02",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-015",
+        "model": "H100 80GB",
+        "host": "gpu-a02",
+        "rack": "R01",
+        "slot": 8,
+        "vram_gb": 80,
+        "purchase_date": "2025-06-02",
+        "status": "in-service",
+        "last_ecc_errors": 4
+      },
+      {
+        "asset_tag": "AST-GPU-016",
+        "model": "H100 80GB",
+        "host": "rma-bench",
+        "rack": "STORE-A",
+        "slot": 1,
+        "vram_gb": 80,
+        "purchase_date": "2025-06-02",
+        "status": "repair",
+        "last_ecc_errors": 37
+      },
+      {
+        "asset_tag": "AST-GPU-017",
+        "model": "A100 80GB",
+        "host": "gpu-b01",
+        "rack": "R02",
+        "slot": 1,
+        "vram_gb": 80,
+        "purchase_date": "2025-02-18",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-018",
+        "model": "A100 80GB",
+        "host": "gpu-b01",
+        "rack": "R02",
+        "slot": 2,
+        "vram_gb": 80,
+        "purchase_date": "2025-02-18",
+        "status": "in-service",
+        "last_ecc_errors": 1
+      },
+      {
+        "asset_tag": "AST-GPU-019",
+        "model": "A100 80GB",
+        "host": "gpu-b01",
+        "rack": "R02",
+        "slot": 3,
+        "vram_gb": 80,
+        "purchase_date": "2025-02-18",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-020",
+        "model": "A100 80GB",
+        "host": "gpu-b01",
+        "rack": "R02",
+        "slot": 4,
+        "vram_gb": 80,
+        "purchase_date": "2025-02-18",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-021",
+        "model": "A100 80GB",
+        "host": "gpu-b01",
+        "rack": "R02",
+        "slot": 5,
+        "vram_gb": 80,
+        "purchase_date": "2025-02-18",
+        "status": "in-service",
+        "last_ecc_errors": 2
+      },
+      {
+        "asset_tag": "AST-GPU-022",
+        "model": "A100 80GB",
+        "host": "gpu-b01",
+        "rack": "R02",
+        "slot": 6,
+        "vram_gb": 80,
+        "purchase_date": "2025-02-18",
+        "status": "in-service",
+        "last_ecc_errors": 4
+      },
+      {
+        "asset_tag": "AST-GPU-023",
+        "model": "A100 80GB",
+        "host": "gpu-b01",
+        "rack": "R02",
+        "slot": 7,
+        "vram_gb": 80,
+        "purchase_date": "2025-02-18",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-024",
+        "model": "A100 80GB",
+        "host": "gpu-b01",
+        "rack": "R02",
+        "slot": 8,
+        "vram_gb": 80,
+        "purchase_date": "2025-02-18",
+        "status": "in-service",
+        "last_ecc_errors": 3
+      },
+      {
+        "asset_tag": "AST-GPU-025",
+        "model": "A100 40GB",
+        "host": "gpu-b02",
+        "rack": "R02",
+        "slot": 1,
+        "vram_gb": 40,
+        "purchase_date": "2025-01-27",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-026",
+        "model": "A100 40GB",
+        "host": "gpu-b02",
+        "rack": "R02",
+        "slot": 2,
+        "vram_gb": 40,
+        "purchase_date": "2025-01-27",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-027",
+        "model": "A100 40GB",
+        "host": "gpu-b02",
+        "rack": "R02",
+        "slot": 3,
+        "vram_gb": 40,
+        "purchase_date": "2025-01-27",
+        "status": "in-service",
+        "last_ecc_errors": 3
+      },
+      {
+        "asset_tag": "AST-GPU-028",
+        "model": "A100 40GB",
+        "host": "spares-cabinet",
+        "rack": "STORE-A",
+        "slot": 2,
+        "vram_gb": 40,
+        "purchase_date": "2025-01-27",
+        "status": "spare",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-029",
+        "model": "L40S",
+        "host": "gpu-c01",
+        "rack": "R03",
+        "slot": 1,
+        "vram_gb": 48,
+        "purchase_date": "2025-09-15",
+        "status": "in-service",
+        "last_ecc_errors": 3
+      },
+      {
+        "asset_tag": "AST-GPU-030",
+        "model": "L40S",
+        "host": "gpu-c01",
+        "rack": "R03",
+        "slot": 2,
+        "vram_gb": 48,
+        "purchase_date": "2025-09-15",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-031",
+        "model": "L40S",
+        "host": "gpu-c01",
+        "rack": "R03",
+        "slot": 3,
+        "vram_gb": 48,
+        "purchase_date": "2025-09-15",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-032",
+        "model": "L40S",
+        "host": "gpu-c01",
+        "rack": "R03",
+        "slot": 4,
+        "vram_gb": 48,
+        "purchase_date": "2025-09-15",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-033",
+        "model": "L40S",
+        "host": "spares-cabinet",
+        "rack": "STORE-A",
+        "slot": 3,
+        "vram_gb": 48,
+        "purchase_date": "2025-09-15",
+        "status": "spare",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-034",
+        "model": "RTX 6000 Ada",
+        "host": "gpu-c02",
+        "rack": "R03",
+        "slot": 1,
+        "vram_gb": 48,
+        "purchase_date": "2025-09-15",
+        "status": "in-service",
+        "last_ecc_errors": 2
+      },
+      {
+        "asset_tag": "AST-GPU-035",
+        "model": "RTX 6000 Ada",
+        "host": "gpu-c02",
+        "rack": "R03",
+        "slot": 2,
+        "vram_gb": 48,
+        "purchase_date": "2025-09-15",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-036",
+        "model": "L4",
+        "host": "inf-d01",
+        "rack": "R04",
+        "slot": 1,
+        "vram_gb": 24,
+        "purchase_date": "2026-01-20",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-037",
+        "model": "L4",
+        "host": "inf-d01",
+        "rack": "R04",
+        "slot": 2,
+        "vram_gb": 24,
+        "purchase_date": "2026-01-20",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-038",
+        "model": "A10",
+        "host": "inf-d02",
+        "rack": "R04",
+        "slot": 1,
+        "vram_gb": 24,
+        "purchase_date": "2025-01-27",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-039",
+        "model": "A10",
+        "host": "inf-d02",
+        "rack": "R04",
+        "slot": 2,
+        "vram_gb": 24,
+        "purchase_date": "2025-01-27",
+        "status": "in-service",
+        "last_ecc_errors": 0
+      },
+      {
+        "asset_tag": "AST-GPU-040",
+        "model": "A10",
+        "host": "decommissioned",
+        "rack": "STORE-A",
+        "slot": 4,
+        "vram_gb": 24,
+        "purchase_date": "2025-01-27",
+        "status": "retired",
+        "last_ecc_errors": 212
+      }
+    ]
+  },
+  {
+    "name": "training_runs",
+    "description": "Fine-tuning and training jobs scheduled on the GPU fleet, one row per run. gpu_hours is the number of cards multiplied by wall-clock hours between started_at and finished_at, and cost_usd charges those hours at the flat internal rate of 2.40 USD per GPU-hour. For failed and cancelled runs, final_loss is the last value logged before the run stopped.",
+    "schema": {
+      "run_id": "string",
+      "model_name": "string",
+      "dataset_name": "string",
+      "started_at": "string",
+      "finished_at": "string",
+      "gpus": "integer",
+      "gpu_hours": "number",
+      "final_loss": "number",
+      "status": "string",
+      "cost_usd": "number"
+    },
+    "records": [
+      {
+        "run_id": "run-20250223-001",
+        "model_name": "harbor-support-8b",
+        "dataset_name": "support-transcripts-2025h1",
+        "started_at": "2025-02-23T22:00:00Z",
+        "finished_at": "2025-02-26T07:50:00Z",
+        "gpus": 16,
+        "gpu_hours": 925.3,
+        "final_loss": 0.7696,
+        "status": "completed",
+        "cost_usd": 2220.72
+      },
+      {
+        "run_id": "run-20250320-002",
+        "model_name": "northgate-routing-1b",
+        "dataset_name": "routing-labels-2026q1",
+        "started_at": "2025-03-20T00:45:00Z",
+        "finished_at": "2025-03-21T01:17:00Z",
+        "gpus": 4,
+        "gpu_hours": 98.1,
+        "final_loss": 0.4887,
+        "status": "completed",
+        "cost_usd": 235.44
+      },
+      {
+        "run_id": "run-20250402-003",
+        "model_name": "tidemark-embed-v2",
+        "dataset_name": "retrieval-pairs-v4",
+        "started_at": "2025-04-02T13:15:00Z",
+        "finished_at": "2025-04-02T20:15:00Z",
+        "gpus": 8,
+        "gpu_hours": 56.0,
+        "final_loss": 0.2411,
+        "status": "failed",
+        "cost_usd": 134.4
+      },
+      {
+        "run_id": "run-20250415-004",
+        "model_name": "marigold-rerank-small",
+        "dataset_name": "rerank-pairs-v4",
+        "started_at": "2025-04-15T16:00:00Z",
+        "finished_at": "2025-04-16T05:05:00Z",
+        "gpus": 2,
+        "gpu_hours": 26.2,
+        "final_loss": 0.203,
+        "status": "completed",
+        "cost_usd": 62.88
+      },
+      {
+        "run_id": "run-20250504-005",
+        "model_name": "bramblewood-tutor-7b",
+        "dataset_name": "tutor-dialogues-v2",
+        "started_at": "2025-05-04T04:45:00Z",
+        "finished_at": "2025-05-04T09:25:00Z",
+        "gpus": 8,
+        "gpu_hours": 37.3,
+        "final_loss": 1.6058,
+        "status": "cancelled",
+        "cost_usd": 89.52
+      },
+      {
+        "run_id": "run-20250521-006",
+        "model_name": "clinic-intake-classifier",
+        "dataset_name": "clinic-intake-forms-2025",
+        "started_at": "2025-05-21T06:00:00Z",
+        "finished_at": "2025-05-22T03:22:00Z",
+        "gpus": 1,
+        "gpu_hours": 21.4,
+        "final_loss": 0.3485,
+        "status": "completed",
+        "cost_usd": 51.36
+      },
+      {
+        "run_id": "run-20250612-007",
+        "model_name": "pinewire-fault-detector",
+        "dataset_name": "fiber-telemetry-2025q3",
+        "started_at": "2025-06-12T09:30:00Z",
+        "finished_at": "2025-06-13T13:37:00Z",
+        "gpus": 4,
+        "gpu_hours": 112.5,
+        "final_loss": 0.3213,
+        "status": "completed",
+        "cost_usd": 270.0
+      },
+      {
+        "run_id": "run-20250630-008",
+        "model_name": "stonebriar-ticket-triage-3b",
+        "dataset_name": "ticket-history-2024-2025",
+        "started_at": "2025-06-30T17:00:00Z",
+        "finished_at": "2025-07-01T09:02:00Z",
+        "gpus": 4,
+        "gpu_hours": 64.1,
+        "final_loss": 0.7481,
+        "status": "completed",
+        "cost_usd": 153.84
+      },
+      {
+        "run_id": "run-20250722-009",
+        "model_name": "ashgrove-quote-extractor",
+        "dataset_name": "supplier-quotes-2025",
+        "started_at": "2025-07-22T00:00:00Z",
+        "finished_at": "2025-07-23T05:23:00Z",
+        "gpus": 2,
+        "gpu_hours": 58.8,
+        "final_loss": 0.4394,
+        "status": "completed",
+        "cost_usd": 141.12
+      },
+      {
+        "run_id": "run-20250808-010",
+        "model_name": "halvorsen-reasoning-70b-sft",
+        "dataset_name": "reasoning-traces-2026q2",
+        "started_at": "2025-08-08T05:00:00Z",
+        "finished_at": "2025-08-08T05:51:00Z",
+        "gpus": 16,
+        "gpu_hours": 13.6,
+        "final_loss": 1.6471,
+        "status": "failed",
+        "cost_usd": 32.64
+      },
+      {
+        "run_id": "run-20250826-011",
+        "model_name": "harbor-support-8b",
+        "dataset_name": "support-transcripts-2025h1",
+        "started_at": "2025-08-26T08:15:00Z",
+        "finished_at": "2025-08-28T00:23:00Z",
+        "gpus": 8,
+        "gpu_hours": 321.1,
+        "final_loss": 1.0834,
+        "status": "completed",
+        "cost_usd": 770.64
+      },
+      {
+        "run_id": "run-20250919-012",
+        "model_name": "northgate-routing-1b",
+        "dataset_name": "routing-labels-2026q1",
+        "started_at": "2025-09-19T11:30:00Z",
+        "finished_at": "2025-09-20T16:54:00Z",
+        "gpus": 8,
+        "gpu_hours": 235.2,
+        "final_loss": 0.4112,
+        "status": "completed",
+        "cost_usd": 564.48
+      },
+      {
+        "run_id": "run-20251006-013",
+        "model_name": "tidemark-embed-v2",
+        "dataset_name": "retrieval-pairs-v4",
+        "started_at": "2025-10-06T20:15:00Z",
+        "finished_at": "2025-10-08T03:30:00Z",
+        "gpus": 4,
+        "gpu_hours": 125.0,
+        "final_loss": 0.187,
+        "status": "completed",
+        "cost_usd": 300.0
+      },
+      {
+        "run_id": "run-20251022-014",
+        "model_name": "marigold-rerank-small",
+        "dataset_name": "rerank-pairs-v4",
+        "started_at": "2025-10-22T00:30:00Z",
+        "finished_at": "2025-10-22T08:39:00Z",
+        "gpus": 2,
+        "gpu_hours": 16.3,
+        "final_loss": 0.1888,
+        "status": "completed",
+        "cost_usd": 39.12
+      },
+      {
+        "run_id": "run-20251106-015",
+        "model_name": "bramblewood-tutor-7b",
+        "dataset_name": "tutor-dialogues-v2",
+        "started_at": "2025-11-06T02:15:00Z",
+        "finished_at": "2025-11-09T20:10:00Z",
+        "gpus": 8,
+        "gpu_hours": 719.3,
+        "final_loss": 0.7587,
+        "status": "completed",
+        "cost_usd": 1726.32
+      },
+      {
+        "run_id": "run-20251126-016",
+        "model_name": "clinic-intake-classifier",
+        "dataset_name": "clinic-intake-forms-2025",
+        "started_at": "2025-11-26T07:15:00Z",
+        "finished_at": "2025-11-27T15:49:00Z",
+        "gpus": 2,
+        "gpu_hours": 65.1,
+        "final_loss": 0.1337,
+        "status": "completed",
+        "cost_usd": 156.24
+      },
+      {
+        "run_id": "run-20251211-017",
+        "model_name": "pinewire-fault-detector",
+        "dataset_name": "fiber-telemetry-2025q3",
+        "started_at": "2025-12-11T18:15:00Z",
+        "finished_at": "2025-12-11T23:13:00Z",
+        "gpus": 2,
+        "gpu_hours": 9.9,
+        "final_loss": 0.4165,
+        "status": "completed",
+        "cost_usd": 23.76
+      },
+      {
+        "run_id": "run-20260102-018",
+        "model_name": "stonebriar-ticket-triage-3b",
+        "dataset_name": "ticket-history-2024-2025",
+        "started_at": "2026-01-02T02:15:00Z",
+        "finished_at": "2026-01-02T19:38:00Z",
+        "gpus": 4,
+        "gpu_hours": 69.5,
+        "final_loss": 0.8687,
+        "status": "completed",
+        "cost_usd": 166.8
+      },
+      {
+        "run_id": "run-20260116-019",
+        "model_name": "ashgrove-quote-extractor",
+        "dataset_name": "supplier-quotes-2025",
+        "started_at": "2026-01-16T03:45:00Z",
+        "finished_at": "2026-01-17T09:56:00Z",
+        "gpus": 2,
+        "gpu_hours": 60.4,
+        "final_loss": 0.3115,
+        "status": "completed",
+        "cost_usd": 144.96
+      },
+      {
+        "run_id": "run-20260206-020",
+        "model_name": "halvorsen-reasoning-70b-sft",
+        "dataset_name": "reasoning-traces-2026q2",
+        "started_at": "2026-02-06T11:30:00Z",
+        "finished_at": "2026-02-08T13:12:00Z",
+        "gpus": 16,
+        "gpu_hours": 795.2,
+        "final_loss": 0.7554,
+        "status": "completed",
+        "cost_usd": 1908.48
+      },
+      {
+        "run_id": "run-20260220-021",
+        "model_name": "harbor-support-8b",
+        "dataset_name": "support-transcripts-2025h1",
+        "started_at": "2026-02-20T23:00:00Z",
+        "finished_at": "2026-02-21T00:26:00Z",
+        "gpus": 8,
+        "gpu_hours": 11.5,
+        "final_loss": 1.7528,
+        "status": "cancelled",
+        "cost_usd": 27.6
+      },
+      {
+        "run_id": "run-20260306-022",
+        "model_name": "northgate-routing-1b",
+        "dataset_name": "routing-labels-2026q1",
+        "started_at": "2026-03-06T08:30:00Z",
+        "finished_at": "2026-03-07T17:50:00Z",
+        "gpus": 4,
+        "gpu_hours": 133.3,
+        "final_loss": 0.5325,
+        "status": "completed",
+        "cost_usd": 319.92
+      },
+      {
+        "run_id": "run-20260330-023",
+        "model_name": "tidemark-embed-v2",
+        "dataset_name": "retrieval-pairs-v4",
+        "started_at": "2026-03-30T13:45:00Z",
+        "finished_at": "2026-04-03T10:15:00Z",
+        "gpus": 8,
+        "gpu_hours": 740.0,
+        "final_loss": 0.1053,
+        "status": "completed",
+        "cost_usd": 1776.0
+      },
+      {
+        "run_id": "run-20260419-024",
+        "model_name": "marigold-rerank-small",
+        "dataset_name": "rerank-pairs-v4",
+        "started_at": "2026-04-19T18:15:00Z",
+        "finished_at": "2026-04-19T21:35:00Z",
+        "gpus": 2,
+        "gpu_hours": 6.7,
+        "final_loss": 0.4527,
+        "status": "failed",
+        "cost_usd": 16.08
+      },
+      {
+        "run_id": "run-20260502-025",
+        "model_name": "bramblewood-tutor-7b",
+        "dataset_name": "tutor-dialogues-v2",
+        "started_at": "2026-05-02T19:45:00Z",
+        "finished_at": "2026-05-05T09:54:00Z",
+        "gpus": 16,
+        "gpu_hours": 994.4,
+        "final_loss": 0.7485,
+        "status": "completed",
+        "cost_usd": 2386.56
+      },
+      {
+        "run_id": "run-20260524-026",
+        "model_name": "clinic-intake-classifier",
+        "dataset_name": "clinic-intake-forms-2025",
+        "started_at": "2026-05-24T07:30:00Z",
+        "finished_at": "2026-05-25T22:21:00Z",
+        "gpus": 2,
+        "gpu_hours": 77.7,
+        "final_loss": 0.1986,
+        "status": "completed",
+        "cost_usd": 186.48
+      },
+      {
+        "run_id": "run-20260606-027",
+        "model_name": "pinewire-fault-detector",
+        "dataset_name": "fiber-telemetry-2025q3",
+        "started_at": "2026-06-06T15:00:00Z",
+        "finished_at": "2026-06-08T03:37:00Z",
+        "gpus": 2,
+        "gpu_hours": 73.2,
+        "final_loss": 0.3105,
+        "status": "completed",
+        "cost_usd": 175.68
+      },
+      {
+        "run_id": "run-20260622-028",
+        "model_name": "stonebriar-ticket-triage-3b",
+        "dataset_name": "ticket-history-2024-2025",
+        "started_at": "2026-06-22T02:45:00Z",
+        "finished_at": "2026-06-22T06:05:00Z",
+        "gpus": 4,
+        "gpu_hours": 13.3,
+        "final_loss": 0.9821,
+        "status": "failed",
+        "cost_usd": 31.92
+      },
+      {
+        "run_id": "run-20260711-029",
+        "model_name": "ashgrove-quote-extractor",
+        "dataset_name": "supplier-quotes-2025",
+        "started_at": "2026-07-11T10:15:00Z",
+        "finished_at": "2026-07-12T00:56:00Z",
+        "gpus": 2,
+        "gpu_hours": 29.4,
+        "final_loss": 0.4039,
+        "status": "completed",
+        "cost_usd": 70.56
+      },
+      {
+        "run_id": "run-20260730-030",
+        "model_name": "halvorsen-reasoning-70b-sft",
+        "dataset_name": "reasoning-traces-2026q2",
+        "started_at": "2026-07-30T18:45:00Z",
+        "finished_at": "2026-07-30T20:27:00Z",
+        "gpus": 16,
+        "gpu_hours": 27.2,
+        "final_loss": 1.3639,
+        "status": "cancelled",
+        "cost_usd": 65.28
+      }
+    ]
+  },
+  {
+    "name": "power_and_cooling_daily",
+    "description": "Daily power and thermal readings for rack R01, the two-node H100 rack, for sixty consecutive days from 2026-06-01. avg_kw and peak_kw come from the rack PDU, inlet and outlet temperatures from the door sensors, and pue is the facility power usage effectiveness attributed to the rack for that day. Weekends show the lighter load of batch-only scheduling.",
+    "schema": {
+      "date": "date",
+      "rack": "string",
+      "avg_kw": "number",
+      "peak_kw": "number",
+      "inlet_temp_c": "number",
+      "outlet_temp_c": "number",
+      "pue": "number"
+    },
+    "records": [
+      {
+        "date": "2026-06-01",
+        "rack": "R01",
+        "avg_kw": 21.02,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 22.8,
+        "outlet_temp_c": 36.3,
+        "pue": 1.338
+      },
+      {
+        "date": "2026-06-02",
+        "rack": "R01",
+        "avg_kw": 20.98,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 22.4,
+        "outlet_temp_c": 35.1,
+        "pue": 1.336
+      },
+      {
+        "date": "2026-06-03",
+        "rack": "R01",
+        "avg_kw": 20.26,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 21.4,
+        "outlet_temp_c": 34.6,
+        "pue": 1.302
+      },
+      {
+        "date": "2026-06-04",
+        "rack": "R01",
+        "avg_kw": 17.66,
+        "peak_kw": 19.58,
+        "inlet_temp_c": 22.0,
+        "outlet_temp_c": 32.6,
+        "pue": 1.291
+      },
+      {
+        "date": "2026-06-05",
+        "rack": "R01",
+        "avg_kw": 21.28,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 22.6,
+        "outlet_temp_c": 35.2,
+        "pue": 1.307
+      },
+      {
+        "date": "2026-06-06",
+        "rack": "R01",
+        "avg_kw": 11.76,
+        "peak_kw": 14.7,
+        "inlet_temp_c": 21.2,
+        "outlet_temp_c": 31.3,
+        "pue": 1.355
+      },
+      {
+        "date": "2026-06-07",
+        "rack": "R01",
+        "avg_kw": 14.33,
+        "peak_kw": 17.68,
+        "inlet_temp_c": 22.1,
+        "outlet_temp_c": 33.6,
+        "pue": 1.344
+      },
+      {
+        "date": "2026-06-08",
+        "rack": "R01",
+        "avg_kw": 17.1,
+        "peak_kw": 19.63,
+        "inlet_temp_c": 22.9,
+        "outlet_temp_c": 35.8,
+        "pue": 1.353
+      },
+      {
+        "date": "2026-06-09",
+        "rack": "R01",
+        "avg_kw": 20.72,
+        "peak_kw": 23.56,
+        "inlet_temp_c": 22.3,
+        "outlet_temp_c": 34.9,
+        "pue": 1.33
+      },
+      {
+        "date": "2026-06-10",
+        "rack": "R01",
+        "avg_kw": 17.99,
+        "peak_kw": 21.9,
+        "inlet_temp_c": 22.3,
+        "outlet_temp_c": 33.7,
+        "pue": 1.324
+      },
+      {
+        "date": "2026-06-11",
+        "rack": "R01",
+        "avg_kw": 18.81,
+        "peak_kw": 22.43,
+        "inlet_temp_c": 22.3,
+        "outlet_temp_c": 34.6,
+        "pue": 1.315
+      },
+      {
+        "date": "2026-06-12",
+        "rack": "R01",
+        "avg_kw": 18.6,
+        "peak_kw": 20.55,
+        "inlet_temp_c": 21.3,
+        "outlet_temp_c": 34.1,
+        "pue": 1.276
+      },
+      {
+        "date": "2026-06-13",
+        "rack": "R01",
+        "avg_kw": 13.12,
+        "peak_kw": 14.59,
+        "inlet_temp_c": 22.9,
+        "outlet_temp_c": 32.7,
+        "pue": 1.391
+      },
+      {
+        "date": "2026-06-14",
+        "rack": "R01",
+        "avg_kw": 12.34,
+        "peak_kw": 14.18,
+        "inlet_temp_c": 21.8,
+        "outlet_temp_c": 32.0,
+        "pue": 1.363
+      },
+      {
+        "date": "2026-06-15",
+        "rack": "R01",
+        "avg_kw": 19.36,
+        "peak_kw": 21.65,
+        "inlet_temp_c": 21.7,
+        "outlet_temp_c": 32.6,
+        "pue": 1.319
+      },
+      {
+        "date": "2026-06-16",
+        "rack": "R01",
+        "avg_kw": 20.41,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 21.6,
+        "outlet_temp_c": 35.1,
+        "pue": 1.288
+      },
+      {
+        "date": "2026-06-17",
+        "rack": "R01",
+        "avg_kw": 18.71,
+        "peak_kw": 22.8,
+        "inlet_temp_c": 22.6,
+        "outlet_temp_c": 35.3,
+        "pue": 1.31
+      },
+      {
+        "date": "2026-06-18",
+        "rack": "R01",
+        "avg_kw": 16.85,
+        "peak_kw": 19.02,
+        "inlet_temp_c": 21.5,
+        "outlet_temp_c": 35.1,
+        "pue": 1.311
+      },
+      {
+        "date": "2026-06-19",
+        "rack": "R01",
+        "avg_kw": 18.73,
+        "peak_kw": 23.38,
+        "inlet_temp_c": 22.0,
+        "outlet_temp_c": 32.7,
+        "pue": 1.319
+      },
+      {
+        "date": "2026-06-20",
+        "rack": "R01",
+        "avg_kw": 12.73,
+        "peak_kw": 16.26,
+        "inlet_temp_c": 22.2,
+        "outlet_temp_c": 31.9,
+        "pue": 1.359
+      },
+      {
+        "date": "2026-06-21",
+        "rack": "R01",
+        "avg_kw": 11.96,
+        "peak_kw": 15.11,
+        "inlet_temp_c": 21.5,
+        "outlet_temp_c": 31.3,
+        "pue": 1.348
+      },
+      {
+        "date": "2026-06-22",
+        "rack": "R01",
+        "avg_kw": 17.43,
+        "peak_kw": 20.2,
+        "inlet_temp_c": 22.5,
+        "outlet_temp_c": 34.1,
+        "pue": 1.311
+      },
+      {
+        "date": "2026-06-23",
+        "rack": "R01",
+        "avg_kw": 20.43,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 22.6,
+        "outlet_temp_c": 35.5,
+        "pue": 1.325
+      },
+      {
+        "date": "2026-06-24",
+        "rack": "R01",
+        "avg_kw": 20.65,
+        "peak_kw": 23.43,
+        "inlet_temp_c": 22.5,
+        "outlet_temp_c": 36.3,
+        "pue": 1.322
+      },
+      {
+        "date": "2026-06-25",
+        "rack": "R01",
+        "avg_kw": 20.64,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 22.4,
+        "outlet_temp_c": 36.0,
+        "pue": 1.313
+      },
+      {
+        "date": "2026-06-26",
+        "rack": "R01",
+        "avg_kw": 20.79,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 23.0,
+        "outlet_temp_c": 36.1,
+        "pue": 1.344
+      },
+      {
+        "date": "2026-06-27",
+        "rack": "R01",
+        "avg_kw": 13.6,
+        "peak_kw": 16.18,
+        "inlet_temp_c": 22.1,
+        "outlet_temp_c": 32.3,
+        "pue": 1.344
+      },
+      {
+        "date": "2026-06-28",
+        "rack": "R01",
+        "avg_kw": 13.21,
+        "peak_kw": 16.86,
+        "inlet_temp_c": 22.5,
+        "outlet_temp_c": 33.9,
+        "pue": 1.361
+      },
+      {
+        "date": "2026-06-29",
+        "rack": "R01",
+        "avg_kw": 19.86,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 22.3,
+        "outlet_temp_c": 33.6,
+        "pue": 1.297
+      },
+      {
+        "date": "2026-06-30",
+        "rack": "R01",
+        "avg_kw": 18.4,
+        "peak_kw": 20.9,
+        "inlet_temp_c": 22.6,
+        "outlet_temp_c": 36.3,
+        "pue": 1.342
+      },
+      {
+        "date": "2026-07-01",
+        "rack": "R01",
+        "avg_kw": 18.12,
+        "peak_kw": 21.21,
+        "inlet_temp_c": 23.8,
+        "outlet_temp_c": 36.7,
+        "pue": 1.359
+      },
+      {
+        "date": "2026-07-02",
+        "rack": "R01",
+        "avg_kw": 18.49,
+        "peak_kw": 23.47,
+        "inlet_temp_c": 23.8,
+        "outlet_temp_c": 37.4,
+        "pue": 1.354
+      },
+      {
+        "date": "2026-07-03",
+        "rack": "R01",
+        "avg_kw": 18.93,
+        "peak_kw": 23.81,
+        "inlet_temp_c": 23.5,
+        "outlet_temp_c": 34.3,
+        "pue": 1.333
+      },
+      {
+        "date": "2026-07-04",
+        "rack": "R01",
+        "avg_kw": 13.29,
+        "peak_kw": 15.35,
+        "inlet_temp_c": 22.6,
+        "outlet_temp_c": 32.9,
+        "pue": 1.349
+      },
+      {
+        "date": "2026-07-05",
+        "rack": "R01",
+        "avg_kw": 11.89,
+        "peak_kw": 14.19,
+        "inlet_temp_c": 23.2,
+        "outlet_temp_c": 32.3,
+        "pue": 1.409
+      },
+      {
+        "date": "2026-07-06",
+        "rack": "R01",
+        "avg_kw": 20.49,
+        "peak_kw": 22.86,
+        "inlet_temp_c": 23.6,
+        "outlet_temp_c": 34.9,
+        "pue": 1.352
+      },
+      {
+        "date": "2026-07-07",
+        "rack": "R01",
+        "avg_kw": 20.24,
+        "peak_kw": 23.09,
+        "inlet_temp_c": 24.1,
+        "outlet_temp_c": 36.1,
+        "pue": 1.389
+      },
+      {
+        "date": "2026-07-08",
+        "rack": "R01",
+        "avg_kw": 18.95,
+        "peak_kw": 21.3,
+        "inlet_temp_c": 23.4,
+        "outlet_temp_c": 35.5,
+        "pue": 1.335
+      },
+      {
+        "date": "2026-07-09",
+        "rack": "R01",
+        "avg_kw": 17.8,
+        "peak_kw": 22.24,
+        "inlet_temp_c": 23.0,
+        "outlet_temp_c": 34.6,
+        "pue": 1.356
+      },
+      {
+        "date": "2026-07-10",
+        "rack": "R01",
+        "avg_kw": 17.38,
+        "peak_kw": 21.17,
+        "inlet_temp_c": 23.6,
+        "outlet_temp_c": 37.2,
+        "pue": 1.365
+      },
+      {
+        "date": "2026-07-11",
+        "rack": "R01",
+        "avg_kw": 12.64,
+        "peak_kw": 14.4,
+        "inlet_temp_c": 22.2,
+        "outlet_temp_c": 32.0,
+        "pue": 1.382
+      },
+      {
+        "date": "2026-07-12",
+        "rack": "R01",
+        "avg_kw": 13.13,
+        "peak_kw": 15.57,
+        "inlet_temp_c": 22.6,
+        "outlet_temp_c": 33.6,
+        "pue": 1.363
+      },
+      {
+        "date": "2026-07-13",
+        "rack": "R01",
+        "avg_kw": 17.82,
+        "peak_kw": 20.75,
+        "inlet_temp_c": 22.9,
+        "outlet_temp_c": 34.9,
+        "pue": 1.343
+      },
+      {
+        "date": "2026-07-14",
+        "rack": "R01",
+        "avg_kw": 17.67,
+        "peak_kw": 22.21,
+        "inlet_temp_c": 23.1,
+        "outlet_temp_c": 34.7,
+        "pue": 1.323
+      },
+      {
+        "date": "2026-07-15",
+        "rack": "R01",
+        "avg_kw": 18.53,
+        "peak_kw": 23.23,
+        "inlet_temp_c": 23.6,
+        "outlet_temp_c": 36.6,
+        "pue": 1.347
+      },
+      {
+        "date": "2026-07-16",
+        "rack": "R01",
+        "avg_kw": 19.47,
+        "peak_kw": 21.88,
+        "inlet_temp_c": 22.0,
+        "outlet_temp_c": 34.8,
+        "pue": 1.3
+      },
+      {
+        "date": "2026-07-17",
+        "rack": "R01",
+        "avg_kw": 21.01,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 22.9,
+        "outlet_temp_c": 34.0,
+        "pue": 1.314
+      },
+      {
+        "date": "2026-07-18",
+        "rack": "R01",
+        "avg_kw": 11.84,
+        "peak_kw": 13.79,
+        "inlet_temp_c": 24.0,
+        "outlet_temp_c": 33.0,
+        "pue": 1.398
+      },
+      {
+        "date": "2026-07-19",
+        "rack": "R01",
+        "avg_kw": 12.25,
+        "peak_kw": 14.64,
+        "inlet_temp_c": 22.3,
+        "outlet_temp_c": 32.1,
+        "pue": 1.35
+      },
+      {
+        "date": "2026-07-20",
+        "rack": "R01",
+        "avg_kw": 20.43,
+        "peak_kw": 23.76,
+        "inlet_temp_c": 24.0,
+        "outlet_temp_c": 35.1,
+        "pue": 1.346
+      },
+      {
+        "date": "2026-07-21",
+        "rack": "R01",
+        "avg_kw": 20.45,
+        "peak_kw": 22.82,
+        "inlet_temp_c": 23.2,
+        "outlet_temp_c": 36.8,
+        "pue": 1.365
+      },
+      {
+        "date": "2026-07-22",
+        "rack": "R01",
+        "avg_kw": 20.48,
+        "peak_kw": 23.62,
+        "inlet_temp_c": 22.4,
+        "outlet_temp_c": 36.3,
+        "pue": 1.314
+      },
+      {
+        "date": "2026-07-23",
+        "rack": "R01",
+        "avg_kw": 21.29,
+        "peak_kw": 23.65,
+        "inlet_temp_c": 23.1,
+        "outlet_temp_c": 35.2,
+        "pue": 1.327
+      },
+      {
+        "date": "2026-07-24",
+        "rack": "R01",
+        "avg_kw": 21.12,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 22.7,
+        "outlet_temp_c": 34.4,
+        "pue": 1.314
+      },
+      {
+        "date": "2026-07-25",
+        "rack": "R01",
+        "avg_kw": 12.69,
+        "peak_kw": 14.81,
+        "inlet_temp_c": 23.5,
+        "outlet_temp_c": 33.7,
+        "pue": 1.376
+      },
+      {
+        "date": "2026-07-26",
+        "rack": "R01",
+        "avg_kw": 14.44,
+        "peak_kw": 18.33,
+        "inlet_temp_c": 22.9,
+        "outlet_temp_c": 33.4,
+        "pue": 1.397
+      },
+      {
+        "date": "2026-07-27",
+        "rack": "R01",
+        "avg_kw": 17.36,
+        "peak_kw": 21.63,
+        "inlet_temp_c": 23.1,
+        "outlet_temp_c": 35.0,
+        "pue": 1.353
+      },
+      {
+        "date": "2026-07-28",
+        "rack": "R01",
+        "avg_kw": 18.09,
+        "peak_kw": 21.04,
+        "inlet_temp_c": 22.6,
+        "outlet_temp_c": 34.1,
+        "pue": 1.317
+      },
+      {
+        "date": "2026-07-29",
+        "rack": "R01",
+        "avg_kw": 21.26,
+        "peak_kw": 24.0,
+        "inlet_temp_c": 24.0,
+        "outlet_temp_c": 35.3,
+        "pue": 1.374
+      },
+      {
+        "date": "2026-07-30",
+        "rack": "R01",
+        "avg_kw": 18.21,
+        "peak_kw": 20.85,
+        "inlet_temp_c": 24.0,
+        "outlet_temp_c": 37.3,
+        "pue": 1.379
+      }
+    ]
+  }
+]

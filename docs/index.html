@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Software da Database User 13</title>
+<meta name="description" content="A seven-database AI data center in Python: contacts, documents, datasets, models, embeddings, jobs and audit, with semantic search, a job queue and backups. Standard library only.">
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --surface: #ffffff;
+    --ink: #1f1d1a;
+    --muted: #6b665e;
+    --line: #e4e0d8;
+    --accent: #8a5a00;
+    --on-accent: #ffffff;
+    --code-bg: #f1eee8;
+    --shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161513;
+      --surface: #1f1d1a;
+      --ink: #ece8e1;
+      --muted: #a39d93;
+      --line: #33302b;
+      --accent: #e0b365;
+      --on-accent: #161513;
+      --code-bg: #26231f;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161513; --surface: #1f1d1a; --ink: #ece8e1; --muted: #a39d93;
+    --line: #33302b; --accent: #e0b365; --on-accent: #161513; --code-bg: #26231f; --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 16px 64px; }
+  header { margin-bottom: 32px; }
+  .eyebrow { color: var(--accent); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: 13px; }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 8px 0 12px; }
+  .lede { font-size: 18px; color: var(--muted); max-width: 640px; margin: 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+  .btn {
+    display: inline-block; padding: 10px 16px; border-radius: 8px; text-decoration: none;
+    font-weight: 600; border: 1px solid var(--line); color: var(--ink); background: var(--surface); box-shadow: var(--shadow);
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  figure { margin: 0 0 40px; }
+  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  h2 { font-size: 22px; margin: 40px 0 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .card .n { color: var(--accent); font-weight: 700; font-size: 13px; }
+  .card h3 { margin: 4px 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .card code { font-size: 13px; }
+  pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+    overflow-x: auto; font-size: 14px; line-height: 1.5; margin: 0 0 12px;
+  }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: 14px; }
+  pre code { background: none; padding: 0; }
+  .out { color: var(--muted); }
+  ul.plain { padding-left: 20px; margin: 0; }
+  ul.plain li { margin: 4px 0; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  a { color: var(--accent); }
+  .muted { color: var(--muted); }
+  .card h3 a { text-decoration: none; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">AI data center · Python</div>
+    <h1>Software da Database User 13</h1>
+    <p class="lede">Seven SQLite databases under one Python facade: contacts, documents, datasets, a model registry, a vector index, a job queue and an audit trail. Semantic search out of the box, backups in one command, no third-party packages.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/dadakrest/dadakrest/archive/refs/heads/claude/ai-data-center-databases-g9r6g2.zip">Download (zip)</a>
+      <a class="btn" href="#documents">Documents (PDF)</a>
+      <a class="btn" href="https://github.com/dadakrest/dadakrest/blob/claude/ai-data-center-databases-g9r6g2/docs/DATA_CENTER.md">Project guide</a>
+      <a class="btn" href="https://github.com/dadakrest/dadakrest/tree/claude/ai-data-center-databases-g9r6g2">Source on GitHub</a>
+    </div>
+  </header>
+
+  <figure>
+    <img src="architecture.png" alt="Architecture: JSON data files and the CLI or Python API feed the DataCenter facade, which reads and writes seven SQLite databases, logs every write to the audit database, and produces backups, search results, status and events." width="1600" height="1000">
+    <figcaption>How data gets in, where it lives and what comes out. <a href="architecture.svg">SVG version</a>.</figcaption>
+  </figure>
+
+  <h2>The seven databases</h2>
+  <div class="grid">
+    <div class="card"><div class="n">1</div><h3>Contacts</h3><p>People and organizations, with their channels. <code>organizations</code>, <code>contacts</code>, <code>contact_channels</code></p></div>
+    <div class="card"><div class="n">2</div><h3>Documents</h3><p>Documents, their text, metadata and tags. <code>documents</code>, <code>document_tags</code></p></div>
+    <div class="card"><div class="n">3</div><h3>Datasets</h3><p>Structured records grouped into named datasets. <code>datasets</code>, <code>records</code></p></div>
+    <div class="card"><div class="n">4</div><h3>Model registry</h3><p>AI models available to the data center and their versions. <code>models</code>, <code>model_versions</code></p></div>
+    <div class="card"><div class="n">5</div><h3>Embeddings</h3><p>Vector index backing semantic search over documents. <code>embeddings</code></p></div>
+    <div class="card"><div class="n">6</div><h3>Jobs</h3><p>Queue of processing work with a run history. <code>jobs</code>, <code>job_runs</code></p></div>
+    <div class="card"><div class="n">7</div><h3>Audit</h3><p>Append-only log of every write and operation. <code>events</code></p></div>
+  </div>
+
+  <h2>Quick start</h2>
+  <pre><code>python -m datacenter init                      <span class="out"># create the seven databases</span>
+python -m datacenter seed                      <span class="out"># load the bundled data files (safe to repeat)</span>
+python -m datacenter status                    <span class="out"># health, size and row counts</span>
+python -m datacenter search "who do I page during a security incident"
+python -m datacenter plan year-one-operating   <span class="out"># costed from the fee tables</span>
+python -m datacenter portal                    <span class="out"># read-only web portal on localhost</span></code></pre>
+  <pre><code class="out">0.4669  #4    Incident response contacts</code></pre>
+  <p>Needs Python 3.10 or newer and nothing else. Databases land in <code>./storage</code>; every write is logged, <code>verify</code> integrity-checks all seven, and <code>backup</code> copies them into a timestamped folder with a manifest.</p>
+
+  <h2>What is in the box</h2>
+  <ul class="plain">
+    <li><strong>Data in files.</strong> <code>datacenter/data/*.json</code> is the source of truth; <code>seed</code> is a refill keyed on natural keys, so running it again updates what changed and adds nothing twice.</li>
+    <li><strong>Fictional by construction.</strong> The validator rejects any contact email outside the reserved documentation domains.</li>
+    <li><strong>Search that works offline.</strong> A deterministic hashing embedder with IDF-weighted queries ships with it; swap in a real embedding model when you want production retrieval, several can coexist.</li>
+    <li><strong>Fees that add up to a plan.</strong> Three tables hold the government fees the business pays, the rate card it charges, and what each role costs to employ. A business plan names fee codes, and the costing resolves each one against the table that owns it.</li>
+    <li><strong>A portal to read it through.</strong> <code>python -m datacenter portal</code> serves everything as web pages, read-only and bound to localhost unless you explicitly allow otherwise.</li>
+    <li><strong>Tested.</strong> A unittest suite covers provisioning, every database, search ranking, refill behaviour, job failure handling, backup restore and the CLI.</li>
+  </ul>
+
+  <h2 id="documents">Documents</h2>
+  <div class="grid">
+    <div class="card"><h3><a href="pdf/ai-data-center.pdf">AI Data Center</a></h3><p>The business overview: services, the seven databases, the facility, the knowledge base and the costed plans.</p></div>
+    <div class="card"><h3><a href="pdf/fee-schedule.pdf">Fee Schedule</a></h3><p>Every government fee, the service rate card, employment costs per role, and each business plan line by line.</p></div>
+    <div class="card"><h3><a href="pdf/ai-tools-and-databases.pdf">AI Tools and Databases</a></h3><p>The AI model registry, every table and column, the datasets, and the command-line and portal tools.</p></div>
+    <div class="card"><h3><a href="pdf/license-agreement.pdf">License Agreement</a></h3><p>Software and services licence template. A starting point for an attorney, not a signed contract.</p></div>
+    <div class="card"><h3><a href="pdf/llc-operating-agreement.pdf">LLC Operating Agreement</a></h3><p>Operating agreement template with a formation checklist. Every filing detail is left blank to complete.</p></div>
+    <div class="card"><h3><a href="pdf/employment-application.pdf">Employment Application</a></h3><p>A fillable form. It asks for no ID numbers: identity is checked in person after an offer.</p></div>
+  </div>
+  <h2 id="library">Business library</h2>
+  <div class="grid">
+    <div class="card"><h3><a href="library/ai-data-center-business-plan.pdf">AI Data Center Business Plan</a></h3><p>How to launch, fund, staff and grow the company, built in phases against signed customers. 10 pages.</p></div>
+    <div class="card"><h3><a href="library/ai-data-center-documents.pdf">AI Data Center Documents</a></h3><p>Power, cooling, efficiency and operations, with dated IEA, LBNL and Uptime Institute figures. 11 pages.</p></div>
+    <div class="card"><h3><a href="library/ai-data-center-employment-forms.pdf">Employment Forms Guide</a></h3><p>Every form a data center hire touches, with each fee and the order to file. 6 pages.</p></div>
+    <div class="card"><h3><a href="library/financial-trade-data.pdf">Financial Trade Data</a></h3><p>U.S. and world trade in goods and services, 2018 to 2024, from BEA and WTO releases. 6 pages.</p></div>
+  </div>
+
+  <p class="muted" style="font-size:14px">Fee figures and jurisdictions are invented for the sample data set and are not legal, tax or payroll advice. The agreements are templates for review by a licensed attorney.</p>
+
+  <footer>
+    Software da Database User 13 · stdlib only · SQLite · Python 3.10+ · <a href="https://github.com/dadakrest">@dadakrest</a>
+  </footer>
+</main>
+</body>
+</html>
