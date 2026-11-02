@@ -10,9 +10,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .accounts import STATUSES, Account, AccountError, AccountStore, TooEarly, normalise_email
 from .config import DATA_CENTER_NAME, DEFAULT_ROOT, VERSION
 from .core import DataCenter
 from .loader import DATA_DIR, DataFileError, validate
+from .mailer import MailError, MailNotConfigured, mailer_from_env
 from .plans import PlanError, cost_plan, plan_names
 from .portal import DEFAULT_HOST, DEFAULT_PORT
 from .seed import seed as seed_data
@@ -299,6 +301,156 @@ def cmd_portal(args: argparse.Namespace) -> int:
     return 0
 
 
+# -- portal accounts ------------------------------------------------------------
+#
+# These print emails, roles and statuses only. The accounts store has no way
+# to return a password, a code or a backup code, so no command can show one.
+
+def _store_or_explain(args: argparse.Namespace, **options: Any) -> AccountStore | None:
+    """The accounts store, provisioned (which also applies SDDU13_OWNER_EMAIL),
+    or None with the reason printed when there is none yet."""
+    store = AccountStore(args.root, **options)
+    if not store.path.exists():
+        print(f"no accounts yet: the accounts store {store.path} is created when the portal first "
+              "starts, or by portal-owner", file=sys.stderr)
+        return None
+    try:
+        store.provision()
+    except AccountError as error:  # an unusable SDDU13_OWNER_EMAIL or portal secret
+        store.close()
+        print(error, file=sys.stderr)
+        return None
+    return store
+
+
+def _account_or_explain(store: AccountStore, email: str) -> Account | None:
+    account = store.find_account(email)
+    if account is None:
+        print(f"no account uses {email}", file=sys.stderr)
+    return account
+
+
+def cmd_portal_owner(args: argparse.Namespace) -> int:
+    store = AccountStore(args.root)
+    try:
+        address = normalise_email(args.email)
+        store.provision()
+        store.set_owner_email(address)
+        account = store.find_account(address)
+        effective = store.owner_email()
+    except AccountError as error:
+        print(error, file=sys.stderr)
+        return 1
+    finally:
+        store.close()
+    print(f"owner email stored: {address}")
+    if effective != address:
+        print(f"note: SDDU13_OWNER_EMAIL is set to {effective}, and it wins while it is set",
+              file=sys.stderr)
+    if account is None:
+        print("No account uses that address yet. Ask for access with it on the portal: it is approved "
+              "automatically, and still signs in with both steps.")
+    return 0
+
+
+def cmd_accounts(args: argparse.Namespace) -> int:
+    store = _store_or_explain(args)
+    if store is None:
+        # No store yet is an empty list, not a failure.
+        return 1 if AccountStore(args.root).path.exists() else 0
+    try:
+        accounts = store.list_accounts(args.status)
+        owners = {account.id for account in accounts if store.is_owner(account)}
+    finally:
+        store.close()
+    if not accounts:
+        print("no accounts" + (f" with status {args.status}" if args.status else ""))
+        return 0
+    width = max(len("email"), *(len(account.email) for account in accounts))
+    print(f"{'email':<{width}}  {'role':<6}  {'status':<10}  created")
+    for account in accounts:
+        role = "owner" if account.id in owners else "member"
+        status = account.status
+        if account.status == "blocked" and account.review_after:
+            status += f" (review {account.review_after.isoformat()})"
+        elif not account.email_verified:
+            status += " (email not confirmed)"
+        print(f"{account.email:<{width}}  {role:<6}  {status:<10}  {account.created_at}")
+    return 0
+
+
+def cmd_account_block(args: argparse.Namespace) -> int:
+    store = _store_or_explain(args)
+    if store is None:
+        return 1
+    try:
+        account = _account_or_explain(store, args.email)
+        if account is None:
+            return 1
+        review = store.block(account.id, args.reason)
+    except AccountError as error:
+        print(error, file=sys.stderr)
+        return 1
+    finally:
+        store.close()
+    print(f"{account.email} is blocked and signed out everywhere. The block cannot be lifted "
+          f"before {review.isoformat()}.")
+    return 0
+
+
+def cmd_account_unblock(args: argparse.Namespace) -> int:
+    store = _store_or_explain(args)
+    if store is None:
+        return 1
+    try:
+        account = _account_or_explain(store, args.email)
+        if account is None:
+            return 1
+        store.unblock(account.id)
+    except TooEarly as error:
+        print(f"not unblocked: the review date is {error.review_after.isoformat()}, and a block cannot "
+              "be lifted before it", file=sys.stderr)
+        return 1
+    except AccountError as error:
+        print(error, file=sys.stderr)
+        return 1
+    finally:
+        store.close()
+    print(f"{account.email} is unblocked. Access is not restored: they may ask again, and you decide.")
+    return 0
+
+
+def cmd_account_reset(args: argparse.Namespace) -> int:
+    try:
+        mailer = mailer_from_env(os.environ, outbox=args.mail_outbox)
+    except MailNotConfigured as error:
+        print(error, file=sys.stderr)
+        return 1
+    store = _store_or_explain(args, mailer=mailer)
+    if store is None:
+        return 1
+    try:
+        account = _account_or_explain(store, args.email)
+        if account is None:
+            return 1
+        if account.status == "blocked":
+            print(f"{account.email} is blocked; a reset would not let them in", file=sys.stderr)
+            return 1
+        store.send_reset_code(account.id)
+        store.wait_for_mail()
+    except MailError as error:
+        print(f"the reset code was not sent: {error}", file=sys.stderr)
+        return 1
+    except AccountError as error:
+        print(error, file=sys.stderr)
+        return 1
+    finally:
+        store.close()
+    print(f"A password reset code was emailed to {account.email}. It expires in 10 minutes, and "
+          "nobody else sees it, you included.")
+    return 0
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     with _open(args) as center:
         results = center.verify()
@@ -402,6 +554,31 @@ def build_parser() -> argparse.ArgumentParser:
                         help="write sign-in emails as files in DIR instead of sending them, for testing "
                              "(default: SDDU13_MAIL_OUTBOX)")
     portal.set_defaults(func=cmd_portal)
+
+    portal_owner = sub.add_parser("portal-owner", help="set or change the portal owner's email")
+    portal_owner.add_argument("email")
+    portal_owner.set_defaults(func=cmd_portal_owner)
+
+    accounts = sub.add_parser("accounts", help="list portal accounts: email, role, status, created")
+    accounts.add_argument("--status", choices=STATUSES, help="only accounts with this status")
+    accounts.set_defaults(func=cmd_accounts)
+
+    account_block = sub.add_parser("account-block", help="block a portal account for four months")
+    account_block.add_argument("email")
+    account_block.add_argument("--reason", required=True, help="why; the owner center shows it")
+    account_block.set_defaults(func=cmd_account_block)
+
+    account_unblock = sub.add_parser("account-unblock",
+                                     help="lift a block whose review date has come (access is not restored)")
+    account_unblock.add_argument("email")
+    account_unblock.set_defaults(func=cmd_account_unblock)
+
+    account_reset = sub.add_parser("account-reset", help="email a password reset code to an account")
+    account_reset.add_argument("email")
+    account_reset.add_argument("--mail-outbox", metavar="DIR",
+                               help="write the email as a file in DIR instead of sending it "
+                                    "(default: SDDU13_MAIL_OUTBOX, else SMTP)")
+    account_reset.set_defaults(func=cmd_account_reset)
 
     plan = sub.add_parser("plan", help="cost one business plan line by line")
     plan.add_argument("name")

@@ -237,6 +237,22 @@ class Database:
             for table in self.tables()
         }
 
+    def columns(self, table: str) -> list[dict[str, Any]]:
+        """One table's columns as SQLite reports them, in table order: name,
+        declared type, whether NOT NULL, default, and position in the
+        primary key (0 when not part of it)."""
+        rows = self.query(f"PRAGMA table_info({_quoted(table)})")
+        return [
+            {
+                "name": row["name"],
+                "type": row["type"],
+                "notnull": bool(row["notnull"]),
+                "default": row["dflt_value"],
+                "pk": int(row["pk"]),
+            }
+            for row in rows
+        ]
+
     def size_bytes(self) -> int:
         """How much database there is, in bytes.
 

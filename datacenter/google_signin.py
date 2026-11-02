@@ -8,8 +8,10 @@ Configured by three environment variables:
                                  https://portal.example.ts.net
 
 The redirect URI registered with Google must be PUBLIC_URL + CALLBACK_PATH.
-When none of the three is set, `config_from_env` returns None and the portal
-hides the Google button; when only some are, it raises and names the rest.
+When neither the client ID nor the secret is set, `config_from_env` returns
+None and the portal hides the Google button, whether or not PUBLIC_URL is
+set (it is also the portal's own address, needed for HTTPS without Google).
+When only some of the three are set, it raises and names the rest.
 
 How a sign-in goes:
 
@@ -144,7 +146,7 @@ def missing_settings(environ: Mapping[str, str] | None = None) -> list[str]:
 def config_from_env(environ: Mapping[str, str] | None = None) -> GoogleConfig | None:
     env = os.environ if environ is None else environ
     missing = missing_settings(env)
-    if len(missing) == len(SETTINGS):
+    if {"SDDU13_GOOGLE_CLIENT_ID", "SDDU13_GOOGLE_CLIENT_SECRET"}.issubset(missing):
         return None
     if missing:
         raise GoogleConfigError("Google sign-in is half set up. Missing: " + ", ".join(missing))

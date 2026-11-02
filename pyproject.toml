@@ -17,4 +17,4 @@ sddu13 = "datacenter.cli:main"
 packages = ["datacenter"]
 
 [tool.setuptools.package-data]
-datacenter = ["data/*.json", "data/*/*.json"]
+datacenter = ["data/*.json", "data/*/*.json", "updates.json"]

@@ -3,7 +3,8 @@
 `python -m datacenter portal` serves the seven databases as pages: search,
 documents, contacts, datasets, the fee tables, the costed business plans and
 the audit trail. The sign-in, request and account pages are in
-`portal_auth`, the owner center in `portal_owner`, and what they share (the
+`portal_auth`, the owner center in `portal_owner`, the data documentation,
+updates and connection pages in `portal_content`, and what they share (the
 guard, forms, cookies, page layout) in `portal_web`.
 
 The data stays read-only.
@@ -43,9 +44,10 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 from urllib.parse import parse_qs, quote, urlsplit
 
-from . import portal_auth, portal_owner
+from . import portal_auth, portal_content, portal_owner
 from .accounts import PASSWORD_ITERATIONS, AccountError, AccountStore
 from .config import DATA_CENTER_NAME, VERSION
+from .connectivity import ConnectionChecker
 from .core import DataCenter
 from .google_signin import GoogleConfigError, HttpPost, check_public_url
 from .google_signin import config_from_env as google_config_from_env
@@ -345,6 +347,7 @@ WEB_ROUTES: tuple[Route, ...] = (
     Route("GET", "/healthz", PUBLIC, _health),
     Route("GET", re.escape(STYLESHEET), PUBLIC, _stylesheet),
     *DATA_ROUTES,
+    *portal_content.ROUTES,
     *portal_auth.ROUTES,
     *portal_owner.ROUTES,
 )
@@ -596,6 +599,7 @@ def portal_settings(
     google_http_post: HttpPost | None = None,
     clock: Callable[[], datetime] | None = None,
     password_iterations: int = PASSWORD_ITERATIONS,
+    connectivity: ConnectionChecker | None = None,
 ) -> PortalSettings:
     """Read the configuration once, at start-up. Raises ValueError for a
     setting that cannot work; mail or Google that is not set up is recorded
@@ -627,7 +631,8 @@ def portal_settings(
         root=Path(root), environ=env, mailer=mailer, mail_problem=mail_problem, google=google,
         google_problem=google_problem, google_http_post=google_http_post, public_url=url,
         https_cookies=https_cookies, allowed_networks=parse_networks(allow_network),
-        trust_proxy=trust_proxy, host=host, clock=clock, password_iterations=password_iterations)
+        trust_proxy=trust_proxy, host=host, clock=clock, password_iterations=password_iterations,
+        connectivity=connectivity or ConnectionChecker())
 
 
 def build_server(root: Path | str, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,

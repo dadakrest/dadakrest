@@ -326,6 +326,14 @@ class TestConfiguration(unittest.TestCase):
         self.assertIsNone(config_from_env({}))
         self.assertEqual(len(missing_settings({})), 3)
 
+    def test_a_public_url_alone_is_not_a_half_set_google(self) -> None:
+        # The public URL is also the portal's own address, set for HTTPS
+        # whether or not Google sign-in is wanted.
+        self.assertIsNone(config_from_env({"SDDU13_PUBLIC_URL": "https://portal.example.ts.net"}))
+        with self.assertRaises(GoogleConfigError):
+            config_from_env({"SDDU13_GOOGLE_CLIENT_SECRET": CLIENT_SECRET,
+                             "SDDU13_PUBLIC_URL": "https://portal.example.ts.net"})
+
     def test_half_set_names_what_is_missing(self) -> None:
         with self.assertRaises(GoogleConfigError) as raised:
             config_from_env({"SDDU13_GOOGLE_CLIENT_ID": CLIENT_ID})

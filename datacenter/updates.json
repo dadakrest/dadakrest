@@ -1,0 +1,103 @@
+{
+  "about": "Written from this branch's git history (git log), grouped into dated entries, newest first. Commits are short hashes. The commits before 2026-09-19 belong to the GitHub profile README, not the data center.",
+  "coding": [
+    {
+      "date": "2026-11-02",
+      "title": "Data documentation, updates and connection pages",
+      "summary": "Three new pages for members: data documentation generated from the live databases, with the business PDFs; this updates page; and a connection status page that checks what the server can reach. New commands manage portal accounts from the server (portal-owner, accounts, account-block, account-unblock, account-reset), and docs/PORTAL.md explains how to run the portal live with email, Google sign-in and a VPN.",
+      "commits": []
+    },
+    {
+      "date": "2026-11-02",
+      "title": "Two-step sign-in, account page and owner center",
+      "summary": "The portal now needs sign-in: a password or Google first, then a 6-digit code emailed to you, or one backup code. New people ask for access and the owner approves them in the owner center. Owner pages are protected on the server: trying them gives strikes, three in a day block the account, and posting an owner action blocks at once. Every form is protected against forgery.",
+      "commits": ["dc7cf91"]
+    },
+    {
+      "date": "2026-11-02",
+      "title": "Accounts, email codes and Google sign-in, behind the scenes",
+      "summary": "A separate accounts store with strongly hashed passwords, emailed security codes and one-time backup codes kept only as hashes, sessions, four-month blocks with a review date, and Sign in with Google. Email goes out over TLS, or into files while testing.",
+      "commits": ["d690c3b"]
+    },
+    {
+      "date": "2026-11-02",
+      "title": "Portal page source saved",
+      "summary": "The source of the private portal page is kept in the repository, so it survives resets and can be published again.",
+      "commits": ["51604ca"]
+    },
+    {
+      "date": "2026-10-18",
+      "title": "PDF builder and website fixes",
+      "summary": "One command builds every business PDF from the data, so every number in them comes from the databases. The landing page's buttons now point at things that exist, and it lists the PDFs.",
+      "commits": ["0f35dd9", "cd25838"]
+    },
+    {
+      "date": "2026-10-18",
+      "title": "Smarter search ranking",
+      "summary": "Search now weighs rare words more than common ones, so the most specific document comes first instead of the one that shares a common word.",
+      "commits": ["6689608"]
+    },
+    {
+      "date": "2026-10-18",
+      "title": "A read-only web portal, and business plans costed from the fee tables",
+      "summary": "A web portal shows the seven databases as pages and escapes everything it displays. Business plans are costed line by line against the fee tables, and a line naming an unknown fee is refused rather than costed as zero.",
+      "commits": ["ea465b2", "1ff2ca7", "fafe0d1"]
+    },
+    {
+      "date": "2026-09-20",
+      "title": "Reliability fixes for loading, health checks and search",
+      "summary": "Older data centers are migrated instead of crashing. The loader checks the shape of every value and loads all or nothing. Health reports tell the truth about missing or damaged files, and search no longer drops real matches because of a score floor.",
+      "commits": ["09ae8bf", "88af25f", "a2404de", "b76bc2c"]
+    },
+    {
+      "date": "2026-09-19",
+      "title": "The data center is built",
+      "summary": "Seven SQLite databases in one Python package with a command line: semantic search, a job queue, an audit trail and backups. Data loads from JSON files as a refill that is safe to repeat. Also an architecture picture and a landing page.",
+      "commits": ["224bc6a", "8f9289b", "efb60d2", "9dc0b9c"]
+    }
+  ],
+  "data": [
+    {
+      "date": "2026-10-18",
+      "title": "Business PDFs",
+      "summary": "Six PDFs built from the data: the AI Data Center overview, the Fee Schedule, the AI Tools and Databases reference, a license agreement template, an LLC operating agreement template and a fillable employment application, plus the outline of a video series on the history of the data center. Independent reviews then corrected counts and layouts.",
+      "commits": ["f109c49", "2cfe688", "c954ad0", "23c1e27", "d810ec0"]
+    },
+    {
+      "date": "2026-10-18",
+      "title": "Business library on the website",
+      "summary": "Four business documents added to the website's library: the business plan, a documents reference pack, an employment forms guide and a financial trade data summary.",
+      "commits": ["eae7636"]
+    },
+    {
+      "date": "2026-10-18",
+      "title": "Fee tables, employment policies and business plans",
+      "summary": "22 government fees, a rate card of 28 services, the cost of employing each of 15 roles, 15 employment policy documents, and 4 business plans (37 lines) costed from those tables. The figures are invented sample data, not legal or tax advice.",
+      "commits": ["ea465b2"]
+    },
+    {
+      "date": "2026-09-20",
+      "title": "Incidents, vendor contracts and more support tickets",
+      "summary": "25 incidents, 15 vendor contracts and 40 support tickets complete the bundled data: 20 organizations, 45 contacts, 64 documents and 8 datasets holding 360 records.",
+      "commits": ["f6f7653"]
+    },
+    {
+      "date": "2026-09-20",
+      "title": "Operations runbooks, benchmarks and usage",
+      "summary": "20 operations runbooks (GPU intake, power, cooling, backups, on-call and more), 60 model benchmark measurements and 90 days of inference usage.",
+      "commits": ["5108e9d"]
+    },
+    {
+      "date": "2026-09-19",
+      "title": "Governance documents and infrastructure datasets",
+      "summary": "20 governance documents (data classification, retention, access control, incident response and more) and three infrastructure datasets: GPU inventory, training runs and daily power and cooling. Loading contacts no longer blanks out organization details.",
+      "commits": ["044013b"]
+    },
+    {
+      "date": "2026-09-19",
+      "title": "First data: organizations, contacts, AI models and fundamentals",
+      "summary": "20 invented organizations and 45 contacts, a registry of 72 publicly documented AI models, and 20 knowledge base documents on AI fundamentals.",
+      "commits": ["2beb4b9"]
+    }
+  ]
+}

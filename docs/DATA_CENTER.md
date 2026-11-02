@@ -55,7 +55,12 @@ that behaves identically to `python -m datacenter`.
 | `fees [--table government\|service\|employment]` | Show the fee tables. |
 | `plans` | List the business plans with their totals. |
 | `plan NAME [--json]` | Cost one plan, line by line. |
-| `portal [--host H] [--port P] [--allow-remote] [--allow-network CIDR] [--trust-proxy] [--https-cookies] [--public-url URL] [--mail-outbox DIR]` | Serve the web portal, with sign-in. |
+| `portal [--host H] [--port P] [--allow-remote] [--allow-network CIDR] [--trust-proxy] [--https-cookies] [--public-url URL] [--mail-outbox DIR]` | Serve the web portal, with sign-in. `--allow-network` is repeatable. See [PORTAL.md](PORTAL.md). |
+| `portal-owner EMAIL` | Store the portal owner's email. `SDDU13_OWNER_EMAIL`, when set, still wins, and the command says so. |
+| `accounts [--status S]` | List portal accounts: email, role, status, created. Never a secret. |
+| `account-block EMAIL --reason R` | Block a portal account for four months and sign it out everywhere. The owner can never be blocked. |
+| `account-unblock EMAIL` | Lift a block once its review date has come; refused before it. Access is not restored. |
+| `account-reset EMAIL [--mail-outbox DIR]` | Email that account a password reset code. The code is never printed. |
 | `jobs [--run]` | Show the queue, or run the next pending job. |
 | `verify` | Check every database is present, complete and readable. Exits non-zero on failure. |
 | `backup [DEST]` | Copy every provisioned database into a timestamped folder with a manifest. |
@@ -254,7 +259,20 @@ python -m datacenter portal --mail-outbox outbox    # http://127.0.0.1:8013
 
 Serves the data center as pages — overview, search, documents, contacts,
 datasets, fees, plans and the audit trail — using nothing but `http.server`,
-to people who have signed in.
+to people who have signed in. Three more pages describe the portal itself:
+**Data docs** (`/data-docs`) is generated from the live databases each time
+it opens: every table and column of the seven, the datasets with record
+counts, the fee tables, the plans, and the PDFs in `docs/pdf` (served to
+signed-in people only). **Updates** (`/updates`) shows the owner's portal
+updates and the coding and data updates kept in `datacenter/updates.json`,
+written from the git history. **Connection** (`/connection`) shows whether the
+server can reach the internet, DNS, Google's sign-in hosts and the email
+server, and whether the accounts store and the seven databases are healthy;
+the checks have short timeouts and are reused for a minute. The portal does
+not provide internet access and is not a VPN.
+
+To run it for other people, with real email, Google sign-in and Tailscale,
+follow [PORTAL.md](PORTAL.md).
 
 **Sign-in is two steps, always.** First a password or Google, then a 6-digit
 code emailed to the account's own address (or one of ten one-time backup
@@ -343,11 +361,14 @@ datacenter/
   portal_web.py    pages, forms, cookies and the access guard every route uses
   portal_auth.py   sign-in, access requests, password resets, account page
   portal_owner.py  the owner center
+  portal_content.py data documentation, updates and connection status pages
+  connectivity.py  the connection checks, with deadlines and a one-minute cache
+  updates.json     coding and data updates, written from the git history
   accounts.py      accounts store: passwords, codes, sessions, blocks
   mailer.py        SMTP or outbox mail for sign-in codes
   google_signin.py Sign in with Google (OpenID Connect, PKCE)
   seed.py          demo data
   cli.py           command line interface
-docs/          this file
+docs/          this file, and PORTAL.md: running the portal live
 tests/         unittest suite
 ```

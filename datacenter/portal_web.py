@@ -3,7 +3,8 @@ and the one guard every route goes through.
 
 `portal.py` owns the data pages, the dispatcher and the server;
 `portal_auth.py` the sign-in and account pages; `portal_owner.py` the owner
-center. All three build on this module.
+center; `portal_content.py` the data documentation, updates and connection
+pages. All four build on this module.
 
 The guard
     Every route is declared with an access level (`Route.access`) and the
@@ -57,6 +58,7 @@ from .accounts import (
     session_cookie,
 )
 from .config import DATA_CENTER_NAME, VERSION
+from .connectivity import ConnectionChecker
 from .core import DataCenter
 from .google_signin import GoogleConfig, GoogleSignIn, HttpPost
 from .mailer import Mailer
@@ -96,6 +98,7 @@ h1{font-size:25px;margin:0 0 6px;line-height:1.2}
 h2{font-size:14px;font-family:var(--mono);font-weight:500;letter-spacing:.08em;
 text-transform:uppercase;color:var(--muted);margin:34px 0 12px;
 padding-bottom:8px;border-bottom:1px solid var(--rule)}
+h3{font-size:16px;margin:22px 0 8px}
 p.sub{color:var(--muted);margin:0 0 18px}
 a{color:var(--accent)}
 form{display:flex;gap:8px;margin:0 0 20px;flex-wrap:wrap}
@@ -153,6 +156,10 @@ NAV = (
     ("/contacts", "Contacts"), ("/datasets", "Datasets"), ("/fees", "Fees"),
     ("/plans", "Plans"), ("/events", "Audit"),
 )
+
+#: Pages about the portal rather than the data (portal_content), shown to
+#: everyone who may use it.
+MEMBER_NAV = (("/data-docs", "Data docs"), ("/updates", "Updates"), ("/connection", "Connection"))
 
 #: Messages a redirect can ask the next page to show (`?notice=key`). Only
 #: these fixed texts are ever shown, so the query string cannot put words
@@ -498,6 +505,8 @@ class PortalSettings:
     host: str = "127.0.0.1"
     clock: Callable[[], datetime] | None = None
     password_iterations: int = PASSWORD_ITERATIONS
+    #: One per server: it caches the connection page's results for a minute.
+    connectivity: ConnectionChecker = field(default_factory=ConnectionChecker, compare=False, repr=False)
 
     @property
     def secure_cookies(self) -> bool:
@@ -679,7 +688,7 @@ class Context:
         who = f'<div class="who"><span>{esc(account.display_name)}</span>{sign_out}</div>'
         if not account.can_use_portal:
             return (), who
-        nav = list(NAV) + [("/account", "Account")]
+        nav = list(NAV) + list(MEMBER_NAV) + [("/account", "Account")]
         if self.is_owner:
             nav.append(("/owner", "Owner center"))
         return nav, who
